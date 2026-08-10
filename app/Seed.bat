@@ -7,7 +7,7 @@ mkdir "%DEST%" 2>nul
 echo.
 echo  Loading sample tasks into Clarity...
 
-copy /y "%USERPROFILE%\Personal-Work\clarity\backend\data\seed-tasks.json" "%DEST%\tasks.json" >nul
+copy /y "%USERPROFILE%\Personal-Work\projet-clarity\app\backend\data\seed-tasks.json" "%DEST%\tasks.json" >nul
 
 echo.
 echo  ============================================
