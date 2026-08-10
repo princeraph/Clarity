@@ -1,13 +1,13 @@
 # Clarity — AI Task Manager
 
-Windows-first Electron + React task manager with a local AI backend. The app lives in `clarity/`.
+Windows-first Electron + React task manager with a local AI backend. The app lives in `projet-clarity/app/`.
 
-**All development is on branch `claude/project-organization-app-wYkaf`** — check that out before making any changes.
+This file documents **Clarity only** — the repo hosts several unrelated projects, one per `projet-*` folder. See the repo-root `README.md` for the map.
 
 ## How to run
 
 ```bash
-# From clarity/
+# From projet-clarity/app/
 npm run setup      # first time only — installs deps, builds frontend, generates icons
 npm start          # launches Electron app
 
@@ -21,7 +21,7 @@ Or on Windows: double-click `start.bat`.
 ## Architecture
 
 ```
-clarity/
+projet-clarity/app/
   frontend/   React (Vite) — src/App.jsx is the root
   backend/    Express — server.js is the single entry point
   electron/   Electron shell — preload.js + main.js
@@ -127,8 +127,8 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx) and are sorted by `aiData.p
 
 ## Git
 
-- **Active branch**: `claude/project-organization-app-wYkaf` — all Clarity work lives here
 - **Remote**: `princeraph/Personal-Work`
+- **Production branch**: `main` — Clarity now lives there, under `projet-clarity/app/`
 - **Author**: `git config user.email noreply@anthropic.com && git config user.name Claude`
-- When pushing: `git push -u origin claude/project-organization-app-wYkaf`
-- `main` has only the initial commit — do not push Clarity work there
+- Work on a `claude/*` branch, then merge into `main`
+- Scope commits to `projet-clarity/` — the repo hosts other, unrelated projects
