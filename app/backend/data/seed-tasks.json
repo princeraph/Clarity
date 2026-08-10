@@ -1,0 +1,180 @@
+{
+  "tasks": [
+    {
+      "id": "a1b2c3d4-0001-0000-0000-000000000001",
+      "title": "Launch Clarity v1.0 to the public",
+      "description": "Package the app for distribution, set up a landing page, and share it with the first group of users. This is the big one.",
+      "deadline": "2026-06-01",
+      "deliverable": "Public download link live, at least 10 people using the app",
+      "status": "in_progress",
+      "notes": "Need to finalize installer signing and write the landing page copy. Designer friend offered to help with the hero image.",
+      "tags": ["clarity", "launch", "business"],
+      "subtasks": [
+        { "id": "s1", "title": "Set up GitHub releases pipeline", "done": true },
+        { "id": "s2", "title": "Write landing page copy", "done": false },
+        { "id": "s3", "title": "Sign Windows installer", "done": false },
+        { "id": "s4", "title": "Post in 3 communities", "done": false }
+      ],
+      "recurring": "none",
+      "timeTracked": 142,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-01T10:00:00.000Z",
+      "updatedAt": "2026-05-18T14:30:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0002-0000-0000-000000000002",
+      "title": "Weekly review and planning session",
+      "description": "Every Monday morning: review what got done last week, check deadlines coming up, and decide the top 3 priorities for the week.",
+      "deadline": "2026-05-26",
+      "deliverable": "Updated task list with this week's top 3 priorities set",
+      "status": "not_started",
+      "notes": "Block 8-9am. No emails before this is done.",
+      "tags": ["routine", "planning"],
+      "subtasks": [
+        { "id": "s1", "title": "Review last week's done tasks", "done": false },
+        { "id": "s2", "title": "Check upcoming deadlines", "done": false },
+        { "id": "s3", "title": "Set top 3 priorities for the week", "done": false }
+      ],
+      "recurring": "weekly",
+      "timeTracked": 0,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-05T08:00:00.000Z",
+      "updatedAt": "2026-05-05T08:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0003-0000-0000-000000000003",
+      "title": "Build the Clarity landing page",
+      "description": "A clean one-page site explaining what Clarity does, showing screenshots, and linking to the download. Should work on mobile too.",
+      "deadline": "2026-05-28",
+      "deliverable": "Live URL with download button and at least one screenshot",
+      "status": "not_started",
+      "notes": "Keep it simple — hero, 3 feature highlights, download button. Can use Vercel for free hosting.",
+      "tags": ["clarity", "design", "web"],
+      "subtasks": [
+        { "id": "s1", "title": "Write headline and subheadline", "done": false },
+        { "id": "s2", "title": "Take 3 good screenshots of the app", "done": false },
+        { "id": "s3", "title": "Build the HTML/CSS page", "done": false },
+        { "id": "s4", "title": "Deploy to Vercel", "done": false }
+      ],
+      "recurring": "none",
+      "timeTracked": 25,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-10T11:00:00.000Z",
+      "updatedAt": "2026-05-17T16:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0004-0000-0000-000000000004",
+      "title": "Learn and practice color grading in DaVinci Resolve",
+      "description": "Work through the free DaVinci Resolve course on YouTube. Focus on the color grading module — primary corrections, secondaries, and node-based workflow.",
+      "deadline": "2026-06-15",
+      "deliverable": "One short film fully color graded from scratch",
+      "status": "in_progress",
+      "notes": "Already have the footage from March shoot. Using it as practice material.",
+      "tags": ["creative", "learning"],
+      "subtasks": [
+        { "id": "s1", "title": "Finish primary corrections module", "done": true },
+        { "id": "s2", "title": "Practice secondary corrections", "done": false },
+        { "id": "s3", "title": "Apply to March footage", "done": false }
+      ],
+      "recurring": "none",
+      "timeTracked": 210,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-04-20T09:00:00.000Z",
+      "updatedAt": "2026-05-15T20:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0005-0000-0000-000000000005",
+      "title": "Daily journaling",
+      "description": "Write for 10 minutes every morning. Can be anything — thoughts, plans, gratitude, observations. No structure required.",
+      "deadline": "2026-05-20",
+      "deliverable": "10 minutes of writing done",
+      "status": "not_started",
+      "notes": "First thing after coffee, before checking phone.",
+      "tags": ["routine", "health"],
+      "subtasks": [],
+      "recurring": "daily",
+      "timeTracked": 0,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-01T07:00:00.000Z",
+      "updatedAt": "2026-05-01T07:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0006-0000-0000-000000000006",
+      "title": "Research and choose a code signing certificate for Windows",
+      "description": "Windows SmartScreen blocks unsigned .exe installers with scary warnings. Need to get a code signing cert so Clarity installs cleanly for new users.",
+      "deadline": "2026-05-25",
+      "deliverable": "Certificate purchased and configured in electron-builder",
+      "status": "not_started",
+      "notes": "Sectigo OV certs seem like the best value. EV cert costs ~$300/year but removes SmartScreen entirely — worth it if we get serious traction.",
+      "tags": ["clarity", "business", "security"],
+      "subtasks": [
+        { "id": "s1", "title": "Compare Sectigo vs DigiCert pricing", "done": false },
+        { "id": "s2", "title": "Decide OV vs EV cert", "done": false },
+        { "id": "s3", "title": "Purchase and configure in build pipeline", "done": false }
+      ],
+      "recurring": "none",
+      "timeTracked": 15,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-12T10:00:00.000Z",
+      "updatedAt": "2026-05-14T11:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0007-0000-0000-000000000007",
+      "title": "Write the first Clarity changelog / release post",
+      "description": "Document what's in v1.0, what problems it solves, and what's coming next. This doubles as marketing content and a communication to early users.",
+      "deadline": "2026-06-01",
+      "deliverable": "Published post on a blog or Substack with at least 300 words",
+      "status": "not_started",
+      "notes": "Keep it personal — this is a tool I built for myself that might help others. Not a corporate launch post.",
+      "tags": ["clarity", "writing"],
+      "subtasks": [
+        { "id": "s1", "title": "Draft the post", "done": false },
+        { "id": "s2", "title": "Add screenshots", "done": false },
+        { "id": "s3", "title": "Publish and share", "done": false }
+      ],
+      "recurring": "none",
+      "timeTracked": 0,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-15T12:00:00.000Z",
+      "updatedAt": "2026-05-15T12:00:00.000Z"
+    },
+    {
+      "id": "a1b2c3d4-0008-0000-0000-000000000008",
+      "title": "Monthly finances review",
+      "description": "Go through last month's spending, check savings progress, update the budget spreadsheet, and flag anything unexpected.",
+      "deadline": "2026-06-01",
+      "deliverable": "Spreadsheet updated, any surprises noted and addressed",
+      "status": "not_started",
+      "notes": "Do this on the 1st of every month without fail.",
+      "tags": ["routine", "finance"],
+      "subtasks": [
+        { "id": "s1", "title": "Export bank transactions", "done": false },
+        { "id": "s2", "title": "Categorize and update spreadsheet", "done": false },
+        { "id": "s3", "title": "Check savings rate vs target", "done": false }
+      ],
+      "recurring": "monthly",
+      "timeTracked": 0,
+      "timerStarted": null,
+      "archived": false,
+      "archivedAt": null,
+      "createdAt": "2026-05-01T09:00:00.000Z",
+      "updatedAt": "2026-05-01T09:00:00.000Z"
+    }
+  ],
+  "analysis": null,
+  "weeklySummary": null
+}

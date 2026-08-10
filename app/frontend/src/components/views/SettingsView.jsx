@@ -1,0 +1,1052 @@
+import { useState, useEffect } from 'react';
+import { useTheme } from '../../contexts/ThemeContext.jsx';
+import ApertureMark from '../ApertureMark.jsx';
+
+const API = 'http://localhost:3001/api';
+
+const PROVIDERS = [
+  { id: 'ollama',    label: 'Ollama',     hint: 'Local AI — no API key, runs on your machine' },
+  { id: 'openai',    label: 'OpenAI',     hint: 'GPT-4o, GPT-4.1, o4-mini — requires API key' },
+  { id: 'anthropic', label: 'Anthropic',  hint: 'Claude Opus, Sonnet, Haiku — requires API key' },
+  { id: 'openrouter',label: 'OpenRouter', hint: 'Access 200+ models with one API key' },
+];
+
+const PRESET_MODELS = {
+  openai:     ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'o4-mini'],
+  anthropic:  ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
+  openrouter: [],
+  ollama:     [],
+};
+
+const DEFAULT_MODEL = {
+  openai:     'gpt-4o-mini',
+  anthropic:  'claude-haiku-4-5-20251001',
+  openrouter: '',
+  ollama:     'gemma4:latest',
+};
+
+const SECTIONS = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'ai',         label: 'AI Assistant' },
+  { id: 'capture',    label: 'Capture' },
+  { id: 'privacy',    label: 'Privacy' },
+  { id: 'data',       label: 'Data & Export' },
+  { id: 'keyboard',   label: 'Keyboard' },
+  { id: 'language',   label: 'Language' },
+  { id: 'about',      label: 'About' },
+];
+
+const DEFAULT_SHORTCUTS = [
+  { id: 'capture',   action: 'Quick capture',   keys: ['Ctrl', 'K'] },
+  { id: 'chat',      action: 'Toggle chat',      keys: ['Ctrl', '/'] },
+  { id: 'theme',     action: 'Toggle theme',     keys: ['Ctrl', 'Shift', 'L'] },
+  { id: 'settings',  action: 'Settings',         keys: ['Ctrl', ','] },
+  { id: 'focus',     action: 'Focus view',       keys: ['Ctrl', '1'] },
+  { id: 'tasks',     action: 'All tasks',        keys: ['Ctrl', '2'] },
+  { id: 'calendar',  action: 'Calendar',         keys: ['Ctrl', '3'] },
+  { id: 'graph',     action: 'Graph view',       keys: ['Ctrl', 'G'] },
+  { id: 'dismiss',   action: 'Close / dismiss',  keys: ['Esc'] },
+  { id: 'complete',  action: 'Mark complete',    keys: ['Space'] },
+  { id: 'detail',    action: 'Open detail',      keys: ['↵'] },
+  { id: 'delete',    action: 'Delete task',      keys: ['Del'] },
+];
+
+function loadCustomShortcuts() {
+  try {
+    const s = localStorage.getItem('clarity-shortcuts');
+    return s ? JSON.parse(s) : {};
+  } catch { return {}; }
+}
+
+function saveCustomShortcuts(map) {
+  try { localStorage.setItem('clarity-shortcuts', JSON.stringify(map)); } catch {}
+}
+
+function formatKeyEvent(e) {
+  const parts = [];
+  if (e.ctrlKey || e.metaKey) parts.push('Ctrl');
+  if (e.shiftKey) parts.push('Shift');
+  if (e.altKey)   parts.push('Alt');
+  const k = e.key;
+  if (k === ' ') parts.push('Space');
+  else if (k === 'Escape') parts.push('Esc');
+  else if (k === 'Enter')  parts.push('↵');
+  else if (k === 'Delete') parts.push('Del');
+  else if (k === 'Backspace') parts.push('Backspace');
+  else if (k.length === 1) parts.push(k.toUpperCase());
+  else parts.push(k);
+  return parts;
+}
+
+const LANGUAGES = [
+  { id: 'en-US', label: 'English (US)',   flag: '🇺🇸' },
+  { id: 'en-GB', label: 'English (UK)',   flag: '🇬🇧' },
+  { id: 'fr-FR', label: 'Français',       flag: '🇫🇷' },
+  { id: 'de-DE', label: 'Deutsch',        flag: '🇩🇪' },
+  { id: 'es-ES', label: 'Español',        flag: '🇪🇸' },
+  { id: 'ja-JP', label: '日本語',          flag: '🇯🇵' },
+  { id: 'pt-BR', label: 'Português (BR)', flag: '🇧🇷' },
+  { id: 'zh-CN', label: '中文 (简体)',     flag: '🇨🇳' },
+];
+
+const ACCENT_OPTIONS = [
+  { name: 'Ink',   val: 'oklch(0.48 0.13 258)' },
+  { name: 'Moss',  val: 'oklch(0.55 0.10 155)' },
+  { name: 'Ember', val: 'oklch(0.62 0.13 40)' },
+  { name: 'Plum',  val: 'oklch(0.50 0.12 320)' },
+];
+
+function Toggle({ on, onChange, T }) {
+  return (
+    <span onClick={() => onChange(!on)} style={{
+      width: 32, height: 18, borderRadius: 999,
+      background: on ? T.accent : T.ink20,
+      position: 'relative', display: 'inline-block',
+      cursor: 'pointer', transition: 'background 200ms', flexShrink: 0,
+    }}>
+      <span style={{
+        position: 'absolute', top: 2, left: on ? 16 : 2,
+        width: 14, height: 14, borderRadius: '50%',
+        background: T.paper, boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+        transition: 'left 200ms',
+      }} />
+    </span>
+  );
+}
+
+function SettingRow({ label, hint, children, T }) {
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '180px 1fr auto', gap: 16, alignItems: 'center',
+      padding: '12px 14px', background: T.paperSubtle, borderRadius: T.r6,
+      border: `1px solid ${T.hairlineSoft}`,
+    }}>
+      <div style={{ fontSize: 13.5, color: T.ink }}>{label}</div>
+      <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.45 }}>{hint || ''}</div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+function KbdChip({ children, T }) {
+  return (
+    <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60, padding: '2px 7px', background: T.paper, borderRadius: 4, border: `1px solid ${T.hairline}`, boxShadow: '0 1px 0 rgba(0,0,0,0.06)' }}>
+      {children}
+    </span>
+  );
+}
+
+function FieldRow({ label, hint, T, children }) {
+  return (
+    <div style={{ padding: '14px 16px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
+      <label style={{ display: 'block', fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
+        {label}
+      </label>
+      {children}
+      {hint && <p style={{ margin: '6px 0 0', fontSize: 11.5, color: T.ink60, fontFamily: T.fontMono }}>{hint}</p>}
+    </div>
+  );
+}
+
+function Section({ title, subtitle, T, children }) {
+  return (
+    <section>
+      <div style={{ marginBottom: 14 }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 500, color: T.ink }}>{title}</h3>
+        {subtitle && <div style={{ marginTop: 4, fontSize: 12.5, color: T.ink60, lineHeight: 1.5 }}>{subtitle}</div>}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
+    </section>
+  );
+}
+
+function KeyboardSection({ T }) {
+  const [customMap, setCustomMap] = useState(loadCustomShortcuts);
+  const [capturing, setCapturing] = useState(null); // shortcut id being captured
+
+  function startCapture(id) { setCapturing(id); }
+
+  function handleCaptureKey(e, id) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') { setCapturing(null); return; }
+    if (['Control', 'Meta', 'Shift', 'Alt'].includes(e.key)) return;
+    const parts = formatKeyEvent(e);
+    const next = { ...customMap, [id]: parts };
+    setCustomMap(next);
+    saveCustomShortcuts(next);
+    setCapturing(null);
+  }
+
+  function resetShortcut(id) {
+    const next = { ...customMap };
+    delete next[id];
+    setCustomMap(next);
+    saveCustomShortcuts(next);
+  }
+
+  const shortcuts = DEFAULT_SHORTCUTS.map(s => ({
+    ...s,
+    keys: customMap[s.id] || s.keys,
+    isCustom: !!customMap[s.id],
+  }));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <PageHeader section="Keyboard" title="Keyboard shortcuts" T={T} />
+
+      <Section title="Shortcuts" subtitle="Click any shortcut to remap it. Press Esc to cancel." T={T}>
+        {shortcuts.map(({ id, action, keys, isCustom }) => (
+          <div
+            key={id}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px', background: T.paperSubtle,
+              borderRadius: T.r6,
+              border: `1px solid ${capturing === id ? T.accent : T.hairlineSoft}`,
+              transition: 'border-color 0.15s',
+            }}
+          >
+            <span style={{ fontSize: 13.5, color: T.ink }}>{action}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {capturing === id ? (
+                <div
+                  autoFocus
+                  tabIndex={0}
+                  onKeyDown={e => handleCaptureKey(e, id)}
+                  onBlur={() => setCapturing(null)}
+                  ref={el => el?.focus()}
+                  style={{
+                    padding: '4px 10px', borderRadius: T.r6,
+                    background: T.accentSoft, border: `1px solid ${T.accent}`,
+                    fontSize: 12, color: T.accentInk, fontFamily: T.fontMono,
+                    outline: 'none', whiteSpace: 'nowrap', cursor: 'text',
+                  }}
+                >Press a key…</div>
+              ) : (
+                <div
+                  onClick={() => startCapture(id)}
+                  style={{
+                    display: 'flex', gap: 4, cursor: 'pointer',
+                    padding: '2px 4px', borderRadius: T.r6,
+                  }}
+                  title="Click to remap"
+                  onMouseEnter={e => e.currentTarget.style.background = T.paperMuted}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  {keys.map((k, i) => <KbdChip key={i} T={T}>{k}</KbdChip>)}
+                </div>
+              )}
+              {isCustom && (
+                <button
+                  onClick={() => resetShortcut(id)}
+                  title="Reset to default"
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    fontSize: 10.5, color: T.ink40, fontFamily: T.fontMono, padding: 0,
+                  }}
+                >reset</button>
+              )}
+            </div>
+          </div>
+        ))}
+      </Section>
+    </div>
+  );
+}
+
+function PageHeader({ section: sLabel, title, T }) {
+  return (
+    <header>
+      <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
+        Settings · {sLabel}
+      </div>
+      <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>{title}</h1>
+    </header>
+  );
+}
+
+async function triggerExport(fmt) {
+  try {
+    const resp = await fetch(`${API}/export`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const tasks = data.tasks || [];
+    let content, filename, mime;
+
+    if (fmt === 'json') {
+      content  = JSON.stringify({ tasks }, null, 2);
+      filename = 'clarity-export.json';
+      mime     = 'application/json';
+    } else if (fmt === 'md') {
+      content = tasks.map(t => {
+        const lines = [`## ${t.title}`];
+        if (t.description) lines.push(`\n${t.description}`);
+        if (t.deadline) lines.push(`\n**Due:** ${t.deadline}`);
+        if (t.status) lines.push(`**Status:** ${t.status.replace('_', ' ')}`);
+        if (t.tags?.length) lines.push(`**Tags:** ${t.tags.join(', ')}`);
+        if (t.subtasks?.length) {
+          lines.push('\n**Subtasks:**');
+          t.subtasks.forEach(s => lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}`));
+        }
+        return lines.join('\n');
+      }).join('\n\n---\n\n');
+      filename = 'clarity-export.md';
+      mime     = 'text/markdown';
+    } else {
+      content = tasks.map(t => {
+        const lines = [t.title];
+        if (t.description) lines.push(t.description);
+        if (t.deadline) lines.push(`Due: ${t.deadline}`);
+        if (t.status) lines.push(`Status: ${t.status.replace('_', ' ')}`);
+        if (t.tags?.length) lines.push(`Tags: ${t.tags.join(', ')}`);
+        if (t.subtasks?.length) {
+          lines.push('Subtasks:');
+          t.subtasks.forEach(s => lines.push(`  [${s.done ? 'x' : ' '}] ${s.title}`));
+        }
+        return lines.join('\n');
+      }).join('\n\n----------\n\n');
+      filename = 'clarity-export.txt';
+      mime     = 'text/plain';
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch {}
+}
+
+export default function SettingsView({ onSaved }) {
+  const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
+  const [form, setForm] = useState({
+    providerType: 'ollama',
+    llmEndpoint: 'http://localhost:11434',
+    ollamaModel: 'gemma4:latest',
+    tunnelSecret: '',
+    apiKey: '',
+  });
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [editingKey, setEditingKey] = useState(false);
+  const [ollamaModels, setOllamaModels] = useState([]);
+  const [health, setHealth] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState('appearance');
+  const [backups, setBackups] = useState([]);
+  const [locale, setLocale] = useState(() => {
+    try { return localStorage.getItem('clarity-locale') || 'en-US'; } catch { return 'en-US'; }
+  });
+  const [userName, setUserName] = useState(() => {
+    try { return localStorage.getItem('clarity-userName') || ''; } catch { return ''; }
+  });
+
+  const [aiToggles, setAiToggles] = useState({
+    dailyPlan: true, autoReschedule: false, smartArea: true, convHistory: true,
+  });
+  const [captureToggles, setCaptureToggles] = useState({
+    parsePreview: true, autoArea: true, detectRecur: true, parseDuration: false, chime: false,
+  });
+  const [privacyToggles, setPrivacyToggles] = useState({
+    anonUsage: false, crashReports: false, perfMetrics: false, storeHistory: true, useHistory: true,
+  });
+  const [backupToggles, setBackupToggles] = useState({ autoBackup: true });
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [sr, hr, br] = await Promise.all([
+          fetch(`${API}/settings`),
+          fetch(`${API}/health`),
+          fetch(`${API}/backups`),
+        ]);
+        if (sr.ok) {
+          const s = await sr.json();
+          const isSet = s.apiKey === '••••••••';
+          setApiKeySet(isSet);
+          setEditingKey(!isSet);
+          setForm(f => ({
+            ...f,
+            providerType: s.providerType || 'ollama',
+            llmEndpoint:  s.llmEndpoint  || 'http://localhost:11434',
+            ollamaModel:  s.ollamaModel  || '',
+            tunnelSecret: s.tunnelSecret || '',
+            apiKey:       isSet ? '' : (s.apiKey || ''),
+          }));
+        }
+        if (hr.ok) {
+          const h = await hr.json();
+          setHealth(h);
+          if (h.availableModels?.length) setOllamaModels(h.availableModels);
+        }
+        if (br.ok) {
+          const b = await br.json();
+          setBackups(b.backups || []);
+        }
+      } catch {}
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  function set(key, value) { setForm(f => ({ ...f, [key]: value })); setStatus(null); }
+
+  function handleProviderChange(pid) {
+    set('providerType', pid);
+    if (DEFAULT_MODEL[pid]) set('ollamaModel', DEFAULT_MODEL[pid]);
+    if (pid === 'ollama') set('llmEndpoint', 'http://localhost:11434');
+    // Reset key state when switching provider
+    setApiKeySet(false);
+    setEditingKey(true);
+    set('apiKey', '');
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    setStatus(null);
+    try {
+      const payload = { ...form };
+      // Send masked sentinel if key is set and user hasn't changed it
+      if (apiKeySet && !editingKey) payload.apiKey = '••••••••';
+      const resp = await fetch(`${API}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (resp.ok) {
+        setStatus({ type: 'success', message: 'Settings saved.' });
+        if (form.apiKey) { setApiKeySet(true); setEditingKey(false); }
+        onSaved?.();
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        setStatus({ type: 'error', message: err.error || 'Failed to save.' });
+      }
+    } catch {
+      setStatus({ type: 'error', message: 'Could not reach the backend.' });
+    }
+    setSaving(false);
+  }
+
+  const field = {
+    width: '100%', padding: '8px 10px',
+    background: T.paper, border: `1px solid ${T.hairline}`,
+    borderRadius: T.r6, fontSize: 13.5, color: T.ink,
+    fontFamily: T.fontUI, outline: 'none', boxSizing: 'border-box',
+  };
+
+  const activeProvider = form.providerType;
+  const isOllama = activeProvider === 'ollama';
+  const presetModels = PRESET_MODELS[activeProvider] || [];
+
+  return (
+    <div style={{ width: '100%', height: '100%', display: 'grid', gridTemplateColumns: '232px 1fr', overflow: 'hidden', fontFamily: T.fontUI }}>
+      {/* Settings sidebar */}
+      <aside style={{ background: T.paperSubtle, borderRight: `1px solid ${T.hairline}`, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 4, boxSizing: 'border-box', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px', marginBottom: 16 }}>
+          <ApertureMark s={20} />
+          <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>Settings</span>
+        </div>
+        {SECTIONS.map(({ id, label }) => (
+          <button key={id} onClick={() => setSection(id)} style={{
+            padding: '7px 10px', borderRadius: T.r6, width: '100%', textAlign: 'left',
+            background: section === id ? T.paper : 'transparent',
+            boxShadow: section === id ? `inset 0 0 0 1px ${T.hairline}` : 'none',
+            fontSize: 13.5, color: section === id ? T.ink : T.ink80,
+            fontWeight: section === id ? 500 : 400,
+            border: 'none', cursor: 'pointer', fontFamily: T.fontUI,
+          }}>{label}</button>
+        ))}
+      </aside>
+
+      {/* Content */}
+      <main style={{ padding: '36px 56px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
+        {loading ? (
+          <div style={{ color: T.ink60, fontSize: 13.5 }}>Loading settings…</div>
+        ) : section === 'appearance' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="Appearance" title="Appearance" T={T} />
+
+            <Section title="Theme" subtitle="Match the system, or choose. Switches with the OS at sunset." T={T}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                {[
+                  { id: 'light', label: 'Light', previewBg: '#FAFAF7', previewInk: '#19191A', ring: true },
+                  { id: 'dark',  label: 'Dark',  previewBg: '#16161A', previewInk: '#F4F3EE' },
+                  { id: 'auto',  label: 'Auto',  previewBg: 'linear-gradient(90deg, #FAFAF7 50%, #16161A 50%)', previewInk: null },
+                ].map(opt => {
+                  const active = themeMode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setThemeMode(opt.id)}
+                      style={{
+                        width: 132, padding: 12, borderRadius: T.r10,
+                        background: T.paperSubtle,
+                        border: `1px solid ${active ? T.ink : T.hairline}`,
+                        cursor: active ? 'default' : 'pointer',
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                        fontFamily: T.fontUI, transition: 'border-color 0.15s',
+                      }}
+                    >
+                      <div style={{
+                        height: 60, borderRadius: 6,
+                        background: opt.previewBg,
+                        boxShadow: opt.ring ? `inset 0 0 0 1px ${T.hairline}` : 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        overflow: 'hidden',
+                      }}>
+                        {opt.previewInk && (
+                          <ApertureMark s={26} ink={opt.previewInk} accent={T.accent} />
+                        )}
+                        {opt.id === 'auto' && (
+                          <span style={{ fontFamily: T.fontMono, fontSize: 9, color: T.ink40, letterSpacing: '0.05em' }}>AUTO</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: active ? 500 : 400, color: T.ink }}>{opt.label}</span>
+                        {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.ink, flexShrink: 0 }} />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+
+            <Section title="Density" subtitle="Spacious for reading; compact when the day is full." T={T}>
+              <div style={{
+                display: 'inline-flex', padding: 3,
+                background: T.paperSubtle, borderRadius: T.r6,
+                border: `1px solid ${T.hairline}`, width: 'fit-content',
+              }}>
+                {['Spacious', 'Balanced', 'Compact'].map(opt => {
+                  const active = density === opt.toLowerCase();
+                  return (
+                    <button key={opt} onClick={() => setDensity(opt.toLowerCase())} style={{
+                      padding: '6px 14px', borderRadius: 4, fontSize: 12.5,
+                      background: active ? T.paper : 'transparent',
+                      color: active ? T.ink : T.ink60,
+                      fontWeight: active ? 500 : 400,
+                      boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                      cursor: 'pointer', fontFamily: T.fontUI, border: 'none',
+                    }}>{opt}</button>
+                  );
+                })}
+              </div>
+            </Section>
+
+            <Section title="Accent" subtitle="The one color that calls your attention. Used sparingly — focus, AI, today." T={T}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {ACCENT_OPTIONS.map(c => {
+                  const active = accent === c.val;
+                  return (
+                    <div
+                      key={c.name}
+                      title={c.name}
+                      onClick={() => setAccent(c.val)}
+                      style={{
+                        width: 36, height: 36, borderRadius: T.rPill,
+                        background: c.val,
+                        boxShadow: active ? `0 0 0 2px ${T.paper}, 0 0 0 4px ${T.ink}` : 'none',
+                        cursor: 'pointer', flexShrink: 0,
+                        transition: 'box-shadow 0.15s',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </Section>
+
+            <Section title="Typography" subtitle="Choose the interface font family." T={T}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  { id: 'geist',  label: 'Geist',     sample: 'Clean, geometric sans-serif' },
+                  { id: 'system', label: 'System UI',  sample: 'Native system font' },
+                  { id: 'serif',  label: 'Serif',      sample: 'Classic Georgia' },
+                ].map(opt => {
+                  const active = font === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setFont(opt.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '11px 14px', textAlign: 'left',
+                        background: active ? T.accentSoft : T.paperSubtle,
+                        border: `1px solid ${active ? T.accent : T.hairline}`,
+                        borderRadius: T.r6, cursor: 'pointer',
+                        fontFamily: T.fontUI,
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 500, color: active ? T.accentInk : T.ink }}>{opt.label}</div>
+                        <div style={{ fontSize: 12, color: T.ink60, marginTop: 2 }}>{opt.sample}</div>
+                      </div>
+                      {active && (
+                        <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.accentInk, padding: '2px 6px', background: T.accentSoft, borderRadius: 3, border: `1px solid ${T.accent}` }}>Active</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          </div>
+
+        ) : section === 'ai' ? (
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="AI Assistant" title="AI configuration" T={T} />
+
+            <Section title="Provider" subtitle="Choose which AI service Clarity talks to." T={T}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {PROVIDERS.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleProviderChange(p.id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      padding: '12px 14px', textAlign: 'left',
+                      background: activeProvider === p.id ? T.accentSoft : T.paperSubtle,
+                      border: `1px solid ${activeProvider === p.id ? T.accent : T.hairline}`,
+                      borderRadius: T.r6, cursor: 'pointer', transition: 'all 0.1s',
+                    }}
+                  >
+                    <div style={{
+                      width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                      border: `1.5px solid ${activeProvider === p.id ? T.accent : T.ink40}`,
+                      background: activeProvider === p.id ? T.accent : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {activeProvider === p.id && (
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.paper }} />
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: activeProvider === p.id ? T.accentInk : T.ink }}>{p.label}</div>
+                      <div style={{ fontSize: 12, color: activeProvider === p.id ? T.accentInk : T.ink60, marginTop: 2, opacity: 0.85 }}>{p.hint}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Model" T={T}>
+              {presetModels.length > 0 ? (
+                <FieldRow label="Model" T={T}>
+                  <div style={{ position: 'relative' }}>
+                    <select value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
+                      style={{ ...field, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
+                      {presetModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
+                  </div>
+                </FieldRow>
+              ) : isOllama && ollamaModels.length > 0 ? (
+                <FieldRow label="Model" hint="Models installed in your local Ollama." T={T}>
+                  <div style={{ position: 'relative' }}>
+                    <select value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
+                      style={{ ...field, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
+                      {ollamaModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
+                  </div>
+                </FieldRow>
+              ) : (
+                <FieldRow
+                  label="Model"
+                  hint={isOllama ? 'Ollama not connected — type model name manually.' : activeProvider === 'openrouter' ? 'e.g. mistralai/mistral-7b-instruct' : ''}
+                  T={T}
+                >
+                  <input
+                    value={form.ollamaModel}
+                    onChange={e => set('ollamaModel', e.target.value)}
+                    placeholder={DEFAULT_MODEL[activeProvider] || 'model-name'}
+                    style={field}
+                  />
+                </FieldRow>
+              )}
+            </Section>
+
+            {!isOllama && (
+              <Section title="API Key" subtitle={`Your ${PROVIDERS.find(p => p.id === activeProvider)?.label} secret key. Stored locally on your device.`} T={T}>
+                <FieldRow label="Secret Key" T={T}>
+                  {apiKeySet && !editingKey ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        flex: 1, padding: '8px 10px',
+                        background: T.successSoft, border: `1px solid ${T.successBorder}`,
+                        borderRadius: T.r6, fontSize: 13, color: T.success,
+                        fontFamily: T.fontUI,
+                      }}>
+                        ✓ API key is saved
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingKey(true); set('apiKey', ''); }}
+                        style={{
+                          padding: '8px 14px', background: T.paperSubtle,
+                          border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+                          fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
+                        }}
+                      >Replace</button>
+                    </div>
+                  ) : (
+                    <input
+                      type="password"
+                      value={form.apiKey}
+                      onChange={e => set('apiKey', e.target.value)}
+                      placeholder="sk-..."
+                      autoComplete="new-password"
+                      style={field}
+                    />
+                  )}
+                </FieldRow>
+              </Section>
+            )}
+
+            {isOllama && (
+              <Section title="Connection" T={T}>
+                <FieldRow label="Ollama Endpoint" hint="Default: http://localhost:11434" T={T}>
+                  <input type="url" value={form.llmEndpoint} onChange={e => set('llmEndpoint', e.target.value)}
+                    placeholder="http://localhost:11434" style={field} />
+                </FieldRow>
+                <FieldRow label="Tunnel Secret" hint="Bearer token for ngrok/SSH tunnels. Leave blank if unused." T={T}>
+                  <input type="password" value={form.tunnelSecret} onChange={e => set('tunnelSecret', e.target.value)}
+                    placeholder="Leave blank if not using a tunnel" style={field} />
+                </FieldRow>
+              </Section>
+            )}
+
+            <Section title="Features" subtitle="Control which AI features are active." T={T}>
+              <SettingRow label="Daily plan strip" hint="Show AI-generated daily plan" T={T}>
+                <Toggle on={aiToggles.dailyPlan} onChange={v => setAiToggles(t => ({ ...t, dailyPlan: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Auto-reschedule stale tasks" hint="Move overdue tasks automatically" T={T}>
+                <Toggle on={aiToggles.autoReschedule} onChange={v => setAiToggles(t => ({ ...t, autoReschedule: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Smart area detection" hint="Auto-assign tasks to areas" T={T}>
+                <Toggle on={aiToggles.smartArea} onChange={v => setAiToggles(t => ({ ...t, smartArea: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Conversation history" hint="AI remembers context across sessions" T={T}>
+                <Toggle on={aiToggles.convHistory} onChange={v => setAiToggles(t => ({ ...t, convHistory: v }))} T={T} />
+              </SettingRow>
+            </Section>
+
+            {status && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5,
+                padding: '12px 16px', borderRadius: T.r6,
+                background: status.type === 'success' ? T.successSoft : T.dangerSoft,
+                color: status.type === 'success' ? T.success : T.danger,
+                border: `1px solid ${status.type === 'success' ? T.successBorder : T.dangerBorder}`,
+              }}>
+                {status.type === 'success' ? '✓' : '⚠'} {status.message}
+              </div>
+            )}
+
+            <button type="submit" disabled={saving} style={{
+              padding: '11px 0', background: T.ink, border: 'none',
+              borderRadius: T.r6, fontSize: 13.5, fontWeight: 500,
+              color: T.paper, cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.5 : 1, fontFamily: T.fontUI,
+            }}>
+              {saving ? 'Saving…' : 'Save Settings'}
+            </button>
+          </form>
+
+        ) : section === 'capture' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="Capture" title="Capture" T={T} />
+
+            <Section title="Global shortcut" subtitle="Open quick capture from anywhere." T={T}>
+              <SettingRow label="Quick capture" hint="" T={T}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <KbdChip T={T}>Ctrl</KbdChip>
+                  <KbdChip T={T}>K</KbdChip>
+                </div>
+              </SettingRow>
+            </Section>
+
+            <Section title="Defaults" T={T}>
+              <SettingRow label="Default area" hint="Where new tasks go" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>Inbox</span>
+              </SettingRow>
+              <SettingRow label="Default due date" hint="Applied to new captures" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>None</span>
+              </SettingRow>
+            </Section>
+
+            <Section title="Parsing" subtitle="How Clarity interprets what you type." T={T}>
+              <SettingRow label="Show parse preview" hint="Display parsed fields below input" T={T}>
+                <Toggle on={captureToggles.parsePreview} onChange={v => setCaptureToggles(t => ({ ...t, parsePreview: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Auto-assign area" hint="Detect and apply area from text" T={T}>
+                <Toggle on={captureToggles.autoArea} onChange={v => setCaptureToggles(t => ({ ...t, autoArea: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Detect recurrence" hint="Parse 'every Monday' etc." T={T}>
+                <Toggle on={captureToggles.detectRecur} onChange={v => setCaptureToggles(t => ({ ...t, detectRecur: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Parse duration" hint="Extract time estimates from text" T={T}>
+                <Toggle on={captureToggles.parseDuration} onChange={v => setCaptureToggles(t => ({ ...t, parseDuration: v }))} T={T} />
+              </SettingRow>
+            </Section>
+
+            <Section title="After capture" T={T}>
+              <SettingRow label="On save" hint="What happens after saving" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>Close & return</span>
+              </SettingRow>
+              <SettingRow label="Capture chime" hint="Play a sound on save" T={T}>
+                <Toggle on={captureToggles.chime} onChange={v => setCaptureToggles(t => ({ ...t, chime: v }))} T={T} />
+              </SettingRow>
+            </Section>
+          </div>
+
+        ) : section === 'privacy' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="Privacy" title="Privacy" T={T} />
+
+            <div style={{
+              padding: '14px 16px',
+              background: T.accentSoft, borderRadius: T.r6,
+              border: `1px solid ${T.hairline}`,
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+            }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.done, flexShrink: 0, marginTop: 5 }} />
+              <div style={{ fontSize: 13, color: T.accentInk, lineHeight: 1.55 }}>
+                <strong>On-device guarantee.</strong> Your tasks and notes never leave your machine. AI analysis runs locally via Ollama. When using cloud providers, only task text is sent — never personal metadata.
+              </div>
+            </div>
+
+            <Section title="Diagnostics" subtitle="Anonymous data to help improve Clarity." T={T}>
+              <SettingRow label="Anonymous usage data" hint="App feature usage (no task content)" T={T}>
+                <Toggle on={privacyToggles.anonUsage} onChange={v => setPrivacyToggles(t => ({ ...t, anonUsage: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Crash reports" hint="Automatic error reporting" T={T}>
+                <Toggle on={privacyToggles.crashReports} onChange={v => setPrivacyToggles(t => ({ ...t, crashReports: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Performance metrics" hint="Latency and rendering stats" T={T}>
+                <Toggle on={privacyToggles.perfMetrics} onChange={v => setPrivacyToggles(t => ({ ...t, perfMetrics: v }))} T={T} />
+              </SettingRow>
+            </Section>
+
+            <Section title="AI & conversation" T={T}>
+              <SettingRow label="Store history" hint="Keep chat history between sessions" T={T}>
+                <Toggle on={privacyToggles.storeHistory} onChange={v => setPrivacyToggles(t => ({ ...t, storeHistory: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Use history to improve plans" hint="Let AI reference past conversations" T={T}>
+                <Toggle on={privacyToggles.useHistory} onChange={v => setPrivacyToggles(t => ({ ...t, useHistory: v }))} T={T} />
+              </SettingRow>
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <button style={{
+                  padding: '8px 16px',
+                  background: 'transparent', border: `1px solid ${T.hairline}`,
+                  borderRadius: T.r6, fontSize: 13, color: T.ink60,
+                  cursor: 'pointer', fontFamily: T.fontUI,
+                }}>Clear conversation history</button>
+              </div>
+            </Section>
+          </div>
+
+        ) : section === 'data' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="Data & Export" title="Data & Export" T={T} />
+
+            <Section title="Storage" T={T}>
+              <SettingRow label="Data directory" hint="Local storage path" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60 }}>APPDATA/Clarity/data/</span>
+              </SettingRow>
+              <SettingRow label="Database size" hint="Approximate" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>18.4 MB</span>
+              </SettingRow>
+            </Section>
+
+            <Section title="Backup" subtitle="Clarity saves a daily backup of your tasks." T={T}>
+              <SettingRow label="Auto-backup" hint="Create daily snapshots" T={T}>
+                <Toggle on={backupToggles.autoBackup} onChange={v => setBackupToggles(t => ({ ...t, autoBackup: v }))} T={T} />
+              </SettingRow>
+              <SettingRow label="Backup frequency" hint="" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>Daily</span>
+              </SettingRow>
+              <SettingRow label="Keep last" hint="Older snapshots are removed automatically" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>7 snapshots</span>
+              </SettingRow>
+            </Section>
+
+            {backups.length > 0 && (
+              <Section title="Backup files" T={T}>
+                {backups.map(b => (
+                  <div key={b.name} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '10px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
+                    <div>
+                      <span style={{ fontSize: 13.5, color: T.ink }}>{b.date}</span>
+                      <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40, marginLeft: 10 }}>{b.name}</span>
+                    </div>
+                    <a href={`${API}/backups/${b.name}`} download={b.name} style={{
+                      fontSize: 12, color: T.accent, textDecoration: 'none', fontFamily: T.fontUI,
+                    }}>Download</a>
+                  </div>
+                ))}
+              </Section>
+            )}
+
+            <Section title="Export tasks" subtitle="Download all your tasks in different formats." T={T}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => triggerExport('json')}
+                  style={{
+                    padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
+                    borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
+                  }}>JSON</button>
+                <button
+                  onClick={() => triggerExport('md')}
+                  style={{
+                    padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
+                    borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
+                  }}>Markdown</button>
+                <button
+                  onClick={() => triggerExport('txt')}
+                  style={{
+                    padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
+                    borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
+                  }}>Plain text</button>
+                <button disabled style={{
+                  padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
+                  borderRadius: T.r6, fontSize: 13, color: T.ink40, cursor: 'not-allowed', fontFamily: T.fontUI,
+                }}>CSV</button>
+              </div>
+            </Section>
+
+            <Section title="Danger zone" T={T}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={async () => {
+                    if (!confirm('Delete ALL tasks permanently? This cannot be undone.')) return;
+                    try {
+                      const r = await fetch(`${API}/tasks/all`, { method: 'DELETE' });
+                      if (r.ok) window.location.reload();
+                    } catch {}
+                  }}
+                  style={{
+                    padding: '9px 18px', background: 'transparent',
+                    border: `1px solid ${T.dangerBorder}`,
+                    borderRadius: T.r6, fontSize: 13,
+                    color: T.danger, cursor: 'pointer', fontFamily: T.fontUI,
+                  }}>Delete all tasks</button>
+                <button
+                  onClick={() => confirm('Reset Clarity to factory defaults? All data will be lost.') && window.location.reload()}
+                  style={{
+                    padding: '9px 18px', background: T.danger,
+                    border: 'none', borderRadius: T.r6, fontSize: 13,
+                    color: T.paper, cursor: 'pointer', fontFamily: T.fontUI, fontWeight: 500,
+                  }}>Reset Clarity</button>
+              </div>
+            </Section>
+          </div>
+
+        ) : section === 'keyboard' ? (
+          <KeyboardSection T={T} />
+
+        ) : section === 'language' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="Language" title="Language & Region" T={T} />
+
+            <div style={{
+              padding: '14px 16px', background: T.accentSoft, borderRadius: T.r6,
+              border: `1px solid ${T.hairline}`, fontSize: 13, color: T.accentInk, lineHeight: 1.55,
+            }}>
+              Language affects the app interface. Full translations are in progress — some strings may still appear in English.
+            </div>
+
+            <Section title="Your name" subtitle="Shown in the daily greeting on the Today page." T={T}>
+              <div style={{ padding: '14px 16px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
+                <input
+                  type="text"
+                  value={userName}
+                  onChange={e => {
+                    setUserName(e.target.value);
+                    try { localStorage.setItem('clarity-userName', e.target.value); } catch {}
+                  }}
+                  placeholder="Your name (e.g. Raph)"
+                  style={{
+                    width: '100%', padding: '8px 10px', boxSizing: 'border-box',
+                    background: T.paper, border: `1px solid ${T.hairline}`,
+                    borderRadius: T.r6, fontSize: 13.5, color: T.ink,
+                    fontFamily: T.fontUI, outline: 'none',
+                  }}
+                />
+                {userName && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: T.ink60, fontFamily: T.fontMono }}>
+                    Preview: <span style={{ color: T.ink }}>Good morning, {userName}.</span>
+                  </div>
+                )}
+              </div>
+            </Section>
+
+            <Section title="Interface language" subtitle="Choose the language for the app UI." T={T}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {LANGUAGES.map(lang => {
+                  const active = locale === lang.id;
+                  return (
+                    <button
+                      key={lang.id}
+                      onClick={() => {
+                        setLocale(lang.id);
+                        try { localStorage.setItem('clarity-locale', lang.id); } catch {}
+                      }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 14px', textAlign: 'left',
+                        background: active ? T.accentSoft : T.paperSubtle,
+                        border: `1px solid ${active ? T.accent : T.hairlineSoft}`,
+                        borderRadius: T.r6, cursor: 'pointer', fontFamily: T.fontUI,
+                      }}
+                    >
+                      <span style={{ fontSize: 18, lineHeight: 1 }}>{lang.flag}</span>
+                      <span style={{ flex: 1, fontSize: 13.5, color: active ? T.accentInk : T.ink, fontWeight: active ? 500 : 400 }}>{lang.label}</span>
+                      {active && <span style={{ width: 7, height: 7, borderRadius: '50%', background: active ? T.accent : T.ink, flexShrink: 0 }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          </div>
+
+        ) : (
+          /* About */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section="About" title="About Clarity" T={T} />
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+              <ApertureMark s={56} />
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: T.ink }}>Clarity</div>
+                <div style={{ fontSize: 13, color: T.ink60, marginTop: 3 }}>A calm, AI-powered task manager</div>
+              </div>
+            </div>
+
+            <Section title="System" T={T}>
+              {[
+                ['Version', '1.2.0', null],
+                ['Storage', 'On-device', 'Tasks stored in APPDATA/Clarity/data/'],
+                ['AI providers', 'Ollama · OpenAI · Anthropic · OpenRouter', null],
+                ['Platform', window.navigator.platform || 'Unknown', null],
+              ].map(([label, value, hint]) => (
+                <div key={label} style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start', padding: '12px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
+                  <span style={{ fontSize: 13.5, color: T.ink }}>{label}</span>
+                  <div>
+                    <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.ink80 }}>{value}</span>
+                    {hint && <div style={{ fontSize: 11.5, color: T.ink60, marginTop: 3, fontFamily: T.fontMono }}>{hint}</div>}
+                  </div>
+                </div>
+              ))}
+            </Section>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

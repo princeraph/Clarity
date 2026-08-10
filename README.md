@@ -1,23 +1,46 @@
 # Clarity — gestionnaire de tâches IA
 
-**Ce dossier ne contient aucun code — uniquement la spec (`CLAUDE.md`).**
+Application de gestion de tâches **Electron + React** avec backend IA local,
+pensée pour Windows d'abord.
 
-`CLAUDE.md` décrit en détail une application Electron + React avec backend IA
-local : architecture, modèle de données, endpoints, conventions. Ce fichier se
-trouvait auparavant à la racine du dépôt, où il décrivait un projet absent et
-risquait d'être pris pour la documentation de tout le dépôt. Il a été déplacé
-ici pour que sa portée corresponde à son contenu.
+| Chemin | Contenu |
+|---|---|
+| `app/` | Le code complet — `frontend/` (React + Vite), `backend/` (Express), `electron/` (shell) |
+| `CLAUDE.md` | Spec technique : architecture, modèle de données, endpoints, invariants |
 
-## État
+## Lancer l'app
 
-Aucune implémentation n'existe dans ce dépôt : ni `frontend/`, ni `backend/`,
-ni `electron/`. La spec est conservée comme référence, pour reprendre le projet
-ou pour le porter dans son propre dépôt.
+```bash
+cd app
+npm run setup      # première fois : dépendances, build du frontend, icônes
+npm start          # lance l'application Electron
+```
 
-## Avertissement sur le contenu de `CLAUDE.md`
+En développement (rechargement à chaud) :
 
-La section « Git » de la spec renvoie à la branche
-`claude/project-organization-app-wYkaf`, qui **n'existe plus** (ni en local, ni
-sur le remote). Les instructions de commandes (`npm run setup`, `npm start`)
-supposent un dossier `clarity/` peuplé, ce qui n'est pas le cas ici. À traiter
-comme un document d'archive : à mettre à jour au moment où le code arrive.
+```bash
+cd app/frontend && npm run dev     # serveur Vite sur :5173
+cd app/backend  && node server.js  # API Express sur :3001
+```
+
+Sous Windows, `app/start.bat` fait la même chose en double-cliquant.
+
+## Provenance
+
+Le code vient de la branche `claude/project-organization-app-wYkaf`, où il est
+resté non fusionné. `CLAUDE.md` se trouvait à la racine du dépôt, où il décrivait
+ce projet comme s'il documentait le dépôt entier ; il est maintenant à côté du
+code qu'il décrit.
+
+Deux points de sa section « Git » sont désormais faux : le développement ne se
+fait plus sur `claude/project-organization-app-wYkaf`, et les chemins qu'elle
+donne (`clarity/`) sont devenus `projet-clarity/app/`.
+
+## Ancêtre abandonné
+
+Un dossier `project-organizer/` — version antérieure du même projet, avant sa
+refonte en Clarity — existe encore sur les branches
+`claude/project-organization-app-SpYsE` (37 fichiers) et
+`claude/project-organization-app-wYkaf` (17 fichiers). Il n'a **pas** été
+rapatrié : Clarity le remplace intégralement. À récupérer sur ces branches si
+besoin.

@@ -1,0 +1,63 @@
+{
+  "name": "clarity",
+  "version": "1.2.0",
+  "description": "AI-powered personal task manager",
+  "author": "Clarity",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend && electron-builder",
+    "generate-icons": "node scripts/generate-icon.js",
+    "setup": "node scripts/generate-icon.js && npm install && cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "test": "cd backend && npm test"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.clarity.app",
+    "productName": "Clarity",
+    "copyright": "Copyright © 2026 Clarity",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      { "from": "backend", "to": "backend", "filter": ["**/*", "!node_modules", "!data", "!tests"] },
+      { "from": "frontend/dist", "to": "frontend/dist" },
+      { "from": "build", "to": "build" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png",
+      "category": "Utility"
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "draft"
+    }
+  }
+}

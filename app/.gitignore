@@ -1,0 +1,4 @@
+node_modules/
+# Local runtime data — tasks, settings, and rolling backups
+backend/data/
+.env

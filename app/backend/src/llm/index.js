@@ -1,0 +1,26 @@
+import { OllamaProvider }    from './OllamaProvider.js';
+import { OpenAIProvider }    from './OpenAIProvider.js';
+import { AnthropicProvider } from './AnthropicProvider.js';
+
+export function createProvider(config = {}) {
+  switch (config.providerType) {
+    case 'openai':
+      return new OpenAIProvider(config);
+    case 'anthropic':
+      return new AnthropicProvider(config);
+    case 'openrouter':
+      // OpenRouter is OpenAI-compatible — swap the endpoint
+      return new OpenAIProvider({
+        ...config,
+        llmEndpoint: 'https://openrouter.ai/api/v1',
+      });
+    case 'ollama':
+    default:
+      return new OllamaProvider(config);
+  }
+}
+
+export { LLMProvider }    from './LLMProvider.js';
+export { OllamaProvider } from './OllamaProvider.js';
+export { OpenAIProvider } from './OpenAIProvider.js';
+export { AnthropicProvider } from './AnthropicProvider.js';
