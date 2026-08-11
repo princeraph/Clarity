@@ -10,7 +10,7 @@ This project has an active designer working in a separate Claude.ai project call
 
 ## Implementation completeness — all screens are required
 
-**Every screen listed in `design_handoff_clarity/README.md` must be implemented.** Nothing is optional. "Phase 2" or "not yet built" labels in older versions of this file are now outdated — all screens are in scope.
+**Every screen listed in `design-handoff/README.md` must be implemented.** Nothing is optional. "Phase 2" or "not yet built" labels in older versions of this file are now outdated — all screens are in scope.
 
 ### Required screens checklist
 
@@ -68,7 +68,7 @@ Tell the user: "I need a design for X — [describe exactly what's missing]"
         ↓
 User pastes your question into the Clarity Design chat at claude.ai
         ↓
-Designer produces new artboards + updates design_handoff_clarity/README.md
+Designer produces new artboards + updates design-handoff/README.md
         ↓
 User downloads the updated package and drops the new files into this repo
         ↓
@@ -78,7 +78,7 @@ You read the new specs and implement
 ### What counts as a design gap
 
 Raise a design question if:
-- A screen, view, or state is not covered in `design_handoff_clarity/README.md`
+- A screen, view, or state is not covered in `design-handoff/README.md`
 - You are unsure about a hover, focus, active, empty, loading, or error state
 - A measurement, color, or spacing value is missing or ambiguous
 - You are about to invent a new component that doesn't exist in the design files
@@ -86,8 +86,8 @@ Raise a design question if:
 ### What does NOT need a design question
 
 You can proceed without asking if:
-- The spec is clearly documented in `design_handoff_clarity/README.md`
-- The value can be derived directly from `design_handoff_clarity/tokens.jsx` (colors, radii, fonts)
+- The spec is clearly documented in `design-handoff/README.md`
+- The value can be derived directly from `design-handoff/tokens.jsx` (colors, radii, fonts)
 - The pattern is an exact repeat of a documented component (e.g. another nav item, another settings row)
 
 ### Tone for design questions
@@ -102,7 +102,7 @@ Say:
 
 ## Design files location
 
-All design references are in `design_handoff_clarity/`:
+All design references are in `design-handoff/`:
 - `README.md` — full screen specs, tokens, measurements
 - `Clarity.html` — open in a browser to see all artboards visually
 - Individual `.jsx` files — component-level source of truth for layout and structure
@@ -123,4 +123,4 @@ All design references are in `design_handoff_clarity/`:
 
 ## Platform reminder
 
-Clarity is a **Windows-first** application. All UI patterns, keyboard shortcuts, and shell chrome must follow Windows 11 conventions. The titlebar uses right-side Min/Max/Close controls (see `design_handoff_clarity/shell.jsx`). No macOS patterns.
+Clarity is a **Windows-first** application. All UI patterns, keyboard shortcuts, and shell chrome must follow Windows 11 conventions. The titlebar uses right-side Min/Max/Close controls (see `design-handoff/shell.jsx`). No macOS patterns.

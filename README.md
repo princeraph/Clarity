@@ -6,7 +6,14 @@ pensée pour Windows d'abord.
 | Chemin | Contenu |
 |---|---|
 | `app/` | Le code complet — `frontend/` (React + Vite), `backend/` (Express), `electron/` (shell) |
+| `design-handoff/` | Références de design : 31 maquettes `.jsx`, jetons, spécimen typographique, plus son propre `CLAUDE.md` de conventions visuelles |
 | `CLAUDE.md` | Spec technique : architecture, modèle de données, endpoints, invariants |
+
+`design-handoff/` était auparavant dans `app/`, où rien ne le référençait :
+`electron-builder` ne l'embarque pas (voir `files` et `extraResources` dans
+`app/package.json`), et aucun module de l'application ne l'importe. Ce sont des
+documents de conception, pas du code exécuté — ils vivent donc à côté de l'app,
+pas dedans.
 
 ## Lancer l'app
 
