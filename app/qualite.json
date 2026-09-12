@@ -1,0 +1,26 @@
+{
+  "nom": "Clarity — application de bureau",
+  "pourquoi": "Rien ne se déploie ici : l'application tourne après un simple clone, ce qui rend deux choses critiques. Le backend porte la seule logique testable (fournisseur Ollama, appels, repli sur erreur) et ses 15 tests sont le seul filet. Et frontend/dist/ est versionné EXPRÈS parce qu'Electron le charge au runtime — un dist/ à moitié commité donne une fenêtre blanche au démarrage, sans message.",
+  "surveille": [
+    "backend/**",
+    "frontend/**",
+    "electron/**",
+    "*.json"
+  ],
+  "preparation": [
+    {
+      "nom": "dépendances du backend",
+      "commande": "cd backend && npm install --no-audit --no-fund"
+    }
+  ],
+  "controles": [
+    {
+      "nom": "tests du backend",
+      "commande": "cd backend && npm test"
+    },
+    {
+      "nom": "le paquet chargé par Electron est complet",
+      "commande": "node ../../.github/qualite/verifier-liens.mjs frontend/dist"
+    }
+  ]
+}
