@@ -163,6 +163,46 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
   );
 }
 
+
+// When nothing is measurable yet, five identical "not enough" boxes read as a
+// broken page. Say it once, and say what would change it — the metrics depend
+// on things the app records as you use it, not on waiting.
+function NothingYet({ o, T }) {
+  const rows = [
+    { on: o.estimation.samples > 0, what: 'How long things really take',
+      needs: 'Set a duration on a task, then run the timer on it. Clarity compares the two.' },
+    { on: o.rhythm.samples > 0, what: 'When you actually work',
+      needs: 'Move a task to In progress or Done. The time of that change is the signal.' },
+    { on: o.latency.samples > 0, what: 'How long before you start',
+      needs: 'Same — it measures from writing a task down to first moving it to In progress.' },
+    { on: o.slippage.totalSlips > 0, what: 'Deadlines you moved',
+      needs: 'Change a deadline to a later date. Nothing to report until you do.' },
+  ];
+  return (
+    <Section title="Not measurable yet" note="four of five need data the app has not seen" T={T}>
+      <div style={{
+        padding: '14px 16px', background: T.paperSubtle,
+        border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.55 }}>
+          Clarity measures what you do in the app, not what your task list looks like. None of
+          the tasks it can see have been timed, started, or rescheduled here — so there is
+          genuinely nothing to report. It fills in as you work, without anything being rebuilt.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {rows.filter(r => !r.on).map(r => (
+            <div key={r.what} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 12, alignItems: 'baseline' }}>
+              <span style={{ fontSize: 12.5, color: T.ink80 }}>{r.what}</span>
+              <span style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.5 }}>{r.needs}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
 export default function PatternsView() {
@@ -249,6 +289,12 @@ export default function PatternsView() {
     return <div style={wrap}><div style={{ color: T.ink40, fontSize: 13.5 }}>Reading your history…</div></div>;
   }
 
+  // Nothing the app itself recorded. Tasks may exist, but none carry a timing,
+  // a status change or a rescheduling — the three things every metric below reads.
+  const nothingRecorded =
+    o.estimation.samples === 0 && o.latency.samples === 0 &&
+    o.rhythm.samples === 0 && o.slippage.totalSlips === 0;
+
   const maxHour = Math.max(...o.rhythm.hours, 1);
   const maxWeekday = Math.max(...o.rhythm.weekdays, 1);
 
@@ -315,6 +361,7 @@ export default function PatternsView() {
         </div>
       </Section>
 
+      {nothingRecorded ? <NothingYet o={o} T={T} /> : (<>
       {/* ── Estimation ── */}
       <Section title="How well you estimate" note={`${o.estimation.samples} task${o.estimation.samples === 1 ? '' : 's'} both estimated and timed`} T={T}>
         {!o.estimation.enough ? (
@@ -389,6 +436,8 @@ export default function PatternsView() {
         )}
       </Section>
 
+      </>)}
+
       {/* ── Abandonment ── */}
       <Section title="What you let go" note={`${o.abandonment.count} archived without finishing`} T={T}>
         {!o.abandonment.enough ? (
@@ -411,6 +460,7 @@ export default function PatternsView() {
       </Section>
 
       {/* ── Rhythm ── */}
+      {!nothingRecorded && (
       <Section title="When you actually work" note={o.rhythm.enough ? `busiest around ${hourLabel(o.rhythm.peakHour)}` : null} T={T}>
         {!o.rhythm.enough ? (
           <NotEnough samples={o.rhythm.samples} what="your working rhythm" T={T} />
@@ -439,6 +489,7 @@ export default function PatternsView() {
           </>
         )}
       </Section>
+      )}
 
       <div style={{
         marginTop: 34, paddingTop: 16, borderTop: `1px solid ${T.hairlineSoft}`,
