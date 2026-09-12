@@ -419,6 +419,22 @@ app.get('/api/context/preview', (req, res) => {
   });
 });
 
+// Contest or confirm a belief. Rejections are kept forever — that is what stops
+// the same conclusion being re-derived on the next recompute.
+app.post('/api/profile/insights/:id/reject', (req, res) => {
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : null;
+  const insight = profileStore.judgeInsight(req.params.id, 'user-rejected', { reason });
+  if (!insight) return res.status(404).json({ error: 'Insight not found' });
+  try { profileStore.appendEntry({ kind: 'correction', insightId: insight.id, statement: insight.statement, reason }); } catch {}
+  res.json({ insight });
+});
+
+app.post('/api/profile/insights/:id/confirm', (req, res) => {
+  const insight = profileStore.judgeInsight(req.params.id, 'active');
+  if (!insight) return res.status(404).json({ error: 'Insight not found' });
+  res.json({ insight });
+});
+
 app.get('/api/profile/journal', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 1000);
   const kinds = typeof req.query.kinds === 'string' ? req.query.kinds.split(',') : null;

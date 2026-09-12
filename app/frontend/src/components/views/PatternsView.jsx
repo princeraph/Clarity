@@ -75,6 +75,94 @@ function Bar({ value, max, color, T }) {
   );
 }
 
+
+// A belief, with the evidence behind it and the two verdicts that matter.
+// Showing the basis is the point: a conclusion you cannot check is one you have
+// to take on faith, which is exactly what this layer must not ask for.
+function InsightCard({ insight, onReject, onConfirm, busy, T }) {
+  const [showWhy, setShowWhy] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const stale = insight.status === 'stale';
+
+  return (
+    <div style={{
+      border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+      background: T.paperSubtle, padding: '13px 15px',
+      display: 'flex', flexDirection: 'column', gap: 9,
+      opacity: stale ? 0.62 : 1,
+    }}>
+      <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{insight.statement}</div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
+          {Math.round(insight.confidence * 100)}% confident
+          {stale && ' · no longer supported'}
+        </span>
+        <button onClick={() => setShowWhy(w => !w)} style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          fontFamily: T.fontUI, fontSize: 11.5, color: T.accentInk, textDecoration: 'underline',
+        }}>{showWhy ? 'hide the basis' : 'why does it think this?'}</button>
+      </div>
+
+      {showWhy && (
+        <div style={{
+          background: T.paper, border: `1px solid ${T.hairlineSoft}`, borderRadius: T.r6,
+          padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          {insight.evidence.map((e, i) => (
+            <div key={i} style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60, wordBreak: 'break-word' }}>
+              {e.kind} · {e.ref}{e.note ? ` — ${e.note}` : ''}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {rejecting ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <input
+            id={`reject-reason-${insight.id}`}
+            value={reason} onChange={e => setReason(e.target.value)}
+            placeholder="What is it getting wrong? (optional, but it learns from this)"
+            style={{
+              padding: '7px 10px', background: T.paper, border: `1px solid ${T.hairline}`,
+              borderRadius: T.r6, fontSize: 12.5, color: T.ink, fontFamily: T.fontUI, outline: 'none',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 7 }}>
+            <button disabled={busy} onClick={() => { onReject(insight, reason.trim() || null); setRejecting(false); }} style={{
+              padding: '6px 12px', background: T.dangerSoft, color: T.danger,
+              border: `1px solid ${T.dangerBorder}`, borderRadius: T.r6,
+              fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+            }}>Reject this</button>
+            <button onClick={() => setRejecting(false)} style={{
+              padding: '6px 12px', background: 'transparent', color: T.ink60,
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+            }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 7 }}>
+          <button disabled={busy} onClick={() => setRejecting(true)} style={{
+            padding: '5px 11px', background: 'transparent', color: T.ink60,
+            border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+            fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+          }}>That’s wrong</button>
+          {stale && (
+            <button disabled={busy} onClick={() => onConfirm(insight)} style={{
+              padding: '5px 11px', background: 'transparent', color: T.ink60,
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+            }}>Still true</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
 export default function PatternsView() {
@@ -108,9 +196,33 @@ export default function PatternsView() {
     } finally { setBusy(false); }
   }
 
+  async function judge(insight, verdict, reason) {
+    setBusy(true);
+    try {
+      await fetch(`${API}/profile/insights/${insight.id}/${verdict}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      await load();
+    } catch {
+      setError('Could not reach the backend.');
+    } finally { setBusy(false); }
+  }
+
   useEffect(() => { load(); }, []);
 
   const o = profile?.observed;
+
+  // Active first, then stale. Rejected insights are kept on disk but never
+  // shown again — the point of rejecting one is not to see it.
+  const insights = useMemo(() => {
+    const all = Object.values(profile?.understanding || {}).flat().filter(Boolean);
+    const rank = { active: 0, stale: 1 };
+    return all
+      .filter(i => i.status === 'active' || i.status === 'stale')
+      .sort((a, b) => (rank[a.status] - rank[b.status]) || (b.confidence - a.confidence));
+  }, [profile]);
 
   // Areas worth showing: those with a real sample behind them, worst first.
   const estimationAreas = useMemo(() => {
@@ -152,6 +264,26 @@ export default function PatternsView() {
           planned, what you started and what you let go. Measured, not guessed: no AI is involved on this page.
         </p>
       </div>
+
+      {insights.length > 0 && (
+        <Section
+          title="What Clarity thinks this means"
+          note={`${insights.length} conclusion${insights.length === 1 ? '' : 's'} · each one you can throw out`}
+          T={T}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {insights.map(i => (
+              <InsightCard key={i.id} insight={i} busy={busy} T={T}
+                onReject={(ins, reason) => judge(ins, 'reject', reason)}
+                onConfirm={(ins) => judge(ins, 'confirm')} />
+            ))}
+          </div>
+          <p style={{ fontSize: 11.5, color: T.ink40, marginTop: 10, lineHeight: 1.55 }}>
+            These are drawn from the measurements below — no model decides what is true about you.
+            Rejecting one is permanent: it will not be worked out again.
+          </p>
+        </Section>
+      )}
 
       {/* ── Load: the only thing about right now ── */}
       <Section title="Right now" T={T}>

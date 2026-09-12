@@ -14,6 +14,7 @@ import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { writeJSONAtomic, quarantine, appendJSONL, readJSONL } from '../storage.js';
 import { computeObserved } from './metrics.js';
+import { deriveInsights, mergeInsights, setInsightStatus } from './insights.js';
 
 export const PROFILE_VERSION = 1;
 
@@ -88,13 +89,33 @@ export function createProfileStore({ dataDir, log = console }) {
     writeJSONAtomic(PROFILE_FILE, { ...profile, updatedAt: new Date().toISOString() });
   }
 
-  // Recompute the observed layer from the task store. Deterministic, and the
-  // only writer of `observed` — the model never touches it.
+  // Recompute the observed layer from the task store, then fold what follows
+  // from it into the understanding layer. Deterministic end to end — the model
+  // writes neither layer. Insights the user rejected are blocked here, so a
+  // recompute can never resurrect a conclusion they threw out.
   function recompute(tasks, opts = {}) {
     const profile = readProfile();
     profile.observed = computeObserved(tasks, opts);
+
+    const merge = mergeInsights(profile.understanding, deriveInsights(profile.observed), { now: opts.now });
+    profile.understanding = merge.understanding;
+    if (merge.invalid.length) {
+      log.error(`[Clarity] ${merge.invalid.length} derived insight(s) refused: ${merge.invalid.map(i => i.error).join('; ')}`);
+    }
+
     saveProfile(profile);
     return profile;
+  }
+
+  // The user's verdict on a belief. A rejection is stored, not deleted — that
+  // record is what keeps the conclusion from being derived again.
+  function judgeInsight(id, status, { reason = null } = {}) {
+    const profile = readProfile();
+    const result = setInsightStatus(profile.understanding, id, status, { reason });
+    if (!result.changed) return null;
+    profile.understanding = result.understanding;
+    saveProfile(profile);
+    return result.insight;
   }
 
   function appendEntry(entry) {
@@ -120,7 +141,7 @@ export function createProfileStore({ dataDir, log = console }) {
 
   return {
     PROFILE_FILE, JOURNAL_FILE,
-    readProfile, saveProfile, recompute,
+    readProfile, saveProfile, recompute, judgeInsight,
     appendEntry, readEntries,
   };
 }
