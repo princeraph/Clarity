@@ -644,6 +644,12 @@ app.delete('/api/tasks/all', (req, res) => {
   data.tasks = [];
   data.analysis = null;
   saveData(data);
+  // Clearing the task list has to clear what was derived from it. Immediate
+  // rather than debounced: someone who just wiped their tasks may open Patterns
+  // in the next second, and a cached profile there would be stating conclusions
+  // about tasks that no longer exist.
+  try { profileStore.recompute(data.tasks); }
+  catch (err) { console.error('[Clarity] profile recompute failed:', err.message); }
   res.json({ success: true });
 });
 
@@ -705,6 +711,10 @@ app.post('/api/tasks/:id/timer/stop', (req, res) => {
     task.timerStarted = null;
     task.updatedAt = new Date().toISOString();
     saveData(data);
+    // timeTracked is what the estimation metric compares against the estimate.
+    // Without this the number only ever refreshed when some unrelated edit
+    // happened to trigger a pass — so timing a task appeared to change nothing.
+    scheduleProfileRecompute(data.tasks);
   }
   res.json({ task });
 });
