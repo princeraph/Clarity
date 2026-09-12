@@ -5,6 +5,8 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { createProvider } from './src/llm/index.js';
+import { writeJSONAtomic } from './src/storage.js';
+import { createProfileStore } from './src/profile/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -45,14 +47,6 @@ const emptyStore = () => ({ tasks: [], analysis: null, weeklySummary: null });
 // A store is only usable if it parses AND carries a tasks array. `{}` or a
 // half-written file must never be mistaken for "no tasks yet".
 const isStore = (d) => !!d && typeof d === 'object' && Array.isArray(d.tasks);
-
-// Write through a temp file: a crash mid-write leaves the previous file intact
-// instead of truncating it, which is what turned one bad write into total loss.
-function writeJSONAtomic(file, payload) {
-  const tmp = `${file}.tmp`;
-  writeFileSync(tmp, JSON.stringify(payload, null, 2));
-  renameSync(tmp, file);
-}
 
 // Newest backup that actually parses — the most recent file is not necessarily
 // the most recent *good* one.
@@ -117,15 +111,47 @@ function runDailyBackup() {
   if (!existsSync(dest)) {
     try { copyFileSync(DATA_FILE, dest); } catch {}
   }
-  // Trim to last 7
-  try {
-    const files = readdirSync(BACKUPS_DIR)
-      .filter(f => f.startsWith('tasks-') && f.endsWith('.json'))
-      .sort();
-    files.slice(0, Math.max(0, files.length - 7)).forEach(f => {
-      try { unlinkSync(join(BACKUPS_DIR, f)); } catch {}
-    });
-  } catch {}
+
+  // The profile rides the same rotation. Its observed layer is recomputable,
+  // but `understanding` accumulates from conversation and cannot be rebuilt
+  // from anything — losing it is the one unrecoverable loss in the app.
+  const profileFile = join(DATA_DIR, 'profile.json');
+  if (existsSync(profileFile)) {
+    const pDest = join(BACKUPS_DIR, `profile-${stamp}.json`);
+    let parses = true;
+    try { JSON.parse(readFileSync(profileFile, 'utf8')); } catch { parses = false; }
+    if (parses && !existsSync(pDest)) {
+      try { copyFileSync(profileFile, pDest); } catch {}
+    }
+  }
+
+  // Trim each series to its own last 7 — one shared list would let a run of
+  // task backups evict every profile backup.
+  for (const prefix of ['tasks-', 'profile-']) {
+    try {
+      const files = readdirSync(BACKUPS_DIR)
+        .filter(f => f.startsWith(prefix) && f.endsWith('.json'))
+        .sort();
+      files.slice(0, Math.max(0, files.length - 7)).forEach(f => {
+        try { unlinkSync(join(BACKUPS_DIR, f)); } catch {}
+      });
+    } catch {}
+  }
+}
+
+// ─── Profile store ────────────────────────────────────────────────────────────
+
+const profileStore = createProfileStore({ dataDir: DATA_DIR });
+
+// Recompute the observed layer whenever the task set changes. Debounced with
+// the same idea as scheduleAnalysis: a burst of edits should cost one pass.
+let profileDebounce = null;
+function scheduleProfileRecompute(tasks) {
+  if (profileDebounce) clearTimeout(profileDebounce);
+  profileDebounce = setTimeout(() => {
+    try { profileStore.recompute(tasks); }
+    catch (err) { console.error('[Clarity] profile recompute failed:', err.message); }
+  }, 1000);
 }
 
 // ─── Recurring helpers ────────────────────────────────────────────────────────
@@ -336,6 +362,34 @@ app.get('/api/backups', (req, res) => {
   } catch { res.json({ backups: [] }); }
 });
 
+// ── Profile ───────────────────────────────────────────────────────────────────
+//
+// Local-only. Nothing here is ever composed into a prompt bound for a cloud
+// provider — that path goes through the outbound-context builder, which reads a
+// bounded brief rather than this route's output.
+
+app.get('/api/profile', (req, res) => {
+  const profile = profileStore.readProfile();
+  // Recompute on first read so a fresh install has real numbers immediately,
+  // rather than an empty panel until the next task edit.
+  if (!profile.observed) {
+    try { return res.json(profileStore.recompute(readData().tasks)); }
+    catch (err) { console.error('[Clarity] first profile compute failed:', err.message); }
+  }
+  res.json(profile);
+});
+
+app.post('/api/profile/recompute', (req, res) => {
+  const windowDays = Number.isFinite(req.body?.windowDays) ? req.body.windowDays : undefined;
+  res.json(profileStore.recompute(readData().tasks, windowDays === undefined ? {} : { windowDays }));
+});
+
+app.get('/api/profile/journal', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 1000);
+  const kinds = typeof req.query.kinds === 'string' ? req.query.kinds.split(',') : null;
+  res.json(profileStore.readEntries({ limit, kinds }));
+});
+
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 const VALID_STATUSES   = new Set(['not_started', 'in_progress', 'done']);
@@ -454,6 +508,7 @@ app.post('/api/tasks', (req, res) => {
   data.tasks.push(task);
   saveData(data);
   scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
   res.json({ task, analyzing: true });
 });
 
@@ -494,6 +549,7 @@ app.put('/api/tasks/:id', (req, res) => {
 
   saveData(data);
   scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
   res.json({ task: data.tasks[idx], analyzing: true });
 });
 
@@ -513,6 +569,7 @@ app.delete('/api/tasks/:id', (req, res) => {
   }
   saveData(data);
   scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
   res.json({ success: true });
 });
 
@@ -525,6 +582,7 @@ app.post('/api/tasks/:id/archive', (req, res) => {
     data.analysis.taskAnalysis = data.analysis.taskAnalysis.filter(a => a.id !== req.params.id);
   }
   saveData(data); scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
   res.json({ task });
 });
 
@@ -534,6 +592,7 @@ app.post('/api/tasks/:id/restore', (req, res) => {
   if (!task) return res.status(404).json({ error: 'Task not found' });
   task.archived = false; task.archivedAt = null; task.updatedAt = new Date().toISOString();
   saveData(data); scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
   res.json({ task });
 });
 
@@ -571,6 +630,7 @@ app.post('/api/analyze', (req, res) => {
   const active = data.tasks.filter(t => !t.archived && t.status !== 'done');
   if (!active.length) return res.json({ message: 'No active tasks' });
   scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
   res.json({ analyzing: true });
 });
 
@@ -787,11 +847,24 @@ const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 // machine and therefore still reaches 127.0.0.1 without opening the port.
 const BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1';
 
-app.listen(PORT, BIND_HOST, () => {
+const server = app.listen(PORT, BIND_HOST, () => {
   const s = readSettings();
   console.log(`[Clarity v${VERSION}] Backend on ${BIND_HOST}:${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
   runDailyBackup();
   // Once at startup was not enough: a machine left running for days never took a
   // second snapshot, so the day's work had no backup behind it.
   setInterval(runDailyBackup, BACKUP_INTERVAL_MS).unref();
+});
+
+// Failing to bind is fatal, not survivable. The uncaughtException handler above
+// exists so a bad *request* cannot kill the process — but applied to a startup
+// bind failure it left a live process with no listener, which looks to the
+// Electron shell exactly like a backend that is merely slow to start.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[Clarity] port ${PORT} is already in use — another Clarity backend is probably running.`);
+  } else {
+    console.error('[Clarity] server failed to start:', err.message);
+  }
+  process.exit(1);
 });
