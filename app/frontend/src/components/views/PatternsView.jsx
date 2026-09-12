@@ -256,13 +256,23 @@ export default function PatternsView() {
     <div style={wrap}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-          from {o.tasksConsidered} task{o.tasksConsidered === 1 ? '' : 's'} · last {o.windowDays} days
+          from {o.tasksConsidered} task{o.tasksConsidered === 1 ? '' : 's'} · {o.windowDays > 0 ? `last ${o.windowDays} days` : 'all of your history'}
         </div>
         <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>Patterns</h1>
         <p style={{ margin: '10px 0 0', fontSize: 13.5, color: T.ink60, maxWidth: '62ch', lineHeight: 1.6 }}>
           What Clarity has noticed from your own history — deadlines you moved, time you tracked against what you
           planned, what you started and what you let go. Measured, not guessed: no AI is involved on this page.
         </p>
+        {o.windowFellBack && (
+          <p style={{
+            margin: '12px 0 0', fontSize: 12.5, color: T.ink60, lineHeight: 1.55,
+            padding: '10px 13px', background: T.paperSubtle,
+            border: `1px solid ${T.hairline}`, borderRadius: T.r6, maxWidth: '62ch',
+          }}>
+            Nothing you worked on falls inside the last {o.windowDaysRequested} days, so this covers
+            everything instead. Recent work would normally be weighted on its own.
+          </p>
+        )}
       </div>
 
       {insights.length > 0 && (

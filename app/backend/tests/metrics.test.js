@@ -244,17 +244,49 @@ describe('computeObserved', () => {
     expect(() => computeObserved([null, undefined, {}, task()])).not.toThrow();
   });
 
-  test('the window excludes stale tasks but load still sees everything open', () => {
+  test('load ignores the window entirely — it is about right now', () => {
     const now = new Date(2026, 8, 12);
+    // Enough recent tasks that the window stands on its own and no fallback fires.
+    const recent = Array.from({ length: 6 }, () =>
+      task({ createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' }));
     const old = task({ createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z' });
-    const recent = task({ createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' });
-    const r = computeObserved([old, recent], { now, windowDays: 90 });
-    expect(r.tasksConsidered).toBe(1);
-    expect(r.load.openTasks).toBe(2);
+    const r = computeObserved([old, ...recent], { now, windowDays: 90 });
+    expect(r.tasksConsidered).toBe(6);      // the stale one is excluded
+    expect(r.windowFellBack).toBe(false);
+    expect(r.load.openTasks).toBe(7);       // but load counts it
   });
 
   test('windowDays 0 means all of history', () => {
     const old = task({ createdAt: '2020-01-01T00:00:00.000Z', updatedAt: '2020-01-01T00:00:00.000Z' });
     expect(computeObserved([old], { windowDays: 0 }).tasksConsidered).toBe(1);
+  });
+
+  // Someone coming back after a quiet stretch has every task outside the window.
+  // Showing "0 tasks" beside a sidebar listing thirteen reads as a broken page.
+  test('falls back to all history when the window would leave almost nothing', () => {
+    const now = new Date(2026, 8, 12);
+    const stale = Array.from({ length: 13 }, () =>
+      task({ createdAt: '2026-05-24T10:00:00.000Z', updatedAt: '2026-05-26T10:00:00.000Z' }));
+    const r = computeObserved(stale, { now, windowDays: 90 });
+    expect(r.tasksConsidered).toBe(13);
+    expect(r.windowFellBack).toBe(true);
+    expect(r.windowDaysRequested).toBe(90);
+    expect(r.windowDays).toBe(0);
+  });
+
+  test('does NOT fall back when the window holds enough on its own', () => {
+    const now = new Date(2026, 8, 12);
+    const recent = Array.from({ length: 6 }, () =>
+      task({ createdAt: '2026-09-01T10:00:00.000Z', updatedAt: '2026-09-05T10:00:00.000Z' }));
+    const ancient = Array.from({ length: 20 }, () =>
+      task({ createdAt: '2020-01-01T10:00:00.000Z', updatedAt: '2020-01-01T10:00:00.000Z' }));
+    const r = computeObserved([...recent, ...ancient], { now, windowDays: 90 });
+    expect(r.tasksConsidered).toBe(6);
+    expect(r.windowFellBack).toBe(false);
+    expect(r.windowDays).toBe(90);
+  });
+
+  test('an empty store does not claim to have fallen back', () => {
+    expect(computeObserved([]).windowFellBack).toBe(false);
   });
 });

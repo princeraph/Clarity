@@ -298,16 +298,25 @@ export function computeObserved(allTasks, { now = new Date(), windowDays = 90 } 
   const cutoff = windowDays > 0
     ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - windowDays)
     : null;
-  const inWindow = cutoff
+  const windowed = cutoff
     ? tasks.filter(t => {
         const ref = parseISO(t.updatedAt) || parseISO(t.createdAt);
         return !ref || ref >= cutoff;
       })
     : tasks;
 
+  // Someone returning after a quiet few months has every task outside the
+  // window. Reporting "0 tasks · not enough data" next to a sidebar showing
+  // thirteen of them reads as a broken page, not as a considered silence — so
+  // fall back to the whole history and say so, rather than show nothing.
+  const tooThin = windowed.length < MIN_SAMPLES && tasks.length > windowed.length;
+  const inWindow = tooThin ? tasks : windowed;
+
   return {
     computedAt: new Date().toISOString(),
-    windowDays,
+    windowDays: tooThin ? 0 : windowDays,      // 0 means "all of it"
+    windowDaysRequested: windowDays,
+    windowFellBack: tooThin,
     tasksConsidered: inWindow.length,
     estimation:  computeEstimation(inWindow),
     slippage:    computeSlippage(inWindow),
