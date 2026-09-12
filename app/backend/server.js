@@ -446,6 +446,36 @@ app.get('/api/profile/journal', (req, res) => {
   res.json(profileStore.readEntries({ limit, kinds }));
 });
 
+// Serve one backup for download. The name is matched against the exact pattern
+// the rotation writes — never joined from user input directly, or a crafted
+// name would walk out of the backups directory and serve any file on disk.
+const BACKUP_NAME = /^(tasks|profile)-\d{4}-\d{2}-\d{2}\.json$/;
+
+app.get('/api/backups/:name', (req, res) => {
+  const { name } = req.params;
+  if (!BACKUP_NAME.test(name)) return res.status(400).json({ error: 'Not a backup file name' });
+  const file = join(BACKUPS_DIR, name);
+  if (!existsSync(file)) return res.status(404).json({ error: 'No such backup' });
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+  res.send(readFileSync(file, 'utf8'));
+});
+
+// Factory reset. The button offering this used to ask "All data will be lost?"
+// and then reload the window, deleting nothing — a destructive-looking control
+// that was pure theatre. It now does what it says, and says what it does not do:
+// the daily backups are deliberately left in place, so a reset is survivable.
+app.post('/api/reset', (req, res) => {
+  const removed = [];
+  for (const file of [DATA_FILE, SETTINGS_FILE, join(DATA_DIR, 'profile.json'), join(DATA_DIR, 'journal.jsonl')]) {
+    if (!existsSync(file)) continue;
+    try { unlinkSync(file); removed.push(file.split(/[\\/]/).pop()); }
+    catch (err) { console.error(`[Clarity] reset could not remove ${file}: ${err.message}`); }
+  }
+  console.log(`[Clarity] factory reset — removed ${removed.join(', ') || 'nothing'}; backups kept`);
+  res.json({ ok: true, removed, backupsKept: true });
+});
+
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 const VALID_STATUSES   = new Set(['not_started', 'in_progress', 'done']);

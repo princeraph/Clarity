@@ -1023,7 +1023,18 @@ export default function SettingsView({ onSaved }) {
                     color: T.danger, cursor: 'pointer', fontFamily: T.fontUI,
                   }}>Delete all tasks</button>
                 <button
-                  onClick={() => confirm('Reset Clarity to factory defaults? All data will be lost.') && window.location.reload()}
+                  onClick={async () => {
+                    // This used to confirm and then merely reload, deleting nothing.
+                    // The wording now matches what actually happens, backups included.
+                    if (!confirm('Reset Clarity to factory defaults?\n\nTasks, settings and everything Clarity has learned about you will be deleted. Your daily backups are kept.')) return;
+                    try {
+                      const r = await fetch(`${API}/reset`, { method: 'POST' });
+                      if (r.ok) window.location.reload();
+                      else alert('Reset failed — nothing was changed.');
+                    } catch {
+                      alert('Could not reach the backend — nothing was changed.');
+                    }
+                  }}
                   style={{
                     padding: '9px 18px', background: T.danger,
                     border: 'none', borderRadius: T.r6, fontSize: 13,
