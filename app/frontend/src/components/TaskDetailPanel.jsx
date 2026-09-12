@@ -209,7 +209,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
       const resp = await fetch(`${API}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...task, deadline: newDeadline || null }),
+        body: JSON.stringify({ deadline: newDeadline || null }),
       });
       if (!resp.ok) throw new Error('Server error');
       onSaved?.();
@@ -451,7 +451,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                   const resp = await fetch(`${API}/tasks/${task.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...task, recurring }),
+                    body: JSON.stringify({ recurring }),
                   });
                   if (!resp.ok) throw new Error();
                   onSaved?.();

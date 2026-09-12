@@ -333,12 +333,26 @@ function isCalendarDate(v) {
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
-function validateTask(body, res) {
-  if (!body || typeof body !== 'object')
-    return res.status(400).json({ error: 'Invalid request body' });
-  if (!body.title?.trim())
-    return res.status(400).json({ error: 'Title is required' });
+// The only fields a client may set. Everything else on a task — timerStarted,
+// timeTracked, archived, archivedAt, createdAt, id, history, updatedAt — is
+// owned by the server and has its own endpoint where it can change at all.
+const MUTABLE_FIELDS = [
+  'title', 'description', 'deadline', 'time', 'estimatedDuration',
+  'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
+];
 
+function pickMutable(body) {
+  const patch = {};
+  for (const key of MUTABLE_FIELDS) {
+    if (body[key] !== undefined) patch[key] = body[key];
+  }
+  if (typeof patch.title === 'string') patch.title = patch.title.trim();
+  return patch;
+}
+
+// Field rules shared by create and update. The title rule is not here because
+// it differs between the two: required on create, merely non-blank on update.
+function validateFields(body, res) {
   // `status` is checked on presence, not truthiness. The old `if (body.status)`
   // let an explicit null through, and a null status crashes every later AI call.
   if (body.status !== undefined && !VALID_STATUSES.has(body.status))
@@ -365,6 +379,24 @@ function validateTask(body, res) {
   return null;
 }
 
+function validateCreate(body, res) {
+  if (!body || typeof body !== 'object')
+    return res.status(400).json({ error: 'Invalid request body' });
+  if (!body.title?.trim())
+    return res.status(400).json({ error: 'Title is required' });
+  return validateFields(body, res);
+}
+
+// A partial update carries only what changed, so demanding a title on every call
+// — as the single shared validator used to — rejected honest edits with a 400.
+function validateUpdate(body, res) {
+  if (!body || typeof body !== 'object')
+    return res.status(400).json({ error: 'Invalid request body' });
+  if (body.title !== undefined && !String(body.title ?? '').trim())
+    return res.status(400).json({ error: 'Title cannot be empty' });
+  return validateFields(body, res);
+}
+
 app.get('/api/tasks', (req, res) => {
   const data = readData();
   res.json({
@@ -378,7 +410,7 @@ app.get('/api/tasks', (req, res) => {
 });
 
 app.post('/api/tasks', (req, res) => {
-  if (validateTask(req.body, res)) return;
+  if (validateCreate(req.body, res)) return;
   const data = readData();
   const now = new Date().toISOString();
   const task = {
@@ -409,30 +441,33 @@ app.post('/api/tasks', (req, res) => {
 });
 
 app.put('/api/tasks/:id', (req, res) => {
-  if (validateTask(req.body, res)) return;
+  if (validateUpdate(req.body, res)) return;
   const data = readData();
   const idx = data.tasks.findIndex(t => t.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Task not found' });
 
   const prev = data.tasks[idx];
+  // Spreading the raw body let a client overwrite anything on the task, including
+  // the fields the timer and archive endpoints own. Only the whitelist gets in.
+  const patch = pickMutable(req.body);
   const at = new Date().toISOString();
   const newEntries = [];
-  if (req.body.status !== undefined && req.body.status !== prev.status)
-    newEntries.push({ at, type: 'status', from: prev.status, to: req.body.status });
-  if (req.body.deadline !== undefined && req.body.deadline !== prev.deadline)
-    newEntries.push({ at, type: 'deadline', from: prev.deadline, to: req.body.deadline });
-  if (req.body.tags !== undefined) {
+  if (patch.status !== undefined && patch.status !== prev.status)
+    newEntries.push({ at, type: 'status', from: prev.status, to: patch.status });
+  if (patch.deadline !== undefined && patch.deadline !== prev.deadline)
+    newEntries.push({ at, type: 'deadline', from: prev.deadline, to: patch.deadline });
+  if (patch.tags !== undefined) {
     const sortedPrev = [...(prev.tags || [])].sort();
-    const sortedNext = [...(req.body.tags || [])].sort();
+    const sortedNext = [...(patch.tags || [])].sort();
     if (sortedPrev.join(',') !== sortedNext.join(','))
       newEntries.push({ at, type: 'area', from: sortedPrev[0] || null, to: sortedNext[0] || null });
   }
   const history = [...(prev.history || []), ...newEntries].slice(-200);
-  const updated = { ...prev, ...req.body, id: req.params.id, updatedAt: at, history };
+  const updated = { ...prev, ...patch, id: req.params.id, updatedAt: at, history };
   data.tasks[idx] = updated;
 
   // Spawn next occurrence when recurring task is marked done — guard against double-click
-  if (req.body.status === 'done' && prev.status !== 'done' && updated.recurring && updated.recurring !== 'none') {
+  if (patch.status === 'done' && prev.status !== 'done' && updated.recurring && updated.recurring !== 'none') {
     const next = nextDeadline(updated.deadline, updated.recurring);
     const alreadySpawned = data.tasks.some(t =>
       t.title === updated.title && t.deadline === next && t.recurring === updated.recurring && t.status !== 'done'
