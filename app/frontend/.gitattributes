@@ -1,0 +1,12 @@
+# dist/ is a build artifact versioned on purpose — Electron loads it at runtime,
+# so the app must run from a bare clone. That only holds if the bytes here are
+# the bytes Vite produced.
+#
+# Without this, git on Windows (core.autocrlf=true, the default) rewrites LF to
+# CRLF on checkout. The next `npm run build` writes LF back, and dist/ shows as
+# modified — which blocks `git pull` on any machine that has run setup.bat,
+# naming files the user never edited.
+#
+# This file lives beside dist/, not inside it: `vite build` empties the output
+# directory, so a .gitattributes placed within dist/ is deleted by every build.
+dist/** -text

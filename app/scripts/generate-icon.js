@@ -87,12 +87,18 @@ function createICO(pngBuf, size) {
 function renderSVG(svgStr, outputSize) {
   const tmpSvg = path.join(BUILD_DIR, '_tmp_icon.svg');
   fs.writeFileSync(tmpSvg, svgStr, 'utf8');
-  const pngBuf = execSync(
-    `rsvg-convert -w ${outputSize} -h ${outputSize} -f png "${tmpSvg}"`,
-    { encoding: 'buffer' }
-  );
-  fs.unlinkSync(tmpSvg);
-  return pngBuf;
+  try {
+    return execSync(
+      `rsvg-convert -w ${outputSize} -h ${outputSize} -f png "${tmpSvg}"`,
+      { encoding: 'buffer' }
+    );
+  } finally {
+    // Cleanup has to run even when the conversion fails. rsvg-convert is
+    // usually absent on Windows, and the throw used to skip the unlink below —
+    // leaving _tmp_icon.svg behind as an untracked file in build/, which is a
+    // directory git is watching.
+    try { fs.unlinkSync(tmpSvg); } catch {}
+  }
 }
 
 // ── Generate ───────────────────────────────────────────────────────────────
