@@ -18,6 +18,7 @@ import ContextMenu from './components/ContextMenu.jsx';
 import OnboardingView from './components/OnboardingView.jsx';
 import HistoryView from './components/views/HistoryView.jsx';
 import GraphView from './components/views/GraphView.jsx';
+import PatternsView from './components/views/PatternsView.jsx';
 import FocusMode from './components/FocusMode.jsx';
 import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TutorialOverlay from './components/TutorialOverlay.jsx';
@@ -484,6 +485,9 @@ function AppInner() {
           )}
           {view === 'graph' && (
             <GraphView rankedTasks={rankedTasks} onOpenDetail={openDetail} />
+          )}
+          {view === 'patterns' && (
+            <PatternsView />
           )}
           {view === 'topic-detail' && (
             <TopicDetailView

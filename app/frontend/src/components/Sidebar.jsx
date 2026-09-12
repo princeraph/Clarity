@@ -84,6 +84,15 @@ function AskClarityNavItem({ active, onClick, T }) {
   );
 }
 
+const IcoPatterns = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <line x1="2.5" y1="13.5" x2="13.5" y2="13.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+    <rect x="3" y="8.5" width="2.4" height="4" stroke={color} strokeWidth="1.2" />
+    <rect x="6.8" y="5" width="2.4" height="7.5" stroke={color} strokeWidth="1.2" />
+    <rect x="10.6" y="2.5" width="2.4" height="10" stroke={color} strokeWidth="1.2" />
+  </svg>
+);
+
 const NAV_ITEMS = [
   { id: 'inbox',    label: 'Inbox',    view: 'tasks',    Icon: IcoInbox },
   { id: 'today',    label: 'Today',    view: 'focus',    Icon: IcoToday },
@@ -92,6 +101,7 @@ const NAV_ITEMS = [
   { id: 'someday',  label: 'Archive',  view: 'archive',  Icon: IcoSomeday },
   { id: 'history',  label: 'History',  view: 'history',  Icon: IcoHistory },
   { id: 'graph',    label: 'Graph',    view: 'graph',    Icon: IcoGraph },
+  { id: 'patterns', label: 'Patterns', view: 'patterns', Icon: IcoPatterns },
 ];
 
 function NavItemCollapsed({ item, active, onClick, accent, T }) {
