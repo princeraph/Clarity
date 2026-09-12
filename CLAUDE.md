@@ -37,6 +37,14 @@ Electron opens **two** windows off the same Vite build:
   (`window.location.hash === '#tray'`) and renders `<TrayMenu />` instead of
   `<App />`.
 
+**Single instance** (`electron/main.js`): the whole startup path sits behind
+`app.requestSingleInstanceLock()`. Two copies meant two backends writing the same
+`tasks.json`, each blind to the other's writes; a second launch now focuses the
+first window instead. **Navigation is locked** on both windows via
+`lockNavigation()` — `will-navigate` is refused and `setWindowOpenHandler`
+denies, with `http(s)` URLs handed to the system browser. Either window
+navigating away would run foreign content in a renderer holding the preload bridge.
+
 Tray behaviour (`electron/main.js`): the main window's close button **hides**
 rather than quits while a tray exists (Win11 convention — app state is
 preserved); a real quit goes through the tray menu and the `quittingForReal`
@@ -58,7 +66,10 @@ below the taskbar depending on which half of the screen the icon sits in.
 
 Single Express file. All routes, business logic, AI calls, and file I/O live here.
 
-- **Data file**: `DATA_DIR/tasks.json` (default: `backend/data/tasks.json`). Readable via `readData()`, writable via `saveData(data)`.
+- **Bound to loopback**: `app.listen(PORT, BIND_HOST)` with `BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1'`. The API has **no authentication of any kind**, so binding every interface put the whole task store on the local network. Override only for the documented ngrok flow — which forwards from this machine and therefore works against `127.0.0.1` anyway.
+- **CORS allowlist**, not `*`: the Vite dev origins plus requests with **no `Origin` header** — which is what the packaged Electron renderer sends (verified: a `file://` page omits the header rather than sending `Origin: null`). An explicit `null` origin — a sandboxed iframe or `data:` URL — gets a 403.
+- **Error middleware** honours `err.status`, defaulting to 500. On an open SSE stream it writes an error frame and ends instead of trying to set a status.
+- **Data file**: `DATA_DIR/tasks.json` (default: `backend/data/tasks.json`). Readable via `readData()`, writable via `saveData(data)`. `readData()` distinguishes *missing* from *unparseable*: a corrupt file is moved aside as `tasks.corrupt-<ts>.json` and the newest parseable backup is restored, so a bad file can never be silently replaced by an empty store. `saveData()` writes through a temp file and renames, and refuses a payload with no `tasks` array.
 - **Settings file**: `DATA_DIR/settings.json`. `readSettings()` merges with `DEFAULT_SETTINGS`.
 - **Backups**: `DATA_DIR/backups/tasks-YYYY-MM-DD.json`, last 7 kept.
 - **AI providers**: `backend/src/llm/` — `OllamaProvider`, `OpenAIProvider` (also used for OpenRouter), `AnthropicProvider`. Selected via `createProvider(settings)`. All expose `ping()`, `listModels()`, `generate(prompt, opts)`, `generateJSON(prompt)`, and optionally `generateChat(system, messages, opts)`.

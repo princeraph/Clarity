@@ -244,7 +244,24 @@ process.on('uncaughtException', (err) => {
 });
 
 const app = express();
-app.use(cors({ origin: '*' }));
+
+// The API has no authentication of any kind, and it is about to hold a profile
+// of the person using it. `origin: '*'` let any page in any browser read the
+// whole task store; the allowlist covers the two origins Clarity actually uses —
+// the Electron shell (loadFile, so no Origin header) and the Vite dev server.
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:5173', 'http://127.0.0.1:5173',
+]);
+app.use(cors({
+  origin(origin, cb) {
+    // No Origin: same-process fetches from the packaged app, and curl. Allowed —
+    // the loopback bind below is what keeps those local.
+    if (!origin || ALLOWED_ORIGINS.has(origin)) return cb(null, true);
+    const err = new Error('Origin not allowed');
+    err.status = 403;
+    cb(err);
+  },
+}));
 app.use(express.json());
 
 // Express 4 forwards a throw from a *sync* handler to the error middleware but
@@ -759,14 +776,20 @@ app.use((err, req, res, next) => {
     try { res.write(`data: ${JSON.stringify({ error: err?.message || 'Internal error' })}\n\n`); } catch {}
     return res.end();
   }
-  res.status(500).json({ error: err?.message || 'Internal error' });
+  res.status(err?.status || 500).json({ error: err?.message || 'Internal error' });
 });
 
 const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 
-app.listen(PORT, () => {
+// Loopback only. `app.listen(PORT)` binds every interface, so the whole task
+// store was readable by anything on the same network — no auth, no TLS. The
+// escape hatch stays for the documented ngrok flow, which forwards from this
+// machine and therefore still reaches 127.0.0.1 without opening the port.
+const BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1';
+
+app.listen(PORT, BIND_HOST, () => {
   const s = readSettings();
-  console.log(`[Clarity v${VERSION}] Backend on :${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
+  console.log(`[Clarity v${VERSION}] Backend on ${BIND_HOST}:${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
   runDailyBackup();
   // Once at startup was not enough: a machine left running for days never took a
   // second snapshot, so the day's work had no backup behind it.
