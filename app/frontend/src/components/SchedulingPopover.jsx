@@ -102,7 +102,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
       const resp = await fetch(`${API}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...task, deadline: selectedDate || null, time: selectedTime || null, recurring: recur }),
+        body: JSON.stringify({ deadline: selectedDate || null, time: selectedTime || null, recurring: recur }),
       });
       if (!resp.ok) throw new Error();
       onSaved?.();

@@ -41,7 +41,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
       const resp = await fetch(`${API}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...task, tags }),
+        body: JSON.stringify({ tags }),
       });
       if (!resp.ok) throw new Error();
       onSaved?.();

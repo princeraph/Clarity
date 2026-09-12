@@ -307,7 +307,9 @@ function AppInner() {
       const resp = await fetch(`${API}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...task, status }),
+        // Send only what changed — the server owns timers, archive flags and
+        // createdAt, and `task` also carries the client-only aiData.
+        body: JSON.stringify({ status }),
       });
       if (!resp.ok) throw new Error();
       const fresh = await loadData();
@@ -327,7 +329,7 @@ function AppInner() {
       await fetch(`${API}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...task, subtasks }),
+        body: JSON.stringify({ subtasks }),
       });
       await loadData();
     } catch { showToast('Failed to update subtask', 'error'); }

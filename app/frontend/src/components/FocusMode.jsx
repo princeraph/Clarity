@@ -25,6 +25,25 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
   const [paused, setPaused] = useState(!task.timerStarted);
   const intervalRef = useRef(null);
 
+  // Whether the *backend* timer is running. `paused` cannot answer this for the
+  // unmount cleanup, which runs once and would close over the value from mount.
+  const backendRunningRef = useRef(!!task.timerStarted);
+  // The cleanup must not capture a stale task id or callback either.
+  const latestRef = useRef(null);
+  latestRef.current = { id: task.id, onTimerStop };
+
+  function startBackendTimer() {
+    if (backendRunningRef.current) return;
+    backendRunningRef.current = true;
+    onTimerStart?.(task.id);
+  }
+
+  function stopBackendTimer() {
+    if (!backendRunningRef.current) return Promise.resolve();
+    backendRunningRef.current = false;
+    return Promise.resolve(onTimerStop?.(task.id));
+  }
+
   useEffect(() => {
     if (!paused) {
       intervalRef.current = setInterval(() => {
@@ -41,24 +60,45 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
     if (!task.timerStarted) {
       startRef.current = Date.now();
       setPaused(false);
-      onTimerStart?.(task.id);
+      startBackendTimer();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function handlePause() {
+  // This component is keyed on the task id, so switching task — or leaving focus
+  // mode at all — unmounts it. Nothing used to stop the backend timer here, so
+  // the task you just left kept accruing time until something else stopped it.
+  useEffect(() => () => {
+    if (!backendRunningRef.current) return;
+    backendRunningRef.current = false;
+    const { id, onTimerStop: stop } = latestRef.current;
+    stop?.(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleToggleTimer() {
     if (paused) {
-      onTimerStart?.(task.id);
+      startBackendTimer();
       startRef.current = Date.now() - elapsed * 1000;
       setPaused(false);
     } else {
-      onTimerStop?.(task.id);
+      stopBackendTimer();
       setPaused(true);
     }
   }
 
+  // "Take a break" shared the toggle handler, so pressing it while already
+  // paused restarted the timer — the opposite of taking a break. It only pauses.
+  function handleBreak() {
+    if (paused) return;
+    stopBackendTimer();
+    setPaused(true);
+  }
+
   async function handleDone() {
-    if (!paused) onTimerStop?.(task.id);
+    // Awaited: stopping is what converts timerStarted into tracked minutes, and
+    // the done-write that follows reloads this task from the server.
+    await stopBackendTimer();
     onDone?.(task);
   }
 
@@ -186,9 +226,9 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <FMBtn label={paused ? '▶ Resume' : '⏸ Pause'} T={T} onClick={handlePause} />
+          <FMBtn label={paused ? '▶ Resume' : '⏸ Pause'} T={T} onClick={handleToggleTimer} />
           <FMBtn label="✓ Done" primary T={T} onClick={handleDone} />
-          <FMBtn label="Take a break" ghost T={T} onClick={handlePause} />
+          <FMBtn label="Take a break" ghost T={T} onClick={handleBreak} />
         </div>
       </div>
 

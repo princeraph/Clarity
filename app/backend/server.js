@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,18 +35,74 @@ function readSettings() {
   catch { return { ...DEFAULT_SETTINGS }; }
 }
 
-function saveSettings(s) { writeFileSync(SETTINGS_FILE, JSON.stringify(s, null, 2)); }
+function saveSettings(s) { writeJSONAtomic(SETTINGS_FILE, s); }
 function getProvider()   { return createProvider(readSettings()); }
 
 // ─── Task store ───────────────────────────────────────────────────────────────
 
-function readData() {
-  if (!existsSync(DATA_FILE)) return { tasks: [], analysis: null, weeklySummary: null };
-  try { return JSON.parse(readFileSync(DATA_FILE, 'utf8')); }
-  catch { return { tasks: [], analysis: null, weeklySummary: null }; }
+const emptyStore = () => ({ tasks: [], analysis: null, weeklySummary: null });
+
+// A store is only usable if it parses AND carries a tasks array. `{}` or a
+// half-written file must never be mistaken for "no tasks yet".
+const isStore = (d) => !!d && typeof d === 'object' && Array.isArray(d.tasks);
+
+// Write through a temp file: a crash mid-write leaves the previous file intact
+// instead of truncating it, which is what turned one bad write into total loss.
+function writeJSONAtomic(file, payload) {
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, JSON.stringify(payload, null, 2));
+  renameSync(tmp, file);
 }
 
-function saveData(data) { writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+// Newest backup that actually parses — the most recent file is not necessarily
+// the most recent *good* one.
+function newestGoodBackup() {
+  let names = [];
+  try {
+    names = readdirSync(BACKUPS_DIR)
+      .filter(f => f.startsWith('tasks-') && f.endsWith('.json'))
+      .sort();
+  } catch { return null; }
+  for (let i = names.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(readFileSync(join(BACKUPS_DIR, names[i]), 'utf8'));
+      if (isStore(parsed)) return { name: names[i], data: parsed };
+    } catch { /* try the one before it */ }
+  }
+  return null;
+}
+
+function readData() {
+  if (!existsSync(DATA_FILE)) return emptyStore();   // first run — genuinely empty
+  try {
+    const parsed = JSON.parse(readFileSync(DATA_FILE, 'utf8'));
+    if (!isStore(parsed)) throw new Error('no tasks array');
+    return parsed;
+  } catch (err) {
+    // Unreadable, which is NOT the same as absent. Returning an empty store here
+    // used to let the next save overwrite real tasks with nothing.
+    const quarantine = join(DATA_DIR, `tasks.corrupt-${Date.now()}.json`);
+    try {
+      renameSync(DATA_FILE, quarantine);
+      console.error(`[Clarity] tasks.json unreadable (${err.message}) — kept at ${quarantine}`);
+    } catch (mvErr) {
+      console.error(`[Clarity] tasks.json unreadable and could not be moved aside: ${mvErr.message}`);
+    }
+    const backup = newestGoodBackup();
+    if (backup) {
+      console.error(`[Clarity] restored from backup ${backup.name} (${backup.data.tasks.length} tasks)`);
+      try { writeJSONAtomic(DATA_FILE, backup.data); } catch { /* served from memory regardless */ }
+      return backup.data;
+    }
+    console.error('[Clarity] no usable backup — starting empty; the damaged file is kept above');
+    return emptyStore();
+  }
+}
+
+function saveData(data) {
+  if (!isStore(data)) throw new Error('refusing to save a malformed task store');
+  writeJSONAtomic(DATA_FILE, data);
+}
 
 function localDateStamp() {
   const d = new Date();
@@ -177,9 +233,23 @@ function scheduleAnalysis(tasks) {
 
 // ─── Express ──────────────────────────────────────────────────────────────────
 
+// A rejected promise used to take the whole process down with it: Node aborts on
+// an unhandled rejection, so one bad request ended the session for every window.
+// A local single-user app is better off logging and staying up.
+process.on('unhandledRejection', (reason) => {
+  console.error('[Clarity] unhandled rejection:', reason?.stack || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Clarity] uncaught exception:', err?.stack || err);
+});
+
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+// Express 4 forwards a throw from a *sync* handler to the error middleware but
+// silently drops a rejected promise from an async one — hence the wrapper.
+const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ── Version ───────────────────────────────────────────────────────────────────
 
@@ -187,7 +257,7 @@ app.get('/api/version', (req, res) => res.json({ version: VERSION }));
 
 // ── Health ────────────────────────────────────────────────────────────────────
 
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', asyncRoute(async (req, res) => {
   try {
     const settings = readSettings();
     const provider = getProvider();
@@ -205,7 +275,7 @@ app.get('/api/health', async (req, res) => {
   } catch {
     res.json({ ollama: false, model: '', providerType: 'ollama', endpoint: '', analyzing: isAnalyzing, availableModels: [], version: VERSION });
   }
-});
+}));
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
@@ -254,16 +324,77 @@ app.get('/api/backups', (req, res) => {
 const VALID_STATUSES   = new Set(['not_started', 'in_progress', 'done']);
 const VALID_RECURRINGS = new Set(['none', 'daily', 'weekly', 'monthly']);
 
-function validateTask(body, res) {
+// Shape check is not enough: 2026-13-45 matches the regex. Round-trip through a
+// Date and require the fields to survive, so only real calendar days pass.
+function isCalendarDate(v) {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const [y, m, d] = v.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+// The only fields a client may set. Everything else on a task — timerStarted,
+// timeTracked, archived, archivedAt, createdAt, id, history, updatedAt — is
+// owned by the server and has its own endpoint where it can change at all.
+const MUTABLE_FIELDS = [
+  'title', 'description', 'deadline', 'time', 'estimatedDuration',
+  'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
+];
+
+function pickMutable(body) {
+  const patch = {};
+  for (const key of MUTABLE_FIELDS) {
+    if (body[key] !== undefined) patch[key] = body[key];
+  }
+  if (typeof patch.title === 'string') patch.title = patch.title.trim();
+  return patch;
+}
+
+// Field rules shared by create and update. The title rule is not here because
+// it differs between the two: required on create, merely non-blank on update.
+function validateFields(body, res) {
+  // `status` is checked on presence, not truthiness. The old `if (body.status)`
+  // let an explicit null through, and a null status crashes every later AI call.
+  if (body.status !== undefined && !VALID_STATUSES.has(body.status))
+    return res.status(400).json({ error: 'Invalid status' });
+  if (body.recurring !== undefined && body.recurring !== null && !VALID_RECURRINGS.has(body.recurring))
+    return res.status(400).json({ error: 'Invalid recurring value' });
+
+  if (body.deadline !== undefined && body.deadline !== null && body.deadline !== '' && !isCalendarDate(body.deadline))
+    return res.status(400).json({ error: 'Invalid date — use a real calendar day in YYYY-MM-DD' });
+  if (body.time !== undefined && body.time !== null && body.time !== '' &&
+      !(typeof body.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.time)))
+    return res.status(400).json({ error: 'Invalid time — use HH:MM' });
+
+  if (body.tags !== undefined && body.tags !== null &&
+      !(Array.isArray(body.tags) && body.tags.every(t => typeof t === 'string')))
+    return res.status(400).json({ error: 'Tags must be an array of strings' });
+  if (body.subtasks !== undefined && body.subtasks !== null &&
+      !(Array.isArray(body.subtasks) && body.subtasks.every(s => !!s && typeof s === 'object')))
+    return res.status(400).json({ error: 'Subtasks must be an array of objects' });
+  if (body.estimatedDuration !== undefined && body.estimatedDuration !== null &&
+      !(typeof body.estimatedDuration === 'number' && Number.isFinite(body.estimatedDuration) && body.estimatedDuration >= 0))
+    return res.status(400).json({ error: 'Estimated duration must be a positive number of minutes' });
+
+  return null;
+}
+
+function validateCreate(body, res) {
+  if (!body || typeof body !== 'object')
+    return res.status(400).json({ error: 'Invalid request body' });
   if (!body.title?.trim())
     return res.status(400).json({ error: 'Title is required' });
-  if (body.status && !VALID_STATUSES.has(body.status))
-    return res.status(400).json({ error: 'Invalid status' });
-  if (body.recurring && !VALID_RECURRINGS.has(body.recurring))
-    return res.status(400).json({ error: 'Invalid recurring value' });
-  if (body.deadline && !/^\d{4}-\d{2}-\d{2}$/.test(body.deadline))
-    return res.status(400).json({ error: 'Invalid date format — use YYYY-MM-DD' });
-  return null;
+  return validateFields(body, res);
+}
+
+// A partial update carries only what changed, so demanding a title on every call
+// — as the single shared validator used to — rejected honest edits with a 400.
+function validateUpdate(body, res) {
+  if (!body || typeof body !== 'object')
+    return res.status(400).json({ error: 'Invalid request body' });
+  if (body.title !== undefined && !String(body.title ?? '').trim())
+    return res.status(400).json({ error: 'Title cannot be empty' });
+  return validateFields(body, res);
 }
 
 app.get('/api/tasks', (req, res) => {
@@ -279,7 +410,7 @@ app.get('/api/tasks', (req, res) => {
 });
 
 app.post('/api/tasks', (req, res) => {
-  if (validateTask(req.body, res)) return;
+  if (validateCreate(req.body, res)) return;
   const data = readData();
   const now = new Date().toISOString();
   const task = {
@@ -310,30 +441,33 @@ app.post('/api/tasks', (req, res) => {
 });
 
 app.put('/api/tasks/:id', (req, res) => {
-  if (validateTask(req.body, res)) return;
+  if (validateUpdate(req.body, res)) return;
   const data = readData();
   const idx = data.tasks.findIndex(t => t.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Task not found' });
 
   const prev = data.tasks[idx];
+  // Spreading the raw body let a client overwrite anything on the task, including
+  // the fields the timer and archive endpoints own. Only the whitelist gets in.
+  const patch = pickMutable(req.body);
   const at = new Date().toISOString();
   const newEntries = [];
-  if (req.body.status !== undefined && req.body.status !== prev.status)
-    newEntries.push({ at, type: 'status', from: prev.status, to: req.body.status });
-  if (req.body.deadline !== undefined && req.body.deadline !== prev.deadline)
-    newEntries.push({ at, type: 'deadline', from: prev.deadline, to: req.body.deadline });
-  if (req.body.tags !== undefined) {
+  if (patch.status !== undefined && patch.status !== prev.status)
+    newEntries.push({ at, type: 'status', from: prev.status, to: patch.status });
+  if (patch.deadline !== undefined && patch.deadline !== prev.deadline)
+    newEntries.push({ at, type: 'deadline', from: prev.deadline, to: patch.deadline });
+  if (patch.tags !== undefined) {
     const sortedPrev = [...(prev.tags || [])].sort();
-    const sortedNext = [...(req.body.tags || [])].sort();
+    const sortedNext = [...(patch.tags || [])].sort();
     if (sortedPrev.join(',') !== sortedNext.join(','))
       newEntries.push({ at, type: 'area', from: sortedPrev[0] || null, to: sortedNext[0] || null });
   }
   const history = [...(prev.history || []), ...newEntries].slice(-200);
-  const updated = { ...prev, ...req.body, id: req.params.id, updatedAt: at, history };
+  const updated = { ...prev, ...patch, id: req.params.id, updatedAt: at, history };
   data.tasks[idx] = updated;
 
   // Spawn next occurrence when recurring task is marked done — guard against double-click
-  if (req.body.status === 'done' && prev.status !== 'done' && updated.recurring && updated.recurring !== 'none') {
+  if (patch.status === 'done' && prev.status !== 'done' && updated.recurring && updated.recurring !== 'none') {
     const next = nextDeadline(updated.deadline, updated.recurring);
     const alreadySpawned = data.tasks.some(t =>
       t.title === updated.title && t.deadline === next && t.recurring === updated.recurring && t.status !== 'done'
@@ -425,7 +559,7 @@ app.post('/api/analyze', (req, res) => {
 
 // ── Weekly summary (streaming) ────────────────────────────────────────────────
 
-app.post('/api/weekly-summary', async (req, res) => {
+app.post('/api/weekly-summary', asyncRoute(async (req, res) => {
   const data = readData();
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -465,35 +599,44 @@ Be direct, warm, under 250 words.`;
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
   }
   res.end();
-});
+}));
 
 // ── Chat (streaming) ──────────────────────────────────────────────────────────
 
-app.post('/api/chat', async (req, res) => {
-  const { message, history = [] } = req.body;
-  const data = readData();
+app.post('/api/chat', asyncRoute(async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const taskContext = data.tasks.filter(t => !t.archived).map(t => {
-    const ta = data.analysis?.taskAnalysis?.find(a => a.id === t.id);
-    return `• [${t.status.replace('_', ' ')}] ${t.title}${ta ? ` | Priority #${ta.priority}` : ''}${t.deadline ? ` | Due ${t.deadline}` : ''}${t.tags?.length ? ` | Tags: ${t.tags.join(', ')}` : ''}`;
-  }).join('\n') || 'No tasks yet.';
+  try {
+    // Everything that touches the request or the store lives inside the try.
+    // Built above it, a malformed body threw past Express and killed the process.
+    const body     = req.body && typeof req.body === 'object' ? req.body : {};
+    const message  = typeof body.message === 'string' ? body.message : String(body.message ?? '');
+    const history  = Array.isArray(body.history) ? body.history : [];
+    const data     = readData();
 
-  const systemPrompt = `You are a productivity coach inside Clarity, a personal task manager. Be concise, warm, and actionable. Refer to specific tasks by name when relevant.
+    const taskContext = data.tasks.filter(t => !!t && !t.archived).map(t => {
+      const ta = data.analysis?.taskAnalysis?.find(a => a.id === t.id);
+      // Stores poisoned before the status guard landed still hold nulls here.
+      const status = String(t.status ?? 'not_started').replace('_', ' ');
+      return `• [${status}] ${t.title ?? 'Untitled'}${ta ? ` | Priority #${ta.priority}` : ''}${t.deadline ? ` | Due ${t.deadline}` : ''}${t.tags?.length ? ` | Tags: ${t.tags.join(', ')}` : ''}`;
+    }).join('\n') || 'No tasks yet.';
+
+    const systemPrompt = `You are a productivity coach inside Clarity, a personal task manager. Be concise, warm, and actionable. Refer to specific tasks by name when relevant.
 
 Current tasks:
 ${taskContext}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analysis.whatToDoNext}` : ''}`;
 
-  // Build messages array from history + new message
-  const messages = [
-    ...history.filter(h => h.role === 'user' || h.role === 'assistant').slice(-8),
-    { role: 'user', content: message },
-  ];
+    // Build messages array from history + new message
+    const messages = [
+      ...history
+        .filter(h => !!h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string')
+        .slice(-8),
+      { role: 'user', content: message },
+    ];
 
-  try {
     const provider = getProvider();
     const stream = provider.generateChat
       ? provider.generateChat(systemPrompt, messages, { temperature: 0.7 })
@@ -507,11 +650,11 @@ ${taskContext}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.ana
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
   }
   res.end();
-});
+}));
 
 // ── Subtask breakdown (streaming) ─────────────────────────────────────────────
 
-app.post('/api/tasks/:id/breakdown', async (req, res) => {
+app.post('/api/tasks/:id/breakdown', asyncRoute(async (req, res) => {
   const data = readData();
   const task = data.tasks.find(t => t.id === req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
@@ -564,7 +707,7 @@ Return ONLY a JSON array — no markdown, no commentary:
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
   }
   res.end();
-});
+}));
 
 // ── Calendar today ────────────────────────────────────────────────────────────
 
@@ -606,8 +749,26 @@ app.get('/api/export', (req, res) => {
   res.json({ exportedAt: new Date().toISOString(), ...data });
 });
 
+// Last in the chain, so it sees anything a route threw or handed to next().
+// Without it an error reached Express's default handler and, for async routes,
+// nothing at all.
+app.use((err, req, res, next) => {
+  console.error(`[Clarity] ${req.method} ${req.originalUrl} failed:`, err?.stack || err);
+  if (res.headersSent) {
+    // An SSE stream is already open — report inside the stream and close it.
+    try { res.write(`data: ${JSON.stringify({ error: err?.message || 'Internal error' })}\n\n`); } catch {}
+    return res.end();
+  }
+  res.status(500).json({ error: err?.message || 'Internal error' });
+});
+
+const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
+
 app.listen(PORT, () => {
   const s = readSettings();
   console.log(`[Clarity v${VERSION}] Backend on :${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
   runDailyBackup();
+  // Once at startup was not enough: a machine left running for days never took a
+  // second snapshot, so the day's work had no backup behind it.
+  setInterval(runDailyBackup, BACKUP_INTERVAL_MS).unref();
 });
