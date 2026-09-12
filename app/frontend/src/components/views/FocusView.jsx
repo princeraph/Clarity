@@ -133,6 +133,68 @@ function relativeTime(iso) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+// Follow-ups that are due, and tasks that look stuck enough to deserve one.
+//
+// Deliberately PULL, not push: this sits on a page you chose to open, and
+// nothing here interrupts you or counts against the follow-up back-off. Deciding
+// when Clarity is allowed to interrupt is its own problem, with its own budget,
+// and it is not this component’s to solve.
+function FollowUpsDue({ tasks, onOpenDetail, T }) {
+  const [due, setDue] = useState([]);
+  const [stalled, setStalled] = useState([]);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`${API}/threads`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (live && d) { setDue(d.due || []); setStalled((d.stalled || []).slice(0, 3)); } })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [tasks.length]);
+
+  if (dismissed || (!due.length && !stalled.length)) return null;
+  const byId = new Map(tasks.map(t => [t.id, t]));
+  const open = (id) => { const t = byId.get(id); if (t) onOpenDetail?.(t); };
+
+  const line = (key, title, detail, action) => (
+    <div key={key} onClick={action} style={{
+      display: 'flex', gap: 10, alignItems: 'baseline', padding: '7px 0',
+      cursor: 'pointer', borderTop: `1px solid ${T.hairlineSoft}`,
+    }}>
+      <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{title}</span>
+      <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>{detail}</span>
+    </div>
+  );
+
+  return (
+    <div style={{
+      marginBottom: 24, padding: '14px 16px', background: T.paperSubtle,
+      border: `1px solid ${T.hairline}`, borderRadius: T.r10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+        <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink60 }}>
+          Worth a word
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setDismissed(true)} style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40,
+        }}>not now</button>
+      </div>
+
+      {due.map(t => line(
+        t.taskId,
+        byId.get(t.taskId)?.title ?? 'A task',
+        t.blocker ? `blocked — ${t.blocker.text.slice(0, 48)}` : 'due for an update',
+        () => open(t.taskId),
+      ))}
+
+      {stalled.map(s => line(`s-${s.taskId}`, s.title, s.why, () => open(s.taskId)))}
+    </div>
+  );
+}
+
 export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
   const { T } = useTheme();
   const userName = getUserName();
@@ -285,6 +347,8 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       ) : analysis?.analyzedAt && (
         <AnalysisBanner state="stale" time={relativeTime(analysis.analyzedAt)} T={T} onReanalyze={handlers.onReanalyze} />
       )}
+
+      <FollowUpsDue tasks={handlers.allTasks || []} onOpenDetail={handlers.onOpenDetail} T={T} />
 
       {/* Task groups */}
       {activeTasks.length > 0 ? (

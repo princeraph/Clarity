@@ -9,6 +9,9 @@ import { writeJSONAtomic } from './src/storage.js';
 import { createProfileStore } from './src/profile/store.js';
 import { buildOutboundContext, buildElicitationPrompt, NotLocalError } from './src/profile/brief.js';
 import { parseProposals, MAX_PROPOSALS_PER_RUN } from './src/profile/elicitation.js';
+import { buildOptionsPrompt, parseOptions } from './src/profile/brief.js';
+import { createThreadStore } from './src/threads/store.js';
+import * as thread from './src/threads/logic.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -145,6 +148,7 @@ function runDailyBackup() {
 // ─── Profile store ────────────────────────────────────────────────────────────
 
 const profileStore = createProfileStore({ dataDir: DATA_DIR });
+const threadStore  = createThreadStore({ dataDir: DATA_DIR });
 
 // Ollama runs on this machine, so a prompt sent to it never crosses the device
 // boundary and the brief's redactions do not apply. Every other provider is
@@ -508,6 +512,98 @@ app.post('/api/profile/proposals/:id/decline', (req, res) => {
   res.json({ declined: true, pending: profileStore.readProposals() });
 });
 
+// ─── Follow-up threads (Stage 3) ──────────────────────────────────────────────
+//
+// A task says what someone meant to do. A thread says why it has not happened,
+// which is the only part anyone can help with.
+
+// One dispatcher rather than a dozen near-identical routes. The action map is a
+// whitelist: an unknown action is a 400, never a silently ignored request.
+const THREAD_ACTIONS = {
+  blocker:  (t, b, now) => thread.setBlocker(t, b.text, { now }),
+  addNeed:  (t, b, now) => thread.addNeed(t, b.text, { now }),
+  toggleNeed: (t, b, now) => thread.toggleNeed(t, b.needId, { now }),
+  addOption: (t, b, now) => thread.addOption(t, { text: b.text, source: b.source }, { now }),
+  judgeOption: (t, b, now) => thread.judgeOption(t, b.optionId, b.status, { note: b.note ?? null, now }),
+  ask:      (t, b, now) => thread.askCheckIn(t, b.question, { now }),
+  answer:   (t, b, now) => thread.answerCheckIn(t, b.answer, { state: b.state ?? null, now }),
+  resolve:  (t, b, now) => thread.resolveThread(t, { note: b.note ?? null, now }),
+  mute:     (t, b, now) => thread.muteThread(t, { now }),
+};
+
+app.get('/api/threads', (req, res) => {
+  const data = readData();
+  const { threads } = threadStore.readAll();
+  const now = new Date();
+  res.json({
+    threads,
+    due: thread.dueThreads(threads, now),
+    stalled: thread.stalledTasks(data.tasks, { now, hasThread: id => !!threads[id] }),
+  });
+});
+
+app.get('/api/tasks/:id/thread', (req, res) => {
+  res.json({ thread: threadStore.get(req.params.id) });
+});
+
+app.post('/api/tasks/:id/thread', (req, res) => {
+  const data = readData();
+  if (!data.tasks.some(t => t.id === req.params.id)) return res.status(404).json({ error: 'Task not found' });
+  res.json({ thread: threadStore.open(req.params.id) });
+});
+
+app.post('/api/tasks/:id/thread/act', (req, res) => {
+  const action = THREAD_ACTIONS[req.body?.action];
+  if (!action) return res.status(400).json({ error: `Unknown action: ${req.body?.action}` });
+
+  const now = new Date();
+  let updated;
+  try {
+    updated = threadStore.update(req.params.id, t => action(t, req.body, now));
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  if (!updated) return res.status(404).json({ error: 'No thread on that task' });
+
+  // An answered check-in is the raw material for understanding why things stall.
+  // It goes to the journal, which stays on this machine.
+  if (req.body.action === 'answer' && req.body.answer) {
+    try {
+      profileStore.appendEntry({ kind: 'checkin', taskId: req.params.id, answer: String(req.body.answer).slice(0, 1000) });
+    } catch {}
+  }
+  res.json({ thread: updated });
+});
+
+app.delete('/api/tasks/:id/thread', (req, res) => {
+  res.json({ removed: threadStore.remove(req.params.id) });
+});
+
+// Ways forward, from the model. These are suggestions about what to DO — they
+// never touch the profile, so they need no approval gate: an option you dislike
+// costs one line you ignore.
+app.post('/api/tasks/:id/thread/suggest', asyncRoute(async (req, res) => {
+  const data = readData();
+  const task = data.tasks.find(t => t.id === req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const existing = threadStore.get(req.params.id) || threadStore.open(req.params.id);
+  const settings = readSettings();
+  const prompt = buildOptionsPrompt({
+    task, thread: existing,
+    profile: currentProfile(data.tasks),
+    providerIsLocal: providerIsLocal(settings),
+  });
+
+  const options = parseOptions(await getProvider().generateJSON(prompt.text));
+  if (!options.length) return res.json({ thread: existing, added: 0 });
+
+  const now = new Date();
+  const updated = threadStore.update(req.params.id, t =>
+    options.reduce((acc, text) => thread.addOption(acc, { text, source: 'suggested' }, { now }), t));
+  res.json({ thread: updated, added: options.length });
+}));
+
 app.get('/api/profile/journal', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 1000);
   const kinds = typeof req.query.kinds === 'string' ? req.query.kinds.split(',') : null;
@@ -718,6 +814,8 @@ app.delete('/api/tasks/all', (req, res) => {
   // about tasks that no longer exist.
   try { profileStore.recompute(data.tasks); }
   catch (err) { console.error('[Clarity] profile recompute failed:', err.message); }
+  // A thread about a task that no longer exists can never be shown again.
+  try { threadStore.prune([]); } catch {}
   res.json({ success: true });
 });
 
@@ -730,6 +828,7 @@ app.delete('/api/tasks/:id', (req, res) => {
   saveData(data);
   scheduleAnalysis(data.tasks);
   scheduleProfileRecompute(data.tasks);
+  try { threadStore.remove(req.params.id); } catch {}
   res.json({ success: true });
 });
 

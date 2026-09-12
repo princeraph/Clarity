@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import FollowUp from './FollowUp.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -439,6 +440,9 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               <span>Add subtask</span>
             </button>
           </div>
+
+          {/* Follow-up thread — why it has not happened, which is the part anyone can help with */}
+          <FollowUp task={task} />
 
           {/* Recurrence */}
           <div>

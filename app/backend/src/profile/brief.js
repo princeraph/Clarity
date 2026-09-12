@@ -260,3 +260,67 @@ export function buildElicitationPrompt({
 
   return { text: sections.join('\n\n'), citable: taskLines.length + journalLines.length + metricLines.length };
 }
+
+// ─── Follow-up options (Stage 3) ──────────────────────────────────────────────
+//
+// Suggesting a way FORWARD is a different act from concluding something about
+// the person, and it is held to a looser rule on purpose. An option is a thing
+// to try; being wrong about it costs an idea the user discards. A belief about
+// who they are, being wrong costs their trust — which is why that path needs an
+// approval gate and this one does not.
+//
+// So options may come from any provider. What travels is the task, the blocker
+// in the person's own words, and what has already been ruled out — the same
+// shape as the current chat exchange, which the preview already says is sent.
+// The journal, the evidence behind findings and past transcripts stay put.
+
+export function buildOptionsPrompt({ task, thread, profile, providerIsLocal = false, max = 4 } = {}) {
+  const ruledOut = (thread?.options || [])
+    .filter(o => o.status === 'ruled-out')
+    .map(o => `- ${o.text}${o.note ? ` (${o.note})` : ''}`);
+  const alreadyThere = (thread?.options || [])
+    .filter(o => o.status !== 'ruled-out')
+    .map(o => `- ${o.text}`);
+  const needs = (thread?.needs || []).filter(n => !n.done).map(n => `- ${n.text}`);
+
+  // The brief, not the raw profile: a suggestion is better for knowing the
+  // person tends to underestimate, and no better for knowing which task proved it.
+  const brief = buildProfileBrief(profile, { budget: 600 });
+
+  const sections = [
+    `Someone is stuck on one task. Propose at most ${max} concrete next moves — each one small enough to start today.
+
+Rules:
+- Do not repeat anything already listed or already ruled out.
+- No pep talk, no restating the problem back. Moves only.
+- If the real answer is "drop this task" or "ask someone", say that.
+
+Return ONLY a JSON array of strings: ["first move", "second move"]`,
+    `Task: ${task?.title ?? 'Untitled'}${task?.deadline ? ` (due ${task.deadline})` : ''}`,
+    task?.description ? `Description: ${String(task.description).slice(0, 400)}` : null,
+    thread?.blocker?.text ? `What they say is in the way: ${thread.blocker.text}` : 'They have not said what is in the way.',
+    needs.length ? `What they say they need:\n${needs.join('\n')}` : null,
+    alreadyThere.length ? `Already on the list — do not repeat:\n${alreadyThere.join('\n')}` : null,
+    ruledOut.length ? `Already ruled out — do not suggest again:\n${ruledOut.join('\n')}` : null,
+    brief.text ? `About how this person works:\n${brief.text}` : null,
+  ].filter(Boolean);
+
+  return { text: sections.join('\n\n'), providerIsLocal };
+}
+
+/** Parse whatever came back into a clean list of option strings. */
+export function parseOptions(raw, { max = 4 } = {}) {
+  let list = raw;
+  if (typeof list === 'string') {
+    const m = list.match(/\[[\s\S]*\]/);
+    if (!m) return [];
+    try { list = JSON.parse(m[0]); } catch { return []; }
+  }
+  if (list && !Array.isArray(list) && Array.isArray(list.options)) list = list.options;
+  if (!Array.isArray(list)) return [];
+  return list
+    .map(o => typeof o === 'string' ? o : (o && typeof o.text === 'string' ? o.text : ''))
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
