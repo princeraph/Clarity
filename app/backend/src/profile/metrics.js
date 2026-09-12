@@ -12,6 +12,14 @@
 
 export const MIN_SAMPLES = 5;
 
+// Bump this whenever the meaning of anything under `observed` changes.
+// The layer is cached in profile.json, and a cache computed by an older
+// algorithm is not merely out of date — it is wrong in a way no amount of
+// waiting fixes. Callers compare it and recompute on a mismatch.
+//   1 — first version
+//   2 — the window falls back to all history when it would hold almost nothing
+export const OBSERVED_VERSION = 2;
+
 // Estimate/actual ratios cluster near 1. These bounds are deliberately wide:
 // being 10% out is noise, being 2× out is a pattern worth naming.
 const UNDER_ESTIMATE_AT = 1.25;
@@ -313,6 +321,7 @@ export function computeObserved(allTasks, { now = new Date(), windowDays = 90 } 
   const inWindow = tooThin ? tasks : windowed;
 
   return {
+    version: OBSERVED_VERSION,
     computedAt: new Date().toISOString(),
     windowDays: tooThin ? 0 : windowDays,      // 0 means "all of it"
     windowDaysRequested: windowDays,

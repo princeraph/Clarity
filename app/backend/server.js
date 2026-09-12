@@ -8,6 +8,7 @@ import { createProvider } from './src/llm/index.js';
 import { writeJSONAtomic } from './src/storage.js';
 import { createProfileStore } from './src/profile/store.js';
 import { buildOutboundContext } from './src/profile/brief.js';
+import { OBSERVED_VERSION } from './src/profile/metrics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -155,7 +156,11 @@ const providerIsLocal = (settings) => settings.providerType === 'ollama';
 // something happened to open the Patterns view.
 function currentProfile(tasks) {
   const profile = profileStore.readProfile();
-  if (profile.observed) return profile;
+  // A cache written by an older version of the metrics is not stale, it is
+  // wrong — and nothing would ever correct it, because recomputing only
+  // happened when the layer was missing entirely. An app update that changes
+  // what a number means has to invalidate the number.
+  if (profile.observed && profile.observed.version === OBSERVED_VERSION) return profile;
   try { return profileStore.recompute(tasks ?? readData().tasks); }
   catch (err) {
     console.error('[Clarity] could not compute the profile:', err.message);

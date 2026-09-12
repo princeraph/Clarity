@@ -2,7 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import {
   computeEstimation, computeSlippage, computeLatency,
   computeAbandonment, computeRhythm, computeLoad, computeObserved,
-  MIN_SAMPLES,
+  MIN_SAMPLES, OBSERVED_VERSION,
 } from '../src/profile/metrics.js';
 
 // ── Builders ──────────────────────────────────────────────────────────────────
@@ -288,5 +288,13 @@ describe('computeObserved', () => {
 
   test('an empty store does not claim to have fallen back', () => {
     expect(computeObserved([]).windowFellBack).toBe(false);
+  });
+
+  // The cached layer lives in profile.json. Without a version on it, an app
+  // update that changes what a number means leaves the old number on screen
+  // forever — which is exactly what happened after the window fallback landed.
+  test('stamps the algorithm version so a stale cache can be detected', () => {
+    expect(computeObserved([]).version).toBe(OBSERVED_VERSION);
+    expect(typeof OBSERVED_VERSION).toBe('number');
   });
 });
