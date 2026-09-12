@@ -7,7 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { createProvider } from './src/llm/index.js';
 import { writeJSONAtomic } from './src/storage.js';
 import { createProfileStore } from './src/profile/store.js';
-import { buildOutboundContext } from './src/profile/brief.js';
+import { buildOutboundContext, buildElicitationPrompt, NotLocalError } from './src/profile/brief.js';
+import { parseProposals, MAX_PROPOSALS_PER_RUN } from './src/profile/elicitation.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -438,6 +439,73 @@ app.post('/api/profile/insights/:id/confirm', (req, res) => {
   const insight = profileStore.judgeInsight(req.params.id, 'active');
   if (!insight) return res.status(404).json({ error: 'Insight not found' });
   res.json({ insight });
+});
+
+// ─── Elicitation (Stage 2b) ───────────────────────────────────────────────────
+//
+// A model proposes; the user decides. Nothing here writes to the understanding
+// layer — /accept does, and only when a person clicks it.
+
+app.post('/api/profile/elicit', asyncRoute(async (req, res) => {
+  const settings = readSettings();
+  if (!providerIsLocal(settings)) throw new NotLocalError();
+
+  const data = readData();
+  const profile = currentProfile(data.tasks);
+  const { entries } = profileStore.readEntries({ limit: 40, kinds: ['exchange', 'correction', 'observation'] });
+
+  const prompt = buildElicitationPrompt({
+    profile, tasks: data.tasks, journal: entries,
+    providerIsLocal: true, maxProposals: MAX_PROPOSALS_PER_RUN,
+  });
+
+  // Nothing citable means nothing to propose from. Saying so beats asking a
+  // model to invent something and refusing all of it a moment later.
+  if (!prompt.citable) {
+    return res.json({ added: [], skipped: [], refused: [], pending: profileStore.readProposals(),
+                      note: 'Nothing to work from yet — add a few tasks, or talk to Clarity in the chat.' });
+  }
+
+  const raw = await getProvider().generateJSON(prompt.text);
+
+  // Every citation is checked against the real corpus here. A ref the model
+  // invented cannot resolve, and the proposal carrying it is discarded.
+  const { proposals, refused } = parseProposals(raw, {
+    taskIds: new Set(data.tasks.map(t => t.id)),
+    journalIds: new Set(entries.map(e => e.id)),
+    observed: profile.observed,
+  });
+
+  const { pending, added, skipped } = profileStore.addProposals(proposals);
+  if (refused.length) {
+    console.log(`[Clarity] ${refused.length} proposal(s) refused: ${refused.map(r => r.error).join(' | ')}`);
+  }
+  res.json({ added, skipped, refused, pending });
+}));
+
+app.get('/api/profile/proposals', (req, res) => {
+  res.json({ proposals: profileStore.readProposals() });
+});
+
+app.post('/api/profile/proposals/:id/accept', (req, res) => {
+  const result = profileStore.acceptProposal(req.params.id);
+  if (!result) return res.status(404).json({ error: 'No such proposal' });
+  if (result.error) return res.status(409).json({ error: result.error });
+  try {
+    profileStore.appendEntry({ kind: 'suggestion', outcome: 'accepted',
+                               statement: result.insight.statement, insightId: result.insight.id });
+  } catch {}
+  res.json({ insight: result.insight, pending: profileStore.readProposals() });
+});
+
+app.post('/api/profile/proposals/:id/decline', (req, res) => {
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : null;
+  const result = profileStore.declineProposal(req.params.id, { reason });
+  if (!result) return res.status(404).json({ error: 'No such proposal' });
+  try {
+    profileStore.appendEntry({ kind: 'correction', statement: result.proposal.statement, reason });
+  } catch {}
+  res.json({ declined: true, pending: profileStore.readProposals() });
 });
 
 app.get('/api/profile/journal', (req, res) => {

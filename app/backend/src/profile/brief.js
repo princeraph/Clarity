@@ -162,3 +162,101 @@ export function buildOutboundContext({
 
   return { text, parts, withheld, providerIsLocal, budget, chars: text.length };
 }
+
+// ─── Elicitation (Stage 2b) ───────────────────────────────────────────────────
+//
+// Asking a model to form beliefs about the person is a different act from
+// asking it to summarise their week, and it is held to a different rule:
+//
+//   ELICITATION RUNS ON A LOCAL MODEL ONLY.
+//
+// Not because a hosted model would do it worse, but because of what it needs to
+// do it at all. A proposal must cite evidence that resolves, so the model has
+// to see the raw material — journal entries in the user's own words, task ids.
+// That is precisely what the preview promises never leaves the machine. Sending
+// it anyway and calling it hybrid would make the promise decorative.
+//
+// So the boundary decides the feature: no local model, no elicitation. The
+// refusal is explicit and says why, rather than quietly producing a thinner
+// result the user cannot distinguish from a thorough one.
+
+export class NotLocalError extends Error {
+  constructor() {
+    super('Elicitation needs a local model — it reads raw journal entries, which never leave this machine.');
+    this.status = 409;
+    this.code = 'provider-not-local';
+  }
+}
+
+// Leaf paths of the observed layer that hold a real value. These are what a
+// proposal may cite as metric evidence, so the model is told the exact set
+// rather than left to guess at path names and have every citation refused.
+export function metricPaths(observed, { prefix = 'observed', depth = 3 } = {}) {
+  const out = [];
+  const walk = (node, path, left) => {
+    if (node === null || node === undefined) return;
+    if (typeof node !== 'object' || Array.isArray(node)) { out.push(path); return; }
+    if (left === 0) return;
+    for (const [k, v] of Object.entries(node)) walk(v, `${path}.${k}`, left - 1);
+  };
+  walk(observed, prefix, depth);
+  return out;
+}
+
+/**
+ * The catalogue of things a proposal is allowed to cite. Without it the model
+ * invents plausible-looking ids, every one of them fails to resolve, and the
+ * whole run is refused for a reason that looks like the model's fault rather
+ * than the prompt's.
+ */
+export function evidenceCatalogue({ tasks = [], journal = [], observed = null } = {}) {
+  const taskLines = tasks.filter(Boolean).slice(0, 60)
+    .map(t => `  task ${t.id} — "${t.title ?? 'Untitled'}"`);
+  const journalLines = journal.filter(Boolean).slice(0, 60)
+    .map(e => `  journal ${e.id} — ${e.kind}, ${String(e.at).slice(0, 10)}${e.text ? `: ${String(e.text).slice(0, 200)}` : ''}`);
+  const metricLines = metricPaths(observed).slice(0, 60).map(p => `  metric ${p}`);
+  return { taskLines, journalLines, metricLines };
+}
+
+const ELICIT_INSTRUCTIONS = `You are helping someone understand their own working patterns.
+
+Propose at most ${'${MAX}'} things you believe about this person that they may not have said outright. Aim for what would change how they plan their week, not flattery and not a restatement of the numbers.
+
+Hard rules:
+- Every proposal MUST cite evidence from the catalogue below, copying the ref EXACTLY. A proposal whose citation does not resolve is discarded.
+- Do not propose anything already listed under what is known.
+- Say nothing about health, mood, relationships or finances unless the person raised it themselves in a journal entry.
+- If the material does not support a proposal, return fewer. An empty list is a valid and useful answer.
+
+Return ONLY a JSON array, no prose, no markdown:
+[{"category":"traits|drivers|blockers|strengths|skills|context","statement":"one sentence, second person","confidence":0.1-0.6,"rationale":"why you think so","evidence":[{"kind":"task|journal|metric","ref":"exact ref from the catalogue","note":"what it shows"}]}]`;
+
+/**
+ * Compose the elicitation prompt. Every piece of user data in it comes from
+ * this file, like every other outbound prompt.
+ */
+export function buildElicitationPrompt({
+  profile, tasks = [], journal = [], analysis = null,
+  providerIsLocal = false, maxProposals = 5,
+} = {}) {
+  if (!providerIsLocal) throw new NotLocalError();
+
+  const known = describeUnderstanding(profile?.understanding)
+    .map(i => `- ${i.statement}`);
+  const measured = describeObserved(profile?.observed).map(l => `- ${l}`);
+  const { taskLines, journalLines, metricLines } = evidenceCatalogue({
+    tasks, journal, observed: profile?.observed,
+  });
+
+  const sections = [
+    ELICIT_INSTRUCTIONS.replace('${MAX}', String(maxProposals)),
+    `What has been measured:\n${measured.join('\n') || '- Nothing yet — too little recorded to measure anything.'}`,
+    `Already known (do not repeat):\n${known.join('\n') || '- Nothing yet.'}`,
+    `Their tasks:\n${taskLines.join('\n') || '  none'}`,
+    `What they have said (their own words):\n${journalLines.join('\n') || '  nothing recorded'}`,
+    `Evidence catalogue — copy a ref exactly or the proposal is discarded:\n${
+      [...taskLines, ...journalLines, ...metricLines].join('\n') || '  nothing citable yet'}`,
+  ];
+
+  return { text: sections.join('\n\n'), citable: taskLines.length + journalLines.length + metricLines.length };
+}

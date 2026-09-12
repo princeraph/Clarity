@@ -244,3 +244,56 @@ export function setInsightStatus(understanding, id, status, { reason = null, now
 export function activeInsights(understanding) {
   return flatten(understanding).filter(i => i.status === 'active');
 }
+
+/**
+ * Insert one insight into the understanding layer.
+ *
+ * Deliberately NOT mergeInsights. That function treats its `incoming` argument
+ * as the complete set of currently-derived insights, and marks every stored
+ * observation absent from it as stale. Passing it a single accepted proposal
+ * would therefore stale every measured finding the user has — the arithmetic
+ * layer wiped out by an unrelated approval.
+ */
+export function addInsight(understanding, insight, { now = new Date() } = {}) {
+  const err = validateInsight({ ...insight, status: 'active' });
+  if (err) return { understanding, added: false, error: err };
+
+  const list = flatten(understanding);
+  if (insight.key && list.some(i => i.key === insight.key && i.status === 'user-rejected')) {
+    return { understanding, added: false, error: 'this was rejected before' };
+  }
+
+  const at = now.toISOString();
+  const existing = insight.key ? list.find(i => i.key === insight.key) : null;
+  if (existing) {
+    Object.assign(existing, {
+      statement: insight.statement, confidence: insight.confidence,
+      evidence: insight.evidence, category: insight.category,
+      status: 'active', lastConfirmed: at,
+    });
+    return { understanding: regroup(list), added: true, insight: existing };
+  }
+
+  const stored = {
+    id: `ins-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    key: insight.key ?? null,
+    category: insight.category,
+    statement: insight.statement,
+    confidence: insight.confidence,
+    source: insight.source || 'elicited',
+    evidence: insight.evidence,
+    firstSeen: at,
+    lastConfirmed: at,
+    status: 'active',
+    supersededBy: null,
+  };
+  list.push(stored);
+  return { understanding: regroup(list), added: true, insight: stored };
+}
+
+/** Push an already-formed record (e.g. a declined proposal) in as-is. */
+export function pushRecord(understanding, record) {
+  const list = flatten(understanding);
+  list.push(record);
+  return regroup(list);
+}

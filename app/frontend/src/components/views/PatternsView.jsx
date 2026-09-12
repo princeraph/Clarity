@@ -98,6 +98,7 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
           {Math.round(insight.confidence * 100)}% confident
+          {insight.source === 'elicited' && ' · you confirmed this'}
           {stale && ' · no longer supported'}
         </span>
         <button onClick={() => setShowWhy(w => !w)} style={{
@@ -164,6 +165,95 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
 }
 
 
+
+// A proposal is not a finding, and must not look like one. Findings on this
+// page are arithmetic; this is a model's guess about a person, which is a
+// different kind of claim and carries a different kind of wrongness. Hence the
+// dashed edge, the lower confidence ceiling, and the fact that it asks rather
+// than states.
+function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
+  const [showWhy, setShowWhy] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState('');
+
+  return (
+    <div style={{
+      border: `1px dashed ${T.accent}`, borderRadius: T.r6,
+      background: T.paperSubtle, padding: '14px 16px',
+      display: 'flex', flexDirection: 'column', gap: 10,
+    }}>
+      <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{proposal.statement}</div>
+
+      {proposal.rationale && (
+        <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.5, fontStyle: 'italic' }}>
+          {proposal.rationale}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
+          suggested · {Math.round(proposal.confidence * 100)}% · {proposal.category}
+        </span>
+        <button onClick={() => setShowWhy(w => !w)} style={{
+          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+          fontFamily: T.fontUI, fontSize: 11.5, color: T.accentInk, textDecoration: 'underline',
+        }}>{showWhy ? 'hide what it looked at' : 'what did it look at?'}</button>
+      </div>
+
+      {showWhy && (
+        <div style={{
+          background: T.paper, border: `1px solid ${T.hairlineSoft}`, borderRadius: T.r6,
+          padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          {proposal.evidence.map((e, i) => (
+            <div key={i} style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60, wordBreak: 'break-word' }}>
+              {e.kind} · {e.ref}{e.note ? ` \u2014 ${e.note}` : ''}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {declining ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <input
+            value={reason} onChange={e => setReason(e.target.value)}
+            placeholder="What is it getting wrong? (optional)"
+            style={{
+              padding: '7px 10px', background: T.paper, border: `1px solid ${T.hairline}`,
+              borderRadius: T.r6, fontSize: 12.5, color: T.ink, fontFamily: T.fontUI, outline: 'none',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 7 }}>
+            <button disabled={busy} onClick={() => { onDecline(proposal, reason.trim() || null); setDeclining(false); }} style={{
+              padding: '6px 12px', background: T.dangerSoft, color: T.danger,
+              border: `1px solid ${T.dangerBorder}`, borderRadius: T.r6,
+              fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+            }}>Discard it</button>
+            <button onClick={() => setDeclining(false)} style={{
+              padding: '6px 12px', background: 'transparent', color: T.ink60,
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+            }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 7 }}>
+          <button disabled={busy} onClick={() => onAccept(proposal)} style={{
+            padding: '6px 13px', background: T.accentSoft, color: T.accentInk,
+            border: `1px solid ${T.accent}`, borderRadius: T.r6,
+            fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer', fontWeight: 500,
+          }}>That’s right</button>
+          <button disabled={busy} onClick={() => setDeclining(true)} style={{
+            padding: '6px 13px', background: 'transparent', color: T.ink60,
+            border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+            fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+          }}>No, it isn’t</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // When nothing is measurable yet, five identical "not enough" boxes read as a
 // broken page. Say it once, and say what would change it — the metrics depend
 // on things the app records as you use it, not on waiting.
@@ -210,6 +300,9 @@ export default function PatternsView() {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [proposals, setProposals] = useState([]);
+  const [eliciting, setEliciting] = useState(false);
+  const [elicitNote, setElicitNote] = useState(null);
 
   async function load() {
     try {
@@ -250,7 +343,53 @@ export default function PatternsView() {
     } finally { setBusy(false); }
   }
 
-  useEffect(() => { load(); }, []);
+  async function loadProposals() {
+    try {
+      const resp = await fetch(`${API}/profile/proposals`);
+      if (resp.ok) setProposals((await resp.json()).proposals || []);
+    } catch { /* the page still works without them */ }
+  }
+
+  // Ask the model to look. It cannot write anything: whatever comes back lands
+  // in the pending queue, and only a click moves it into the profile.
+  async function elicit() {
+    setEliciting(true);
+    setElicitNote(null);
+    try {
+      const resp = await fetch(`${API}/profile/elicit`, { method: 'POST' });
+      const body = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setElicitNote(body.error || 'Clarity could not run that just now.'); return; }
+      setProposals(body.pending || []);
+      if (!body.added?.length) {
+        // Silence has several causes and they are not interchangeable — a model
+        // that found nothing is not the same as one whose every citation failed.
+        const why = body.note
+          || (body.refused?.length ? 'It suggested things it could not back up with your own data, so they were discarded.'
+          : body.skipped?.length ? 'Nothing new — what it came up with, you have already seen or answered.'
+          : 'It did not find anything it could support yet.');
+        setElicitNote(why);
+      }
+    } catch {
+      setElicitNote('Could not reach the backend.');
+    } finally { setEliciting(false); }
+  }
+
+  async function judgeProposal(proposal, verdict, reason) {
+    setBusy(true);
+    try {
+      const resp = await fetch(`${API}/profile/proposals/${proposal.id}/${verdict}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      if (resp.ok) setProposals((await resp.json()).pending || []);
+      await load();
+    } catch {
+      setError('Could not reach the backend.');
+    } finally { setBusy(false); }
+  }
+
+  useEffect(() => { load(); loadProposals(); }, []);
 
   const o = profile?.observed;
 
@@ -307,7 +446,9 @@ export default function PatternsView() {
         <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>Patterns</h1>
         <p style={{ margin: '10px 0 0', fontSize: 13.5, color: T.ink60, maxWidth: '62ch', lineHeight: 1.6 }}>
           What Clarity has noticed from your own history — deadlines you moved, time you tracked against what you
-          planned, what you started and what you let go. Measured, not guessed: no AI is involved on this page.
+          planned, what you started and what you let go. Everything below is measured, not guessed, and no AI
+          produces it. The one exception is <em>Clarity wants to check something</em>, which is a model asking —
+          and nothing there enters your profile until you say so.
         </p>
         {o.windowFellBack && (
           <p style={{
@@ -320,6 +461,54 @@ export default function PatternsView() {
           </p>
         )}
       </div>
+
+      <Section
+        title="Clarity wants to check something"
+        note={proposals.length ? `${proposals.length} waiting on you` : 'a model asking, not telling'}
+        T={T}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {proposals.map(p => (
+            <ProposalCard
+              key={p.id} proposal={p} busy={busy} T={T}
+              onAccept={pr => judgeProposal(pr, 'accept')}
+              onDecline={(pr, reason) => judgeProposal(pr, 'decline', reason)}
+            />
+          ))}
+
+          {!proposals.length && (
+            <div style={{
+              padding: '13px 15px', background: T.paperSubtle,
+              border: `1px dashed ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12.5, color: T.ink60, lineHeight: 1.55,
+            }}>
+              Everything above is arithmetic. This is the one place a model gets to form an opinion about you —
+              and it only ever <strong>asks</strong>. Whatever it suggests sits here until you accept it, and
+              anything you turn down never comes back.
+            </div>
+          )}
+
+          {elicitNote && (
+            <div style={{
+              padding: '11px 14px', background: T.paperMuted,
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12.5, color: T.ink60, lineHeight: 1.55,
+            }}>{elicitNote}</div>
+          )}
+
+          <div>
+            <button onClick={elicit} disabled={eliciting} style={{
+              padding: '7px 14px', background: 'transparent',
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12.5, color: eliciting ? T.ink40 : T.ink,
+              fontFamily: T.fontUI, cursor: eliciting ? 'default' : 'pointer',
+            }}>{eliciting ? 'Thinking\u2026' : 'Ask Clarity what it notices'}</button>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, marginTop: 6 }}>
+              runs on your local model — nothing is sent anywhere
+            </div>
+          </div>
+        </div>
+      </Section>
 
       {insights.length > 0 && (
         <Section
@@ -335,8 +524,9 @@ export default function PatternsView() {
             ))}
           </div>
           <p style={{ fontSize: 11.5, color: T.ink40, marginTop: 10, lineHeight: 1.55 }}>
-            These are drawn from the measurements below — no model decides what is true about you.
-            Rejecting one is permanent: it will not be worked out again.
+            Most of these are worked out from the measurements below, with no model involved. Any marked
+            <em> you confirmed this</em> came from a suggestion you accepted. Rejecting one is permanent either
+            way: it will not be worked out, or suggested, again.
           </p>
         </Section>
       )}

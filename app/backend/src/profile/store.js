@@ -14,7 +14,8 @@ import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { writeJSONAtomic, quarantine, appendJSONL, readJSONL } from '../storage.js';
 import { computeObserved } from './metrics.js';
-import { deriveInsights, mergeInsights, setInsightStatus } from './insights.js';
+import { deriveInsights, mergeInsights, setInsightStatus, addInsight, pushRecord } from './insights.js';
+import { mergeProposals, proposalToInsight, declinedInsight } from './elicitation.js';
 
 export const PROFILE_VERSION = 1;
 
@@ -31,6 +32,10 @@ export function emptyProfile() {
     version: PROFILE_VERSION,
     updatedAt: new Date().toISOString(),
     observed: null,                 // filled by recompute()
+    // Stage 2b. What a model has SUGGESTED about the person and the user has
+    // not answered yet. Kept apart from `understanding` on purpose: this list
+    // is not believed, and nothing moves across without an explicit accept.
+    proposals: [],
     understanding: {
       traits: [], drivers: [], blockers: [], strengths: [], skills: [], context: [],
     },
@@ -62,6 +67,7 @@ function withDefaults(p) {
     ...base, ...p,
     understanding: { ...base.understanding, ...(p.understanding || {}) },
     preferences:   { ...base.preferences,   ...(p.preferences   || {}) },
+    proposals:     Array.isArray(p.proposals) ? p.proposals : [],
   };
 }
 
@@ -139,9 +145,55 @@ export function createProfileStore({ dataDir, log = console }) {
     return { entries: filtered.slice(-limit), skipped };
   }
 
+  // ─── Proposals (Stage 2b) ───────────────────────────────────────────────────
+
+  function addProposals(incoming) {
+    const profile = readProfile();
+    const merged = mergeProposals(profile, incoming);
+    profile.proposals = merged.proposals;
+    saveProfile(profile);
+    return { pending: merged.proposals, added: merged.added, skipped: merged.skipped };
+  }
+
+  function readProposals() {
+    return (readProfile().proposals || []).filter(p => p && p.status === 'pending');
+  }
+
+  // The only path from a suggestion to a belief. It runs on an explicit accept
+  // and nowhere else — no recompute, no background pass, no model call reaches
+  // this function.
+  function acceptProposal(id, { now = new Date() } = {}) {
+    const profile = readProfile();
+    const proposal = (profile.proposals || []).find(p => p && p.id === id && p.status === 'pending');
+    if (!proposal) return null;
+
+    const result = addInsight(profile.understanding, proposalToInsight(proposal, { now }), { now });
+    if (!result.added) return { error: result.error };
+
+    profile.understanding = result.understanding;
+    profile.proposals = profile.proposals.filter(p => p.id !== id);
+    saveProfile(profile);
+    return { insight: result.insight, proposal };
+  }
+
+  // Declining is not a delete. The statement is stored as rejected under its
+  // own key, which is what stops the same idea coming back next week — the same
+  // mechanism, and the same list, that blocks a re-derived observation.
+  function declineProposal(id, { reason = null, now = new Date() } = {}) {
+    const profile = readProfile();
+    const proposal = (profile.proposals || []).find(p => p && p.id === id && p.status === 'pending');
+    if (!proposal) return null;
+
+    profile.understanding = pushRecord(profile.understanding, declinedInsight(proposal, { reason, now }));
+    profile.proposals = profile.proposals.filter(p => p.id !== id);
+    saveProfile(profile);
+    return { proposal, reason };
+  }
+
   return {
     PROFILE_FILE, JOURNAL_FILE,
     readProfile, saveProfile, recompute, judgeInsight,
     appendEntry, readEntries,
+    addProposals, readProposals, acceptProposal, declineProposal,
   };
 }
