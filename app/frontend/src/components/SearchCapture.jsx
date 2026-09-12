@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -51,26 +52,22 @@ function parseInput(text) {
   return { title: title.trim(), tags, deadline, estimatedDuration };
 }
 
-function fmtDate(dateStr) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function fmtDuration(mins) {
   return mins >= 60 ? `${Math.round(mins / 60 * 10) / 10}h` : `${mins}m`;
 }
 
-function getTaskDueLabel(task) {
-  if (!task.deadline) return null;
+function getTaskDueLabel(task, t, fmt) {
+  if (!task.deadline) return { label: null, overdue: false };
   const today = new Date();
   const y = today.getFullYear(), m = String(today.getMonth() + 1).padStart(2, '0'), d = String(today.getDate()).padStart(2, '0');
   const todayStr = `${y}-${m}-${d}`;
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
   const ty = tomorrow.getFullYear(), tm = String(tomorrow.getMonth() + 1).padStart(2, '0'), td = String(tomorrow.getDate()).padStart(2, '0');
   const tomorrowStr = `${ty}-${tm}-${td}`;
-  if (task.deadline < todayStr) return 'Overdue';
-  if (task.deadline === todayStr) return 'Today';
-  if (task.deadline === tomorrowStr) return 'Tomorrow';
-  return new Date(task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (task.deadline < todayStr) return { label: t('capture.overdue'), overdue: true };
+  if (task.deadline === todayStr) return { label: t('time.today'), overdue: false };
+  if (task.deadline === tomorrowStr) return { label: t('time.tomorrow'), overdue: false };
+  return { label: fmt(task.deadline + 'T00:00:00'), overdue: false };
 }
 
 function ParsePill({ label, value, T }) {
@@ -123,9 +120,9 @@ function CKFooter({ T, left, right }) {
 }
 
 function TaskRow({ task, active, showScore, onClick, T }) {
-  const due = getTaskDueLabel(task);
+  const { t, fmtDate } = useLocale();
+  const { label: due, overdue: isOverdue } = getTaskDueLabel(task, t, fmtDate);
   const area = task.tags?.[0] || '';
-  const isOverdue = due === 'Overdue';
   return (
     <div
       onClick={onClick}
@@ -161,6 +158,7 @@ function TaskRow({ task, active, showScore, onClick, T }) {
 }
 
 function CommandRow({ icon, label, kbd, active, onClick, T }) {
+  const { t } = useLocale();
   return (
     <div
       onClick={onClick}
@@ -210,10 +208,10 @@ export default function SearchCapture({
   }, [query, allTasks]);
 
   const commands = useMemo(() => [
-    { icon: '◷', label: 'Go to Today',      kbd: 'Ctrl+1', action: () => { onNavigate?.('focus');    onClose(); } },
-    { icon: '✉', label: 'Go to Inbox',      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    onClose(); } },
-    { icon: '↗', label: 'Open Ask Clarity', kbd: 'Ctrl+/', action: () => { onOpenChat?.();           onClose(); } },
-    { icon: '⚙', label: 'Open Settings',    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); onClose(); } },
+    { icon: '◷', label: t('capture.goToday'),      kbd: 'Ctrl+1', action: () => { onNavigate?.('focus');    onClose(); } },
+    { icon: '✉', label: t('capture.goInbox'),      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    onClose(); } },
+    { icon: '↗', label: t('capture.openChat'), kbd: 'Ctrl+/', action: () => { onOpenChat?.();           onClose(); } },
+    { icon: '⚙', label: t('capture.openSettings'),    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); onClose(); } },
   ], [onNavigate, onOpenChat, onClose]);
 
   // Flat list of navigable items for keyboard selection
@@ -329,7 +327,7 @@ export default function SearchCapture({
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={mode === 'capture' ? 'What needs doing?' : 'Search tasks or capture new…'}
+            placeholder={mode === 'capture' ? 'What needs doing?' : t('capture.placeholder')}
             disabled={saving}
             style={{
               flex: 1, fontSize: 16, color: T.ink,
@@ -343,7 +341,7 @@ export default function SearchCapture({
               textTransform: 'uppercase', color: T.accentInk,
               padding: '3px 7px', background: T.accentSoft, borderRadius: 3,
               border: `1px solid ${T.accent}`,
-            }}>Capture</span>
+            }}>{t('capture.title')}</span>
           )}
         </div>
 
@@ -356,10 +354,10 @@ export default function SearchCapture({
                 background: T.paperSubtle,
                 display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
               }}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>Parsed</span>
-                {parsed.tags.map(tag => <ParsePill key={tag} label="area" value={tag} T={T} />)}
-                {parsed.deadline && <ParsePill label="due" value={fmtDate(parsed.deadline)} T={T} />}
-                {parsed.estimatedDuration && <ParsePill label="est" value={fmtDuration(parsed.estimatedDuration)} T={T} />}
+                <span style={{ fontFamily: T.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
+                {parsed.tags.map(tag => <ParsePill key={tag} label={t('capture.area')} value={tag} T={T} />)}
+                {parsed.deadline && <ParsePill label={t('capture.due')} value={fmtDate(parsed.deadline + 'T00:00:00')} T={T} />}
+                {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={fmtDuration(parsed.estimatedDuration)} T={T} />}
               </div>
             )}
             {saveError && (
@@ -371,7 +369,7 @@ export default function SearchCapture({
                 <button onClick={() => setSaveError('')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.danger, fontSize: 13, padding: 0 }}>✕</button>
               </div>
             )}
-            <CKFooter T={T} left="On-device parse" right={[
+            <CKFooter T={T} left={t('capture.onDeviceParse')} right={[
               { key: 'Ctrl+↵', label: 'save & open' },
               { key: '↵', label: 'save' },
               { key: 'Esc', label: 'back' },
@@ -384,7 +382,7 @@ export default function SearchCapture({
           <>
             {recentTasks.length > 0 && (
               <>
-                <SectionLabel label="Recent" T={T} />
+                <SectionLabel label={t('capture.recent')} T={T} />
                 {recentTasks.map((task, i) => (
                   <TaskRow
                     key={task.id} task={task}
@@ -396,7 +394,7 @@ export default function SearchCapture({
                 <CKDivider T={T} />
               </>
             )}
-            <SectionLabel label="Commands" T={T} />
+            <SectionLabel label={t('capture.commands')} T={T} />
             {commands.map((cmd, i) => (
               <CommandRow
                 key={cmd.label} {...cmd}
@@ -452,7 +450,7 @@ export default function SearchCapture({
               }}>Tab</span>
             </div>
             <CKFooter T={T}
-              left={searchResults.length ? `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}` : 'No results'}
+              left={searchResults.length ? t('capture.nResults', { n: searchResults.length }) : t('capture.noResults')}
               right={[{ key: '↵', label: 'open task' }, { key: 'Tab', label: 'capture' }, { key: 'Esc', label: 'close' }]}
             />
           </>

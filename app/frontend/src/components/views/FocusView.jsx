@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import TaskCard from '../TaskCard.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 import TimeBlockingStrip from '../TimeBlockingStrip.jsx';
 
 const API = 'http://localhost:3001/api';
 
-function getGreeting() {
+function greetingKey() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return 'focus.greeting.morning';
+  if (h < 17) return 'focus.greeting.afternoon';
+  return 'focus.greeting.evening';
 }
 
 function getUserName() {
@@ -51,6 +52,7 @@ function TaskGroup({ title, subtitle, muted, children, T }) {
 }
 
 function AnalysisBanner({ state, time, onReanalyze, T }) {
+  const { t } = useLocale();
   const [hovReanalyze, setHovReanalyze] = useState(false);
 
   if (state === 'analyzing') {
@@ -63,7 +65,7 @@ function AnalysisBanner({ state, time, onReanalyze, T }) {
       }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, flexShrink: 0,
           animation: 'timerPulse 1.4s ease-in-out infinite' }} />
-        <span style={{ fontSize: 12.5, color: T.ink60 }}>Analyzing tasks…</span>
+        <span style={{ fontSize: 12.5, color: T.ink60 }}>{t('focus.analyzing')}</span>
       </div>
     );
   }
@@ -77,7 +79,7 @@ function AnalysisBanner({ state, time, onReanalyze, T }) {
         border: `1px solid ${T.dangerBorder}`,
       }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.danger, flexShrink: 0 }} />
-        <span style={{ flex: 1, fontSize: 12.5, color: T.danger }}>AI analysis failed</span>
+        <span style={{ flex: 1, fontSize: 12.5, color: T.danger }}>{t('focus.analysisFailed')}</span>
         {onReanalyze && (
           <button
             onClick={onReanalyze}
@@ -88,7 +90,7 @@ function AnalysisBanner({ state, time, onReanalyze, T }) {
               background: 'transparent', border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', padding: 0, flexShrink: 0,
             }}
-          >Try again</button>
+          >{t('common.tryAgain')}</button>
         )}
       </div>
     );
@@ -117,20 +119,20 @@ function AnalysisBanner({ state, time, onReanalyze, T }) {
             background: 'transparent', border: 'none', cursor: 'pointer',
             fontFamily: 'inherit', padding: 0, flexShrink: 0,
           }}
-        >Re-analyze</button>
+        >{t('focus.reanalyze')}</button>
       )}
     </div>
   );
 }
 
-function relativeTime(iso) {
+function relativeTime(iso, t) {
   if (!iso) return null;
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('time.justNow');
+  if (mins < 60) return t('time.minutesAgo', { n: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return t('time.hoursAgo', { n: hrs });
+  return t('time.daysAgo', { n: Math.floor(hrs / 24) });
 }
 
 // Follow-ups that are due, and tasks that look stuck enough to deserve one.
@@ -140,6 +142,7 @@ function relativeTime(iso) {
 // when Clarity is allowed to interrupt is its own problem, with its own budget,
 // and it is not this component’s to solve.
 function FollowUpsDue({ tasks, onOpenDetail, T }) {
+  const { t } = useLocale();
   const [due, setDue] = useState([]);
   const [stalled, setStalled] = useState([]);
   const [dismissed, setDismissed] = useState(false);
@@ -174,20 +177,20 @@ function FollowUpsDue({ tasks, onOpenDetail, T }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink60 }}>
-          Worth a word
+          {t('followups.worthAWord')}
         </div>
         <div style={{ flex: 1 }} />
         <button onClick={() => setDismissed(true)} style={{
           background: 'none', border: 'none', padding: 0, cursor: 'pointer',
           fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40,
-        }}>not now</button>
+        }}>{t('followups.notNow')}</button>
       </div>
 
-      {due.map(t => line(
-        t.taskId,
-        byId.get(t.taskId)?.title ?? 'A task',
-        t.blocker ? `blocked — ${t.blocker.text.slice(0, 48)}` : 'due for an update',
-        () => open(t.taskId),
+      {due.map(row => line(
+        row.taskId,
+        byId.get(row.taskId)?.title ?? t('followups.aTask'),
+        row.blocker ? t('followups.blockedBy', { what: row.blocker.text.slice(0, 48) }) : t('followups.dueForUpdate'),
+        () => open(row.taskId),
       ))}
 
       {stalled.map(s => line(`s-${s.taskId}`, s.title, s.why, () => open(s.taskId)))}
@@ -197,6 +200,7 @@ function FollowUpsDue({ tasks, onOpenDetail, T }) {
 
 export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
   const { T } = useTheme();
+  const { t, fmtDate } = useLocale();
   const userName = getUserName();
   const [calendarBlocks, setCalendarBlocks] = useState([]);
 
@@ -232,7 +236,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
   const timelineBlocks = [...taskBlocks, ...calendarBlocks].sort((a, b) => a.start - b.start);
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dateStr = fmtDate(now, { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <div style={{
@@ -249,14 +253,14 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
             {dateStr}
           </div>
           <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink, lineHeight: 1.1 }}>
-            {getGreeting()}{userName ? `, ${userName}` : ''}.
+            {t(greetingKey())}{userName ? `, ${userName}` : ''}.
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <StatPill label="total" value={stats.total} T={T} />
-          {stats.inProgress > 0 && <StatPill label="in progress" value={stats.inProgress} T={T} />}
-          {stats.done > 0 && <StatPill label="done" value={stats.done} accent={T.done} T={T} />}
-          {stats.overdue > 0 && <StatPill label="overdue" value={stats.overdue} accent={T.warn} T={T} />}
+          <StatPill label={t('focus.stat.total')} value={stats.total} T={T} />
+          {stats.inProgress > 0 && <StatPill label={t('focus.stat.inProgress')} value={stats.inProgress} T={T} />}
+          {stats.done > 0 && <StatPill label={t('focus.stat.done')} value={stats.done} accent={T.done} T={T} />}
+          {stats.overdue > 0 && <StatPill label={t('focus.stat.overdue')} value={stats.overdue} accent={T.warn} T={T} />}
         </div>
       </header>
 
@@ -294,13 +298,13 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
               color: T.paper, background: T.ink,
               border: 'none', padding: '7px 14px', borderRadius: T.r6,
               cursor: 'pointer',
-            }}>Accept</button>
+            }}>{t('focus.accept')}</button>
             <button onClick={() => onAddTask?.({ title: analysis.whatToDoNext })} style={{
               fontFamily: T.fontUI, fontSize: 12.5, fontWeight: 400,
               color: T.accentInk, background: 'transparent',
               border: `1px solid ${T.accent}`, padding: '6px 12px', borderRadius: T.r6,
               cursor: 'pointer',
-            }}>Edit &amp; add</button>
+            }}>{t('focus.editAndAdd')}</button>
           </div>
         </div>
       )}
@@ -314,25 +318,24 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
         }}>
           <span style={{ color: T.warn, fontSize: 16 }}>⚠</span>
           <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>AI is offline</p>
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t('focus.aiOffline')}</p>
             {health.providerType === 'ollama' || !health.providerType ? (
               <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
-                Ollama isn't running. Start it with{' '}
+                {t('focus.ollamaDown.before')}{' '}
                 <code style={{ fontFamily: T.fontMono, background: T.paperMuted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>ollama serve</code>
-                {' '}then reload. Or{' '}
+                {' '}{t('focus.ollamaDown.after')}{' '}
                 <button onClick={onOpenSettings} style={{
                   fontSize: 12, color: T.accent, background: 'transparent',
                   border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI,
-                }}>switch to a cloud provider →</button>
+                }}>{t('focus.switchProvider')}</button>
               </p>
             ) : (
               <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
-                {health.providerType === 'openai' ? 'OpenAI' : health.providerType === 'anthropic' ? 'Anthropic' : 'OpenRouter'} can't be reached.
-                Check your API key in{' '}
+                {t('focus.providerUnreachable', { provider: health.providerType === 'openai' ? 'OpenAI' : health.providerType === 'anthropic' ? 'Anthropic' : 'OpenRouter' })}{' '}
                 <button onClick={onOpenSettings} style={{
                   fontSize: 12, color: T.accent, background: 'transparent',
                   border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI,
-                }}>Settings →</button>
+                }}>{t('focus.settingsArrow')}</button>
               </p>
             )}
           </div>
@@ -345,7 +348,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       ) : analysisError ? (
         <AnalysisBanner state="error" T={T} onReanalyze={handlers.onReanalyze} />
       ) : analysis?.analyzedAt && (
-        <AnalysisBanner state="stale" time={relativeTime(analysis.analyzedAt)} T={T} onReanalyze={handlers.onReanalyze} />
+        <AnalysisBanner state="stale" time={relativeTime(analysis.analyzedAt, t)} T={T} onReanalyze={handlers.onReanalyze} />
       )}
 
       <FollowUpsDue tasks={handlers.allTasks || []} onOpenDetail={handlers.onOpenDetail} T={T} />
@@ -354,25 +357,25 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       {activeTasks.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: T.groupGap || 28, paddingBottom: 48 }}>
           {focusTasks.length > 0 && (
-            <TaskGroup title="First focus" subtitle="Top priority" T={T}>
+            <TaskGroup title={t('focus.firstFocus')} subtitle={t('focus.topPriority')} T={T}>
               {focusTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
             </TaskGroup>
           )}
 
           {quickTasks.length > 0 && (
-            <TaskGroup title="Up next" subtitle={`${quickTasks.length} tasks`} T={T}>
+            <TaskGroup title={t('focus.upNext')} subtitle={t('focus.nTasks', { n: quickTasks.length })} T={T}>
               {quickTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
             </TaskGroup>
           )}
 
           {lateTasks.length > 0 && (
-            <TaskGroup title="Overdue" subtitle="Needs attention" muted T={T}>
+            <TaskGroup title={t('focus.overdue')} subtitle={t('focus.needsAttention')} muted T={T}>
               {lateTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
             </TaskGroup>
           )}
 
           {doneTasks.length > 0 && (
-            <TaskGroup title="Completed" subtitle={`${doneTasks.length} done today`} muted T={T}>
+            <TaskGroup title={t('focus.completed')} subtitle={t('focus.nDoneToday', { n: doneTasks.length })} muted T={T}>
               {doneTasks.slice(0, 3).map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
               {doneTasks.length > 3 && (
                 <button onClick={onViewTasks} style={{
@@ -399,9 +402,9 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
             <circle cx="75" cy="10" r="8" fill="oklch(0.94 0.05 65)" stroke="oklch(0.78 0.10 65)" strokeWidth="1.2" />
             <path d="M75 4v-2M75 18v2M81 6l1.4-1.4M67.6 17.4L66.2 18.8M83 10h2M68 10h-2" stroke="oklch(0.68 0.10 65)" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>Nothing scheduled today.</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>{t('focus.emptyTitle')}</h2>
           <p style={{ margin: 0, fontSize: 14.5, color: T.ink60, lineHeight: 1.6, maxWidth: 380 }}>
-            Your day is open. Move something from Upcoming, or let Clarity suggest a plan from your backlog.
+            {t('focus.emptyBody')}
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onOpenChat} style={{
@@ -410,14 +413,14 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
               background: T.accent, color: T.paper, border: 'none',
               display: 'inline-flex', alignItems: 'center', gap: 8,
             }}>
-              Ask Clarity to plan
+              {t('focus.askToPlan')}
               <span style={{ fontFamily: T.fontMono, fontSize: 10, opacity: 0.7, background: 'rgba(255,255,255,0.15)', padding: '2px 5px', borderRadius: 3 }}>Ctrl+/</span>
             </button>
             <button onClick={onViewTasks} style={{
               fontFamily: T.fontUI, fontSize: 13, fontWeight: 400, cursor: 'pointer',
               padding: '9px 16px', borderRadius: T.r6,
               background: 'transparent', color: T.ink60, border: `1px solid ${T.hairline}`,
-            }}>Browse upcoming</button>
+            }}>{t('focus.browseUpcoming')}</button>
           </div>
         </div>
       )}

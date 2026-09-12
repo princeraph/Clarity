@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
 import ApertureMark from '../ApertureMark.jsx';
 
 const API = 'http://localhost:3001/api';
 
 const PROVIDERS = [
-  { id: 'ollama',    label: 'Ollama',     hint: 'Local AI — no API key, runs on your machine' },
-  { id: 'openai',    label: 'OpenAI',     hint: 'GPT-4o, GPT-4.1, o4-mini — requires API key' },
-  { id: 'anthropic', label: 'Anthropic',  hint: 'Claude Opus, Sonnet, Haiku — requires API key' },
-  { id: 'openrouter',label: 'OpenRouter', hint: 'Access 200+ models with one API key' },
+  { id: 'ollama',    label: 'Ollama',     hintKey: 'settings.provider.ollama' },
+  { id: 'openai',    label: 'OpenAI',     hintKey: 'settings.provider.openai' },
+  { id: 'anthropic', label: 'Anthropic',  hintKey: 'settings.provider.anthropic' },
+  { id: 'openrouter',label: 'OpenRouter', hintKey: 'settings.provider.openrouter' },
 ];
 
 const PRESET_MODELS = {
@@ -26,29 +27,32 @@ const DEFAULT_MODEL = {
 };
 
 const SECTIONS = [
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'ai',         label: 'AI Assistant' },
-  { id: 'capture',    label: 'Capture' },
-  { id: 'privacy',    label: 'Privacy' },
-  { id: 'data',       label: 'Data & Export' },
-  { id: 'keyboard',   label: 'Keyboard' },
-  { id: 'language',   label: 'Language' },
-  { id: 'about',      label: 'About' },
+  { id: 'appearance', labelKey: 'settings.section.appearance' },
+  { id: 'ai',         labelKey: 'settings.section.ai' },
+  { id: 'capture',    labelKey: 'settings.section.capture' },
+  { id: 'privacy',    labelKey: 'settings.section.privacy' },
+  { id: 'data',       labelKey: 'settings.section.data' },
+  { id: 'keyboard',   labelKey: 'settings.section.keyboard' },
+  { id: 'language',   labelKey: 'settings.section.language' },
+  { id: 'about',      labelKey: 'settings.section.about' },
 ];
 
+// Keys, not text. This list is evaluated when the module loads, long before a
+// React component (and therefore useLocale) exists — calling t() here threw
+// "t is not defined" and blanked the whole app.
 const DEFAULT_SHORTCUTS = [
-  { id: 'capture',   action: 'Quick capture',   keys: ['Ctrl', 'K'] },
-  { id: 'chat',      action: 'Toggle chat',      keys: ['Ctrl', '/'] },
-  { id: 'theme',     action: 'Toggle theme',     keys: ['Ctrl', 'Shift', 'L'] },
-  { id: 'settings',  action: 'Settings',         keys: ['Ctrl', ','] },
-  { id: 'focus',     action: 'Focus view',       keys: ['Ctrl', '1'] },
-  { id: 'tasks',     action: 'All tasks',        keys: ['Ctrl', '2'] },
-  { id: 'calendar',  action: 'Calendar',         keys: ['Ctrl', '3'] },
-  { id: 'graph',     action: 'Graph view',       keys: ['Ctrl', 'G'] },
-  { id: 'dismiss',   action: 'Close / dismiss',  keys: ['Esc'] },
-  { id: 'complete',  action: 'Mark complete',    keys: ['Space'] },
-  { id: 'detail',    action: 'Open detail',      keys: ['↵'] },
-  { id: 'delete',    action: 'Delete task',      keys: ['Del'] },
+  { id: 'capture',   actionKey: 'settings.quickCapture',    keys: ['Ctrl', 'K'] },
+  { id: 'chat',      actionKey: 'settings.kb.toggleChat',   keys: ['Ctrl', '/'] },
+  { id: 'theme',     actionKey: 'settings.kb.toggleTheme',  keys: ['Ctrl', 'Shift', 'L'] },
+  { id: 'settings',  actionKey: 'settings.title',           keys: ['Ctrl', ','] },
+  { id: 'focus',     actionKey: 'settings.kb.focusView',    keys: ['Ctrl', '1'] },
+  { id: 'tasks',     actionKey: 'tasks.allTasks',           keys: ['Ctrl', '2'] },
+  { id: 'calendar',  actionKey: 'nav.calendar',             keys: ['Ctrl', '3'] },
+  { id: 'graph',     actionKey: 'settings.kb.graphView',    keys: ['Ctrl', 'G'] },
+  { id: 'dismiss',   actionKey: 'settings.kb.dismiss',      keys: ['Esc'] },
+  { id: 'complete',  actionKey: 'task.markComplete',        keys: ['Space'] },
+  { id: 'detail',    actionKey: 'menu.openDetail',          keys: ['\u21b5'] },
+  { id: 'delete',    actionKey: 'settings.kb.deleteTask',   keys: ['Del'] },
 ];
 
 function loadCustomShortcuts() {
@@ -78,16 +82,6 @@ function formatKeyEvent(e) {
   return parts;
 }
 
-const LANGUAGES = [
-  { id: 'en-US', label: 'English (US)',   flag: '🇺🇸' },
-  { id: 'en-GB', label: 'English (UK)',   flag: '🇬🇧' },
-  { id: 'fr-FR', label: 'Français',       flag: '🇫🇷' },
-  { id: 'de-DE', label: 'Deutsch',        flag: '🇩🇪' },
-  { id: 'es-ES', label: 'Español',        flag: '🇪🇸' },
-  { id: 'ja-JP', label: '日本語',          flag: '🇯🇵' },
-  { id: 'pt-BR', label: 'Português (BR)', flag: '🇧🇷' },
-  { id: 'zh-CN', label: '中文 (简体)',     flag: '🇨🇳' },
-];
 
 const ACCENT_OPTIONS = [
   { name: 'Ink',   val: 'oklch(0.48 0.13 258)' },
@@ -164,6 +158,7 @@ function Section({ title, subtitle, T, children }) {
 // A claim about privacy that cannot be inspected is just a sentence; this is the
 // same composition the chat endpoint uses, rendered.
 function OutboundPreview({ T }) {
+  const { t } = useLocale();
   const [ctx, setCtx] = useState(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState(false);
@@ -181,8 +176,8 @@ function OutboundPreview({ T }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (error) return <div style={{ fontSize: 12.5, color: T.ink60 }}>Could not reach the backend.</div>;
-  if (!ctx) return <div style={{ fontSize: 12.5, color: T.ink40 }}>Checking…</div>;
+  if (error) return <div style={{ fontSize: 12.5, color: T.ink60 }}>{t('error.backendUnreachable')}</div>;
+  if (!ctx) return <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.checking')}</div>;
 
   const local = ctx.providerIsLocal;
 
@@ -198,11 +193,9 @@ function OutboundPreview({ T }) {
           background: local ? T.done : T.warn }} />
         <div style={{ fontSize: 13, color: local ? T.accentInk : T.ink, lineHeight: 1.55 }}>
           {local ? (
-            <><strong>Nothing leaves this machine.</strong> You are using a local model ({ctx.providerType}),
-            so prompts are never sent over the network.</>
+            <><strong>{t('settings.privacy.localTitle')}</strong> {t('settings.privacy.localBody', { provider: ctx.providerType })}</>
           ) : (
-            <><strong>{ctx.chars} characters would be sent to {ctx.providerType}</strong> with each message —
-            your task list and a short summary of your patterns. The raw material behind that summary stays here.</>
+            <><strong>{t('settings.privacy.remoteTitle', { chars: ctx.chars, provider: ctx.providerType })}</strong> {t('settings.privacy.remoteBody')}</>
           )}
         </div>
       </div>
@@ -235,7 +228,7 @@ function OutboundPreview({ T }) {
           padding: '7px 14px', background: 'transparent',
           border: `1px solid ${T.hairline}`, borderRadius: T.r6,
           fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
-        }}>{open ? 'Hide the exact text' : 'Show me the exact text'}</button>
+        }}>{open ? 'Hide the exact text' : t('settings.showExactText')}</button>
       </div>
 
       {open && (
@@ -251,6 +244,7 @@ function OutboundPreview({ T }) {
 }
 
 function KeyboardSection({ T }) {
+  const { t } = useLocale();
   const [customMap, setCustomMap] = useState(loadCustomShortcuts);
   const [capturing, setCapturing] = useState(null); // shortcut id being captured
 
@@ -283,10 +277,10 @@ function KeyboardSection({ T }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-      <PageHeader section="Keyboard" title="Keyboard shortcuts" T={T} />
+      <PageHeader section={t('settings.section.keyboard')} title={t('settings.keyboard.title')} T={T} />
 
-      <Section title="Shortcuts" subtitle="Click any shortcut to remap it. Press Esc to cancel." T={T}>
-        {shortcuts.map(({ id, action, keys, isCustom }) => (
+      <Section title={t('settings.keyboard.shortcuts')} subtitle={t('settings.keyboard.hint')} T={T}>
+        {shortcuts.map(({ id, actionKey, keys, isCustom }) => (
           <div
             key={id}
             style={{
@@ -297,7 +291,7 @@ function KeyboardSection({ T }) {
               transition: 'border-color 0.15s',
             }}
           >
-            <span style={{ fontSize: 13.5, color: T.ink }}>{action}</span>
+            <span style={{ fontSize: 13.5, color: T.ink }}>{t(actionKey)}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {capturing === id ? (
                 <div
@@ -312,7 +306,7 @@ function KeyboardSection({ T }) {
                     fontSize: 12, color: T.accentInk, fontFamily: T.fontMono,
                     outline: 'none', whiteSpace: 'nowrap', cursor: 'text',
                   }}
-                >Press a key…</div>
+                >{t('settings.keyboard.pressKey')}</div>
               ) : (
                 <div
                   onClick={() => startCapture(id)}
@@ -320,7 +314,7 @@ function KeyboardSection({ T }) {
                     display: 'flex', gap: 4, cursor: 'pointer',
                     padding: '2px 4px', borderRadius: T.r6,
                   }}
-                  title="Click to remap"
+                  title={t('settings.keyboard.clickToRemap')}
                   onMouseEnter={e => e.currentTarget.style.background = T.paperMuted}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
@@ -330,7 +324,7 @@ function KeyboardSection({ T }) {
               {isCustom && (
                 <button
                   onClick={() => resetShortcut(id)}
-                  title="Reset to default"
+                  title={t('settings.keyboard.resetDefault')}
                   style={{
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     fontSize: 10.5, color: T.ink40, fontFamily: T.fontMono, padding: 0,
@@ -414,6 +408,7 @@ async function triggerExport(fmt) {
 
 export default function SettingsView({ onSaved }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
+  const { t, locale, setLocale } = useLocale();
   const [form, setForm] = useState({
     providerType: 'ollama',
     llmEndpoint: 'http://localhost:11434',
@@ -430,9 +425,6 @@ export default function SettingsView({ onSaved }) {
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState('appearance');
   const [backups, setBackups] = useState([]);
-  const [locale, setLocale] = useState(() => {
-    try { return localStorage.getItem('clarity-locale') || 'en-US'; } catch { return 'en-US'; }
-  });
   const [userName, setUserName] = useState(() => {
     try { return localStorage.getItem('clarity-userName') || ''; } catch { return ''; }
   });
@@ -511,7 +503,7 @@ export default function SettingsView({ onSaved }) {
         body: JSON.stringify(payload),
       });
       if (resp.ok) {
-        setStatus({ type: 'success', message: 'Settings saved.' });
+        setStatus({ type: 'success', message: t('settings.saved') });
         if (form.apiKey) { setApiKeySet(true); setEditingKey(false); }
         onSaved?.();
       } else {
@@ -541,9 +533,9 @@ export default function SettingsView({ onSaved }) {
       <aside style={{ background: T.paperSubtle, borderRight: `1px solid ${T.hairline}`, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 4, boxSizing: 'border-box', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px', marginBottom: 16 }}>
           <ApertureMark s={20} />
-          <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>Settings</span>
+          <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>{t('settings.title')}</span>
         </div>
-        {SECTIONS.map(({ id, label }) => (
+        {SECTIONS.map(({ id, labelKey }) => (
           <button key={id} onClick={() => setSection(id)} style={{
             padding: '7px 10px', borderRadius: T.r6, width: '100%', textAlign: 'left',
             background: section === id ? T.paper : 'transparent',
@@ -551,24 +543,24 @@ export default function SettingsView({ onSaved }) {
             fontSize: 13.5, color: section === id ? T.ink : T.ink80,
             fontWeight: section === id ? 500 : 400,
             border: 'none', cursor: 'pointer', fontFamily: T.fontUI,
-          }}>{label}</button>
+          }}>{t(labelKey)}</button>
         ))}
       </aside>
 
       {/* Content */}
       <main style={{ padding: '36px 56px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
         {loading ? (
-          <div style={{ color: T.ink60, fontSize: 13.5 }}>Loading settings…</div>
+          <div style={{ color: T.ink60, fontSize: 13.5 }}>{t('settings.loading')}</div>
         ) : section === 'appearance' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="Appearance" title="Appearance" T={T} />
+            <PageHeader section={t('settings.section.appearance')} title={t('settings.section.appearance')} T={T} />
 
-            <Section title="Theme" subtitle="Match the system, or choose. Switches with the OS at sunset." T={T}>
+            <Section title={t('settings.theme')} subtitle={t('settings.themeHint')} T={T}>
               <div style={{ display: 'flex', gap: 12 }}>
                 {[
-                  { id: 'light', label: 'Light', previewBg: '#FAFAF7', previewInk: '#19191A', ring: true },
-                  { id: 'dark',  label: 'Dark',  previewBg: '#16161A', previewInk: '#F4F3EE' },
-                  { id: 'auto',  label: 'Auto',  previewBg: 'linear-gradient(90deg, #FAFAF7 50%, #16161A 50%)', previewInk: null },
+                  { id: 'light', label: t('settings.themeLight'), previewBg: '#FAFAF7', previewInk: '#19191A', ring: true },
+                  { id: 'dark',  label: t('settings.themeDark'),  previewBg: '#16161A', previewInk: '#F4F3EE' },
+                  { id: 'auto',  label: t('settings.themeAuto'),  previewBg: 'linear-gradient(90deg, #FAFAF7 50%, #16161A 50%)', previewInk: null },
                 ].map(opt => {
                   const active = themeMode === opt.id;
                   return (
@@ -608,7 +600,7 @@ export default function SettingsView({ onSaved }) {
               </div>
             </Section>
 
-            <Section title="Density" subtitle="Spacious for reading; compact when the day is full." T={T}>
+            <Section title={t('settings.density')} subtitle={t('settings.densityHint')} T={T}>
               <div style={{
                 display: 'inline-flex', padding: 3,
                 background: T.paperSubtle, borderRadius: T.r6,
@@ -630,7 +622,7 @@ export default function SettingsView({ onSaved }) {
               </div>
             </Section>
 
-            <Section title="Accent" subtitle="The one color that calls your attention. Used sparingly — focus, AI, today." T={T}>
+            <Section title={t('settings.accent')} subtitle={t('settings.accentHint')} T={T}>
               <div style={{ display: 'flex', gap: 10 }}>
                 {ACCENT_OPTIONS.map(c => {
                   const active = accent === c.val;
@@ -652,12 +644,12 @@ export default function SettingsView({ onSaved }) {
               </div>
             </Section>
 
-            <Section title="Typography" subtitle="Choose the interface font family." T={T}>
+            <Section title={t('settings.typography')} subtitle={t('settings.typographyHint')} T={T}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
-                  { id: 'geist',  label: 'Geist',     sample: 'Clean, geometric sans-serif' },
-                  { id: 'system', label: 'System UI',  sample: 'Native system font' },
-                  { id: 'serif',  label: 'Serif',      sample: 'Classic Georgia' },
+                  { id: 'geist',  label: 'Geist',     sample: t('settings.fontGeist') },
+                  { id: 'system', label: 'System UI',  sample: t('settings.fontSystem') },
+                  { id: 'serif',  label: 'Serif',      sample: t('settings.fontSerif') },
                 ].map(opt => {
                   const active = font === opt.id;
                   return (
@@ -678,7 +670,7 @@ export default function SettingsView({ onSaved }) {
                         <div style={{ fontSize: 12, color: T.ink60, marginTop: 2 }}>{opt.sample}</div>
                       </div>
                       {active && (
-                        <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.accentInk, padding: '2px 6px', background: T.accentSoft, borderRadius: 3, border: `1px solid ${T.accent}` }}>Active</span>
+                        <span style={{ fontFamily: T.fontMono, fontSize: 10, color: T.accentInk, padding: '2px 6px', background: T.accentSoft, borderRadius: 3, border: `1px solid ${T.accent}` }}>{t('settings.active')}</span>
                       )}
                     </button>
                   );
@@ -689,9 +681,9 @@ export default function SettingsView({ onSaved }) {
 
         ) : section === 'ai' ? (
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="AI Assistant" title="AI configuration" T={T} />
+            <PageHeader section={t('settings.section.ai')} title={t('settings.ai.title')} T={T} />
 
-            <Section title="Provider" subtitle="Choose which AI service Clarity talks to." T={T}>
+            <Section title={t('settings.ai.provider')} subtitle={t('settings.ai.providerHint')} T={T}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {PROVIDERS.map(p => (
                   <button
@@ -718,16 +710,16 @@ export default function SettingsView({ onSaved }) {
                     </div>
                     <div>
                       <div style={{ fontSize: 13.5, fontWeight: 500, color: activeProvider === p.id ? T.accentInk : T.ink }}>{p.label}</div>
-                      <div style={{ fontSize: 12, color: activeProvider === p.id ? T.accentInk : T.ink60, marginTop: 2, opacity: 0.85 }}>{p.hint}</div>
+                      <div style={{ fontSize: 12, color: activeProvider === p.id ? T.accentInk : T.ink60, marginTop: 2, opacity: 0.85 }}>{t(p.hintKey)}</div>
                     </div>
                   </button>
                 ))}
               </div>
             </Section>
 
-            <Section title="Model" T={T}>
+            <Section title={t('settings.ai.model')} T={T}>
               {presetModels.length > 0 ? (
-                <FieldRow label="Model" T={T}>
+                <FieldRow label={t('settings.model')} T={T}>
                   <div style={{ position: 'relative' }}>
                     <select value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
                       style={{ ...field, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
@@ -737,7 +729,7 @@ export default function SettingsView({ onSaved }) {
                   </div>
                 </FieldRow>
               ) : isOllama && ollamaModels.length > 0 ? (
-                <FieldRow label="Model" hint="Models installed in your local Ollama." T={T}>
+                <FieldRow label={t('settings.model')} hint={t('settings.modelsInstalledInYourLocal')} T={T}>
                   <div style={{ position: 'relative' }}>
                     <select value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
                       style={{ ...field, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
@@ -748,7 +740,7 @@ export default function SettingsView({ onSaved }) {
                 </FieldRow>
               ) : (
                 <FieldRow
-                  label="Model"
+                  label={t('settings.model')}
                   hint={isOllama ? 'Ollama not connected — type model name manually.' : activeProvider === 'openrouter' ? 'e.g. mistralai/mistral-7b-instruct' : ''}
                   T={T}
                 >
@@ -763,8 +755,8 @@ export default function SettingsView({ onSaved }) {
             </Section>
 
             {!isOllama && (
-              <Section title="API Key" subtitle={`Your ${PROVIDERS.find(p => p.id === activeProvider)?.label} secret key. Stored locally on your device.`} T={T}>
-                <FieldRow label="Secret Key" T={T}>
+              <Section title={t('settings.ai.apiKey')} subtitle={t('settings.ai.apiKeyHint', { provider: PROVIDERS.find(p => p.id === activeProvider)?.label })} T={T}>
+                <FieldRow label={t('settings.secretKey')} T={T}>
                   {apiKeySet && !editingKey ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{
@@ -783,7 +775,7 @@ export default function SettingsView({ onSaved }) {
                           border: `1px solid ${T.hairline}`, borderRadius: T.r6,
                           fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
                         }}
-                      >Replace</button>
+                      >{t('settings.ai.replace')}</button>
                     </div>
                   ) : (
                     <input
@@ -800,29 +792,29 @@ export default function SettingsView({ onSaved }) {
             )}
 
             {isOllama && (
-              <Section title="Connection" T={T}>
-                <FieldRow label="Ollama Endpoint" hint="Default: http://localhost:11434" T={T}>
+              <Section title={t('settings.ai.connection')} T={T}>
+                <FieldRow label={t('settings.ollamaEndpoint')} hint={t('settings.defaultHttpLocalhost11434')} T={T}>
                   <input type="url" value={form.llmEndpoint} onChange={e => set('llmEndpoint', e.target.value)}
                     placeholder="http://localhost:11434" style={field} />
                 </FieldRow>
-                <FieldRow label="Tunnel Secret" hint="Bearer token for ngrok/SSH tunnels. Leave blank if unused." T={T}>
+                <FieldRow label={t('settings.tunnelSecret')} hint={t('settings.bearerTokenForNgrokSsh')} T={T}>
                   <input type="password" value={form.tunnelSecret} onChange={e => set('tunnelSecret', e.target.value)}
-                    placeholder="Leave blank if not using a tunnel" style={field} />
+                    placeholder={t('settings.ai.tunnelPlaceholder')} style={field} />
                 </FieldRow>
               </Section>
             )}
 
-            <Section title="Features" subtitle="Control which AI features are active." T={T}>
-              <SettingRow label="Daily plan strip" hint="Show AI-generated daily plan" T={T}>
+            <Section title={t('settings.ai.features')} subtitle={t('settings.ai.featuresHint')} T={T}>
+              <SettingRow label={t('settings.dailyPlanStrip')} hint={t('settings.showAiGeneratedDailyPlan')} T={T}>
                 <Toggle on={aiToggles.dailyPlan} onChange={v => setAiToggles(t => ({ ...t, dailyPlan: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Auto-reschedule stale tasks" hint="Move overdue tasks automatically" T={T}>
+              <SettingRow label={t('settings.autoRescheduleStaleTasks')} hint={t('settings.moveOverdueTasksAutomatically')} T={T}>
                 <Toggle on={aiToggles.autoReschedule} onChange={v => setAiToggles(t => ({ ...t, autoReschedule: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Smart area detection" hint="Auto-assign tasks to areas" T={T}>
+              <SettingRow label={t('settings.smartAreaDetection')} hint={t('settings.autoAssignTasksToAreas')} T={T}>
                 <Toggle on={aiToggles.smartArea} onChange={v => setAiToggles(t => ({ ...t, smartArea: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Conversation history" hint="AI remembers context across sessions" T={T}>
+              <SettingRow label={t('settings.conversationHistory')} hint={t('settings.aiRemembersContextAcrossSessions')} T={T}>
                 <Toggle on={aiToggles.convHistory} onChange={v => setAiToggles(t => ({ ...t, convHistory: v }))} T={T} />
               </SettingRow>
             </Section>
@@ -845,16 +837,16 @@ export default function SettingsView({ onSaved }) {
               color: T.paper, cursor: saving ? 'not-allowed' : 'pointer',
               opacity: saving ? 0.5 : 1, fontFamily: T.fontUI,
             }}>
-              {saving ? 'Saving…' : 'Save Settings'}
+              {saving ? 'Saving…' : t('settings.save')}
             </button>
           </form>
 
         ) : section === 'capture' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="Capture" title="Capture" T={T} />
+            <PageHeader section={t('settings.section.capture')} title={t('settings.section.capture')} T={T} />
 
-            <Section title="Global shortcut" subtitle="Open quick capture from anywhere." T={T}>
-              <SettingRow label="Quick capture" hint="" T={T}>
+            <Section title={t('settings.capture.shortcut')} subtitle={t('settings.capture.shortcutHint')} T={T}>
+              <SettingRow label={t('settings.quickCapture')} hint="" T={T}>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <KbdChip T={T}>Ctrl</KbdChip>
                   <KbdChip T={T}>K</KbdChip>
@@ -862,35 +854,35 @@ export default function SettingsView({ onSaved }) {
               </SettingRow>
             </Section>
 
-            <Section title="Defaults" T={T}>
-              <SettingRow label="Default area" hint="Where new tasks go" T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>Inbox</span>
+            <Section title={t('settings.capture.defaults')} T={T}>
+              <SettingRow label={t('settings.defaultArea')} hint={t('settings.whereNewTasksGo')} T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('nav.inbox')}</span>
               </SettingRow>
-              <SettingRow label="Default due date" hint="Applied to new captures" T={T}>
+              <SettingRow label={t('settings.defaultDueDate')} hint={t('settings.appliedToNewCaptures')} T={T}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>None</span>
               </SettingRow>
             </Section>
 
-            <Section title="Parsing" subtitle="How Clarity interprets what you type." T={T}>
-              <SettingRow label="Show parse preview" hint="Display parsed fields below input" T={T}>
+            <Section title={t('settings.capture.parsing')} subtitle={t('settings.capture.parsingHint')} T={T}>
+              <SettingRow label={t('settings.showParsePreview')} hint={t('settings.displayParsedFieldsBelowInput')} T={T}>
                 <Toggle on={captureToggles.parsePreview} onChange={v => setCaptureToggles(t => ({ ...t, parsePreview: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Auto-assign area" hint="Detect and apply area from text" T={T}>
+              <SettingRow label={t('settings.autoAssignArea')} hint={t('settings.detectAndApplyAreaFrom')} T={T}>
                 <Toggle on={captureToggles.autoArea} onChange={v => setCaptureToggles(t => ({ ...t, autoArea: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Detect recurrence" hint="Parse 'every Monday' etc." T={T}>
+              <SettingRow label={t('settings.detectRecurrence')} hint={t('settings.parseEveryMondayEtc')} T={T}>
                 <Toggle on={captureToggles.detectRecur} onChange={v => setCaptureToggles(t => ({ ...t, detectRecur: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Parse duration" hint="Extract time estimates from text" T={T}>
+              <SettingRow label={t('settings.parseDuration')} hint={t('settings.extractTimeEstimatesFromText')} T={T}>
                 <Toggle on={captureToggles.parseDuration} onChange={v => setCaptureToggles(t => ({ ...t, parseDuration: v }))} T={T} />
               </SettingRow>
             </Section>
 
-            <Section title="After capture" T={T}>
-              <SettingRow label="On save" hint="What happens after saving" T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>Close & return</span>
+            <Section title={t('settings.capture.after')} T={T}>
+              <SettingRow label={t('settings.onSave')} hint={t('settings.whatHappensAfterSaving')} T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('settings.closeAndReturn')}</span>
               </SettingRow>
-              <SettingRow label="Capture chime" hint="Play a sound on save" T={T}>
+              <SettingRow label={t('settings.captureChime')} hint={t('settings.playASoundOnSave')} T={T}>
                 <Toggle on={captureToggles.chime} onChange={v => setCaptureToggles(t => ({ ...t, chime: v }))} T={T} />
               </SettingRow>
             </Section>
@@ -898,33 +890,33 @@ export default function SettingsView({ onSaved }) {
 
         ) : section === 'privacy' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="Privacy" title="Privacy" T={T} />
+            <PageHeader section={t('settings.section.privacy')} title={t('settings.section.privacy')} T={T} />
 
             <Section
-              title="What gets sent"
-              subtitle="Composed the same way the assistant composes it, so this is what would actually go — not a description of it."
+              title={t('settings.privacy.whatGetsSent')}
+              subtitle={t('settings.privacy.whatGetsSentHint')}
               T={T}
             >
               <OutboundPreview T={T} />
             </Section>
 
-            <Section title="Diagnostics" subtitle="Anonymous data to help improve Clarity." T={T}>
-              <SettingRow label="Anonymous usage data" hint="App feature usage (no task content)" T={T}>
+            <Section title={t('settings.privacy.diagnostics')} subtitle={t('settings.privacy.diagnosticsHint')} T={T}>
+              <SettingRow label={t('settings.anonymousUsageData')} hint={t('settings.appFeatureUsageNoTask')} T={T}>
                 <Toggle on={privacyToggles.anonUsage} onChange={v => setPrivacyToggles(t => ({ ...t, anonUsage: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Crash reports" hint="Automatic error reporting" T={T}>
+              <SettingRow label={t('settings.crashReports')} hint={t('settings.automaticErrorReporting')} T={T}>
                 <Toggle on={privacyToggles.crashReports} onChange={v => setPrivacyToggles(t => ({ ...t, crashReports: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Performance metrics" hint="Latency and rendering stats" T={T}>
+              <SettingRow label={t('settings.performanceMetrics')} hint={t('settings.latencyAndRenderingStats')} T={T}>
                 <Toggle on={privacyToggles.perfMetrics} onChange={v => setPrivacyToggles(t => ({ ...t, perfMetrics: v }))} T={T} />
               </SettingRow>
             </Section>
 
-            <Section title="AI & conversation" T={T}>
-              <SettingRow label="Store history" hint="Keep chat history between sessions" T={T}>
+            <Section title={t('settings.privacy.conversation')} T={T}>
+              <SettingRow label={t('settings.storeHistory')} hint={t('settings.keepChatHistoryBetweenSessions')} T={T}>
                 <Toggle on={privacyToggles.storeHistory} onChange={v => setPrivacyToggles(t => ({ ...t, storeHistory: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Use history to improve plans" hint="Let AI reference past conversations" T={T}>
+              <SettingRow label={t('settings.useHistoryToImprovePlans')} hint={t('settings.letAiReferencePastConversations')} T={T}>
                 <Toggle on={privacyToggles.useHistory} onChange={v => setPrivacyToggles(t => ({ ...t, useHistory: v }))} T={T} />
               </SettingRow>
               <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -933,38 +925,38 @@ export default function SettingsView({ onSaved }) {
                   background: 'transparent', border: `1px solid ${T.hairline}`,
                   borderRadius: T.r6, fontSize: 13, color: T.ink60,
                   cursor: 'pointer', fontFamily: T.fontUI,
-                }}>Clear conversation history</button>
+                }}>{t('settings.privacy.clearHistory')}</button>
               </div>
             </Section>
           </div>
 
         ) : section === 'data' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="Data & Export" title="Data & Export" T={T} />
+            <PageHeader section={t('settings.section.data')} title={t('settings.section.data')} T={T} />
 
-            <Section title="Storage" T={T}>
-              <SettingRow label="Data directory" hint="Local storage path" T={T}>
+            <Section title={t('settings.data.storage')} T={T}>
+              <SettingRow label={t('settings.dataDirectory')} hint={t('settings.localStoragePath')} T={T}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60 }}>APPDATA/Clarity/data/</span>
               </SettingRow>
-              <SettingRow label="Database size" hint="Approximate" T={T}>
+              <SettingRow label={t('settings.databaseSize')} hint={t('settings.approximate')} T={T}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>18.4 MB</span>
               </SettingRow>
             </Section>
 
-            <Section title="Backup" subtitle="Clarity saves a daily backup of your tasks." T={T}>
-              <SettingRow label="Auto-backup" hint="Create daily snapshots" T={T}>
+            <Section title={t('settings.data.backup')} subtitle={t('settings.data.backupHint')} T={T}>
+              <SettingRow label={t('settings.autoBackup')} hint={t('settings.createDailySnapshots')} T={T}>
                 <Toggle on={backupToggles.autoBackup} onChange={v => setBackupToggles(t => ({ ...t, autoBackup: v }))} T={T} />
               </SettingRow>
-              <SettingRow label="Backup frequency" hint="" T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>Daily</span>
+              <SettingRow label={t('settings.backupFrequency')} hint="" T={T}>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('form.daily')}</span>
               </SettingRow>
-              <SettingRow label="Keep last" hint="Older snapshots are removed automatically" T={T}>
+              <SettingRow label={t('settings.keepLast')} hint={t('settings.olderSnapshotsAreRemovedAutomatically')} T={T}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>7 snapshots</span>
               </SettingRow>
             </Section>
 
             {backups.length > 0 && (
-              <Section title="Backup files" T={T}>
+              <Section title={t('settings.data.backupFiles')} T={T}>
                 {backups.map(b => (
                   <div key={b.name} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '10px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
                     <div>
@@ -973,13 +965,13 @@ export default function SettingsView({ onSaved }) {
                     </div>
                     <a href={`${API}/backups/${b.name}`} download={b.name} style={{
                       fontSize: 12, color: T.accent, textDecoration: 'none', fontFamily: T.fontUI,
-                    }}>Download</a>
+                    }}>{t('settings.data.download')}</a>
                   </div>
                 ))}
               </Section>
             )}
 
-            <Section title="Export tasks" subtitle="Download all your tasks in different formats." T={T}>
+            <Section title={t('settings.data.export')} subtitle={t('settings.data.exportHint')} T={T}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   onClick={() => triggerExport('json')}
@@ -992,13 +984,13 @@ export default function SettingsView({ onSaved }) {
                   style={{
                     padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
-                  }}>Markdown</button>
+                  }}>{t('export.markdown')}</button>
                 <button
                   onClick={() => triggerExport('txt')}
                   style={{
                     padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
-                  }}>Plain text</button>
+                  }}>{t('settings.data.plainText')}</button>
                 <button disabled style={{
                   padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                   borderRadius: T.r6, fontSize: 13, color: T.ink40, cursor: 'not-allowed', fontFamily: T.fontUI,
@@ -1006,11 +998,11 @@ export default function SettingsView({ onSaved }) {
               </div>
             </Section>
 
-            <Section title="Danger zone" T={T}>
+            <Section title={t('settings.data.danger')} T={T}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   onClick={async () => {
-                    if (!confirm('Delete ALL tasks permanently? This cannot be undone.')) return;
+                    if (!confirm(t('settings.data.confirmDeleteAll'))) return;
                     try {
                       const r = await fetch(`${API}/tasks/all`, { method: 'DELETE' });
                       if (r.ok) window.location.reload();
@@ -1021,25 +1013,25 @@ export default function SettingsView({ onSaved }) {
                     border: `1px solid ${T.dangerBorder}`,
                     borderRadius: T.r6, fontSize: 13,
                     color: T.danger, cursor: 'pointer', fontFamily: T.fontUI,
-                  }}>Delete all tasks</button>
+                  }}>{t('settings.data.deleteAll')}</button>
                 <button
                   onClick={async () => {
                     // This used to confirm and then merely reload, deleting nothing.
                     // The wording now matches what actually happens, backups included.
-                    if (!confirm('Reset Clarity to factory defaults?\n\nTasks, settings and everything Clarity has learned about you will be deleted. Your daily backups are kept.')) return;
+                    if (!confirm(t('settings.data.confirmReset'))) return;
                     try {
                       const r = await fetch(`${API}/reset`, { method: 'POST' });
                       if (r.ok) window.location.reload();
-                      else alert('Reset failed — nothing was changed.');
+                      else alert(t('settings.data.resetFailed'));
                     } catch {
-                      alert('Could not reach the backend — nothing was changed.');
+                      alert(t('settings.data.resetUnreachable'));
                     }
                   }}
                   style={{
                     padding: '9px 18px', background: T.danger,
                     border: 'none', borderRadius: T.r6, fontSize: 13,
                     color: T.paper, cursor: 'pointer', fontFamily: T.fontUI, fontWeight: 500,
-                  }}>Reset Clarity</button>
+                  }}>{t('settings.data.reset')}</button>
               </div>
             </Section>
           </div>
@@ -1049,16 +1041,16 @@ export default function SettingsView({ onSaved }) {
 
         ) : section === 'language' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="Language" title="Language & Region" T={T} />
+            <PageHeader section={t('settings.section.language')} title={t('settings.language.title')} T={T} />
 
             <div style={{
               padding: '14px 16px', background: T.accentSoft, borderRadius: T.r6,
               border: `1px solid ${T.hairline}`, fontSize: 13, color: T.accentInk, lineHeight: 1.55,
             }}>
-              Language affects the app interface. Full translations are in progress — some strings may still appear in English.
+              {t('settings.language.banner')}
             </div>
 
-            <Section title="Your name" subtitle="Shown in the daily greeting on the Today page." T={T}>
+            <Section title={t('settings.language.yourName')} subtitle={t('settings.language.yourNameHint')} T={T}>
               <div style={{ padding: '14px 16px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
                 <input
                   type="text"
@@ -1067,7 +1059,7 @@ export default function SettingsView({ onSaved }) {
                     setUserName(e.target.value);
                     try { localStorage.setItem('clarity-userName', e.target.value); } catch {}
                   }}
-                  placeholder="Your name (e.g. Raph)"
+                  placeholder={t('settings.language.namePlaceholder')}
                   style={{
                     width: '100%', padding: '8px 10px', boxSizing: 'border-box',
                     background: T.paper, border: `1px solid ${T.hairline}`,
@@ -1083,7 +1075,7 @@ export default function SettingsView({ onSaved }) {
               </div>
             </Section>
 
-            <Section title="Interface language" subtitle="Choose the language for the app UI." T={T}>
+            <Section title={t('settings.language.interface')} subtitle={t('settings.language.interfaceHint')} T={T}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {LANGUAGES.map(lang => {
                   const active = locale === lang.id;
@@ -1092,7 +1084,6 @@ export default function SettingsView({ onSaved }) {
                       key={lang.id}
                       onClick={() => {
                         setLocale(lang.id);
-                        try { localStorage.setItem('clarity-locale', lang.id); } catch {}
                       }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 12,
@@ -1115,20 +1106,20 @@ export default function SettingsView({ onSaved }) {
         ) : (
           /* About */
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <PageHeader section="About" title="About Clarity" T={T} />
+            <PageHeader section={t('settings.section.about')} title={t('settings.about.title')} T={T} />
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
               <ApertureMark s={56} />
               <div>
                 <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: T.ink }}>Clarity</div>
-                <div style={{ fontSize: 13, color: T.ink60, marginTop: 3 }}>A calm, AI-powered task manager</div>
+                <div style={{ fontSize: 13, color: T.ink60, marginTop: 3 }}>{t('settings.about.tagline')}</div>
               </div>
             </div>
 
-            <Section title="System" T={T}>
+            <Section title={t('settings.about.system')} T={T}>
               {[
                 ['Version', '1.2.0', null],
-                ['Storage', 'On-device', 'Tasks stored in APPDATA/Clarity/data/'],
+                [t('settings.data.storage'), t('tray.onDevice'), t('settings.about.storedIn')],
                 ['AI providers', 'Ollama · OpenAI · Anthropic · OpenRouter', null],
                 ['Platform', window.navigator.platform || 'Unknown', null],
               ].map(([label, value, hint]) => (

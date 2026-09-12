@@ -22,6 +22,7 @@ import PatternsView from './components/views/PatternsView.jsx';
 import FocusMode from './components/FocusMode.jsx';
 import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TutorialOverlay from './components/TutorialOverlay.jsx';
+import { useLocale } from './contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 const isElectron = !!window.clarity?.isElectron;
@@ -80,6 +81,7 @@ function ToastUndoBtn({ onClick, label, T }) {
 }
 
 function AppInner() {
+  const { t } = useLocale();
   const { T, isDark, toggleTheme } = useTheme();
   const [data, setData]         = useState({ tasks: [], archivedTasks: [], analysis: null, weeklySummary: null, analyzing: false, analysisError: null });
   const [health, setHealth]     = useState({ ollama: false, model: '', analyzing: false });
@@ -151,7 +153,7 @@ function AppInner() {
     } catch {
       if (!loadErrorShown.current) {
         loadErrorShown.current = true;
-        showToast('Lost connection — retrying…', 'error');
+        showToast(t('toast.lostConnection'), 'error');
       }
     }
   }, [showToast]);
@@ -254,7 +256,7 @@ function AppInner() {
       setEditingTask(null);
       await loadData();
       showToast(isEdit ? 'Task updated' : 'Task added');
-    } catch { showToast('Failed to save task', 'error'); }
+    } catch { showToast(t('toast.saveFailed'), 'error'); }
     finally { setSaving(false); }
   }
 
@@ -270,13 +272,13 @@ function AppInner() {
         if (!resp.ok) throw new Error();
       } catch {
         setHiddenTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
-        showToast('Delete failed — task restored', 'error');
+        showToast(t('toast.deleteFailed'), 'error');
       }
       await loadData();
     }, 5000);
     pendingDeleteTimers.current.set(taskId, timeoutId);
 
-    showToast('Task deleted', 'success', () => {
+    showToast(t('toast.deleted'), 'success', () => {
       const tid = pendingDeleteTimers.current.get(taskId);
       if (tid) { clearTimeout(tid); pendingDeleteTimers.current.delete(taskId); }
       setHiddenTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
@@ -294,13 +296,13 @@ function AppInner() {
     await fetch(`${API}/tasks/${taskId}/archive`, { method: 'POST' });
     if (detailTask?.id === taskId) setDetailTask(null);
     await loadData();
-    showToast('Task archived');
+    showToast(t('toast.archived'));
   }
 
   async function handleRestore(taskId) {
     await fetch(`${API}/tasks/${taskId}/restore`, { method: 'POST' });
     await loadData();
-    showToast('Task restored');
+    showToast(t('toast.restored'));
   }
 
   async function handleStatusChange(task, status) {
@@ -319,7 +321,7 @@ function AppInner() {
       }
       return fresh;
     } catch {
-      showToast('Failed to update status', 'error');
+      showToast(t('toast.statusFailed'), 'error');
       throw new Error('status update failed');
     }
   }
@@ -333,7 +335,7 @@ function AppInner() {
         body: JSON.stringify({ subtasks }),
       });
       await loadData();
-    } catch { showToast('Failed to update subtask', 'error'); }
+    } catch { showToast(t('toast.subtaskFailed'), 'error'); }
   }
 
   async function handleTimerStart(taskId) {
@@ -344,15 +346,15 @@ function AppInner() {
   async function handleTimerStop(taskId) {
     await fetch(`${API}/tasks/${taskId}/timer/stop`, { method: 'POST' });
     await loadData();
-    showToast('Time logged');
+    showToast(t('toast.timeLogged'));
   }
 
   async function handleReanalyze() {
-    showToast('Re-analyzing now…');
+    showToast(t('toast.reanalyzing'));
     try {
       await fetch(`${API}/analyze`, { method: 'POST' });
     } catch {
-      showToast('Could not start re-analysis', 'error');
+      showToast(t('toast.reanalyzeFailed'), 'error');
     }
   }
 
@@ -370,7 +372,7 @@ function AppInner() {
         showToast(`"${title.slice(0, 40)}" added`);
       }
     } catch {
-      showToast('Could not add task', 'error');
+      showToast(t('toast.addFailed'), 'error');
     }
   }
 
@@ -474,7 +476,7 @@ function AppInner() {
             <WeeklySummaryView weeklySummary={data.weeklySummary} health={health} onRefresh={loadData} onOpenSettings={() => setView('settings')} />
           )}
           {view === 'settings' && (
-            <SettingsView onSaved={() => { checkHealth(); showToast('Settings saved'); }} />
+            <SettingsView onSaved={() => { checkHealth(); showToast(t('toast.settingsSaved')); }} />
           )}
           {view === 'history' && (
             <HistoryView

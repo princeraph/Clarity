@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -28,6 +29,7 @@ function toISODate(year, month, day) {
 }
 
 export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onSaved }) {
+  const { t, fmtDate } = useLocale();
   const { T } = useTheme();
   const ref  = useRef(null);
   const today = new Date();
@@ -66,7 +68,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
 
   const weeks = buildCalendar(year, month);
 
-  const monthName = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const monthName = fmtDate(new Date(year, month, 1), { month: 'long', year: 'numeric' });
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
@@ -138,7 +140,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40 }}>
-            Schedule task
+            {t('schedule.title')}
           </span>
           <button onClick={onClose} style={{ fontSize: 12.5, color: T.ink40, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 2px' }}>✕</button>
         </div>
@@ -151,8 +153,8 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
             const matchesSelected = (q === 'Today' && selectedDate === todayIso) ||
               (q === 'Tomorrow' && selectedDate === tomorrowIso) ||
               (q === 'Someday' && !selectedDate);
-            const sub = q === 'Today' ? today.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' })
-                      : q === 'Tomorrow' ? (() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }); })()
+            const sub = q === 'Today' ? fmtDate(today, { weekday: 'short', day: 'numeric', month: 'short' })
+                      : q === 'Tomorrow' ? (() => { const d = new Date(); d.setDate(d.getDate()+1); return fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' }); })()
                       : '';
             return (
               <button
@@ -248,7 +250,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
 
         {/* Recurrence */}
         <div style={{ padding: '10px 18px', borderTop: `1px solid ${T.hairlineSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, minWidth: 36 }}>Repeat</span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, minWidth: 36 }}>{t('schedule.repeat')}</span>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {[['none', 'None'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']].map(([val, label]) => (
               <button key={val} onClick={() => setRecur(val)} style={{
@@ -268,7 +270,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
             fontFamily: T.fontUI, fontSize: 13, color: T.ink60,
             background: 'transparent', border: `1px solid ${T.hairline}`,
             padding: '7px 14px', borderRadius: T.r6, cursor: 'pointer',
-          }}>Cancel</button>
+          }}>{t('common.cancel')}</button>
           <button onClick={handleSchedule} disabled={saving} style={{
             fontFamily: T.fontUI, fontSize: 13, fontWeight: 500,
             color: T.paper, background: T.ink, border: 'none',

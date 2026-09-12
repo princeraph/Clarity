@@ -1,34 +1,35 @@
 import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const STEPS = [
   {
-    title: 'Capture anything, naturally',
-    body: "Press Ctrl+K from anywhere to add a task. Just type it like you'd say it — Clarity's AI parses the date, person, and topic automatically.",
+    titleKey: 'tutorial.s1.title',
+    bodyKey: 'tutorial.s1.body',
     target: { top: 114, left: 20, width: 200, height: 38 },
     panel: { top: 168, left: 14 },
   },
   {
-    title: 'Your daily plan, already done',
-    body: 'Every morning, Clarity reads your tasks to suggest a plan. Hit Accept to create it in one click, or Adjust to fine-tune.',
+    titleKey: 'tutorial.s2.title',
+    bodyKey: 'tutorial.s2.body',
     target: { top: 220, left: 248, width: 680, height: 58 },
     panel: { top: 292, left: 248 },
   },
   {
-    title: 'Tasks grouped by intent',
-    body: "Clarity doesn't sort by due date alone. It groups tasks by energy — deep focus, quick wins, loose threads — so your list matches how you actually work.",
+    titleKey: 'tutorial.s3.title',
+    bodyKey: 'tutorial.s3.body',
     target: { top: 300, left: 248, width: 680, height: 220 },
     panel: { top: 534, left: 248 },
   },
   {
-    title: 'Collapse for focus',
-    body: 'Click the sidebar edge or press Ctrl+\\ to shrink the sidebar to a minimal icon rail — more room for what matters.',
+    titleKey: 'tutorial.s4.title',
+    bodyKey: 'tutorial.s4.body',
     target: { top: 32, left: 0, width: 232, height: 720 },
     panel: { top: 300, left: 244 },
   },
   {
-    title: 'Ask your AI assistant',
-    body: 'Press Ctrl+/ to open Ask Clarity. Ask anything: "What should I tackle first?", "What did I defer this week?" It knows your tasks.',
+    titleKey: 'tutorial.s5.title',
+    bodyKey: 'tutorial.s5.body',
     target: { top: 660, left: 14, width: 206, height: 40 },
     panel: { top: 510, left: 14 },
   },
@@ -42,6 +43,7 @@ function ScrimRect({ style }) {
 
 export default function TutorialOverlay({ onDone }) {
   const { T } = useTheme();
+  const { t } = useLocale();
   const [step, setStep] = useState(0);
 
   const s = STEPS[step];
@@ -109,10 +111,10 @@ export default function TutorialOverlay({ onDone }) {
         </div>
 
         <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 500, letterSpacing: '-0.02em', color: T.paper }}>
-          {s.title}
+          {t(s.titleKey)}
         </h3>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'rgba(255,255,255,0.68)', lineHeight: 1.55 }}>
-          {s.body}
+          {t(s.bodyKey)}
         </p>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -124,7 +126,7 @@ export default function TutorialOverlay({ onDone }) {
               background: 'transparent', border: 'none',
               cursor: 'pointer', padding: 0,
             }}
-          >Skip tutorial</button>
+          >{t('tutorial.skip')}</button>
           <button
             onClick={advance}
             style={{

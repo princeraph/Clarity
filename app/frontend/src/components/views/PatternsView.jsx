@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -33,19 +34,20 @@ function Section({ title, note, children, T }) {
 // The component that keeps the whole panel honest: below the sample threshold a
 // metric is shown as a count, never as a conclusion.
 function NotEnough({ samples, what, T }) {
+  const { t } = useLocale();
   return (
     <div style={{
       padding: '13px 15px', background: T.paperSubtle,
       border: `1px dashed ${T.hairline}`, borderRadius: T.r6,
       fontSize: 12.5, color: T.ink60, lineHeight: 1.5,
     }}>
-      Not enough yet to say anything about {what} — {samples} of {MIN_SAMPLES} needed.
-      Clarity would rather stay quiet than guess from a handful of tasks.
+      {t('patterns.notEnough', { what, samples, needed: MIN_SAMPLES })}
     </div>
   );
 }
 
 function Finding({ children, tone = 'neutral', samples, T }) {
+  const { t } = useLocale();
   const accent = tone === 'warn' ? T.warn : tone === 'good' ? T.done : T.accent;
   return (
     <div style={{
@@ -58,7 +60,7 @@ function Finding({ children, tone = 'neutral', samples, T }) {
         <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{children}</div>
         {samples !== undefined && (
           <div style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, marginTop: 5 }}>
-            from {samples} task{samples === 1 ? '' : 's'}
+            {t('patterns.fromNTasks', { n: samples })}
           </div>
         )}
       </div>
@@ -80,6 +82,7 @@ function Bar({ value, max, color, T }) {
 // Showing the basis is the point: a conclusion you cannot check is one you have
 // to take on faith, which is exactly what this layer must not ask for.
 function InsightCard({ insight, onReject, onConfirm, busy, T }) {
+  const { t } = useLocale();
   const [showWhy, setShowWhy] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -97,14 +100,14 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
-          {Math.round(insight.confidence * 100)}% confident
-          {insight.source === 'elicited' && ' · you confirmed this'}
-          {stale && ' · no longer supported'}
+          {t('patterns.confident', { pct: Math.round(insight.confidence * 100) })}
+          {insight.source === 'elicited' && ` · ${t('patterns.youConfirmed')}`}
+          {stale && ` · ${t('patterns.noLongerSupported')}`}
         </span>
         <button onClick={() => setShowWhy(w => !w)} style={{
           background: 'none', border: 'none', padding: 0, cursor: 'pointer',
           fontFamily: T.fontUI, fontSize: 11.5, color: T.accentInk, textDecoration: 'underline',
-        }}>{showWhy ? 'hide the basis' : 'why does it think this?'}</button>
+        }}>{showWhy ? t('patterns.hideBasis') : t('patterns.whyThink')}</button>
       </div>
 
       {showWhy && (
@@ -125,7 +128,7 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
           <input
             id={`reject-reason-${insight.id}`}
             value={reason} onChange={e => setReason(e.target.value)}
-            placeholder="What is it getting wrong? (optional, but it learns from this)"
+            placeholder={t('patterns.rejectReasonPlaceholder')}
             style={{
               padding: '7px 10px', background: T.paper, border: `1px solid ${T.hairline}`,
               borderRadius: T.r6, fontSize: 12.5, color: T.ink, fontFamily: T.fontUI, outline: 'none',
@@ -136,12 +139,12 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
               padding: '6px 12px', background: T.dangerSoft, color: T.danger,
               border: `1px solid ${T.dangerBorder}`, borderRadius: T.r6,
               fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-            }}>Reject this</button>
+            }}>{t('patterns.rejectThis')}</button>
             <button onClick={() => setRejecting(false)} style={{
               padding: '6px 12px', background: 'transparent', color: T.ink60,
               border: `1px solid ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-            }}>Cancel</button>
+            }}>{t('common.cancel')}</button>
           </div>
         </div>
       ) : (
@@ -150,13 +153,13 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
             padding: '5px 11px', background: 'transparent', color: T.ink60,
             border: `1px solid ${T.hairline}`, borderRadius: T.r6,
             fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-          }}>That’s wrong</button>
+          }}>{t('patterns.thatsWrong')}</button>
           {stale && (
             <button disabled={busy} onClick={() => onConfirm(insight)} style={{
               padding: '5px 11px', background: 'transparent', color: T.ink60,
               border: `1px solid ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-            }}>Still true</button>
+            }}>{t('patterns.stillTrue')}</button>
           )}
         </div>
       )}
@@ -172,6 +175,7 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
 // dashed edge, the lower confidence ceiling, and the fact that it asks rather
 // than states.
 function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
+  const { t } = useLocale();
   const [showWhy, setShowWhy] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
@@ -192,12 +196,12 @@ function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
-          suggested · {Math.round(proposal.confidence * 100)}% · {proposal.category}
+          {t('patterns.suggested')} · {Math.round(proposal.confidence * 100)}% · {t(`patterns.category.${proposal.category}`)}
         </span>
         <button onClick={() => setShowWhy(w => !w)} style={{
           background: 'none', border: 'none', padding: 0, cursor: 'pointer',
           fontFamily: T.fontUI, fontSize: 11.5, color: T.accentInk, textDecoration: 'underline',
-        }}>{showWhy ? 'hide what it looked at' : 'what did it look at?'}</button>
+        }}>{showWhy ? t('patterns.hideLookedAt') : t('patterns.whatLookedAt')}</button>
       </div>
 
       {showWhy && (
@@ -217,7 +221,7 @@ function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <input
             value={reason} onChange={e => setReason(e.target.value)}
-            placeholder="What is it getting wrong? (optional)"
+            placeholder={t('patterns.declineReasonPlaceholder')}
             style={{
               padding: '7px 10px', background: T.paper, border: `1px solid ${T.hairline}`,
               borderRadius: T.r6, fontSize: 12.5, color: T.ink, fontFamily: T.fontUI, outline: 'none',
@@ -228,12 +232,12 @@ function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
               padding: '6px 12px', background: T.dangerSoft, color: T.danger,
               border: `1px solid ${T.dangerBorder}`, borderRadius: T.r6,
               fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-            }}>Discard it</button>
+            }}>{t('patterns.discard')}</button>
             <button onClick={() => setDeclining(false)} style={{
               padding: '6px 12px', background: 'transparent', color: T.ink60,
               border: `1px solid ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-            }}>Cancel</button>
+            }}>{t('common.cancel')}</button>
           </div>
         </div>
       ) : (
@@ -242,12 +246,12 @@ function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
             padding: '6px 13px', background: T.accentSoft, color: T.accentInk,
             border: `1px solid ${T.accent}`, borderRadius: T.r6,
             fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer', fontWeight: 500,
-          }}>That’s right</button>
+          }}>{t('patterns.thatsRight')}</button>
           <button disabled={busy} onClick={() => setDeclining(true)} style={{
             padding: '6px 13px', background: 'transparent', color: T.ink60,
             border: `1px solid ${T.hairline}`, borderRadius: T.r6,
             fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
-          }}>No, it isn’t</button>
+          }}>{t('patterns.notRight')}</button>
         </div>
       )}
     </div>
@@ -258,27 +262,22 @@ function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
 // broken page. Say it once, and say what would change it — the metrics depend
 // on things the app records as you use it, not on waiting.
 function NothingYet({ o, T }) {
+  const { t } = useLocale();
   const rows = [
-    { on: o.estimation.samples > 0, what: 'How long things really take',
-      needs: 'Set a duration on a task, then run the timer on it. Clarity compares the two.' },
-    { on: o.rhythm.samples > 0, what: 'When you actually work',
-      needs: 'Move a task to In progress or Done. The time of that change is the signal.' },
-    { on: o.latency.samples > 0, what: 'How long before you start',
-      needs: 'Same — it measures from writing a task down to first moving it to In progress.' },
-    { on: o.slippage.totalSlips > 0, what: 'Deadlines you moved',
-      needs: 'Change a deadline to a later date. Nothing to report until you do.' },
+    { on: o.estimation.samples > 0,  what: t('patterns.nothing.duration'), needs: t('patterns.nothing.durationHow') },
+    { on: o.rhythm.samples > 0,      what: t('patterns.nothing.rhythm'),   needs: t('patterns.nothing.rhythmHow') },
+    { on: o.latency.samples > 0,     what: t('patterns.nothing.latency'),  needs: t('patterns.nothing.latencyHow') },
+    { on: o.slippage.totalSlips > 0, what: t('patterns.nothing.slippage'), needs: t('patterns.nothing.slippageHow') },
   ];
   return (
-    <Section title="Not measurable yet" note="four of five need data the app has not seen" T={T}>
+    <Section title={t('patterns.notMeasurable')} note={t('patterns.notMeasurableNote')} T={T}>
       <div style={{
         padding: '14px 16px', background: T.paperSubtle,
         border: `1px solid ${T.hairline}`, borderRadius: T.r6,
         display: 'flex', flexDirection: 'column', gap: 12,
       }}>
         <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.55 }}>
-          Clarity measures what you do in the app, not what your task list looks like. None of
-          the tasks it can see have been timed, started, or rescheduled here — so there is
-          genuinely nothing to report. It fills in as you work, without anything being rebuilt.
+          {t('patterns.nothing.body')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {rows.filter(r => !r.on).map(r => (
@@ -297,6 +296,7 @@ function NothingYet({ o, T }) {
 
 export default function PatternsView() {
   const { T } = useTheme();
+  const { t, fmtDateTime } = useLocale();
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -307,11 +307,11 @@ export default function PatternsView() {
   async function load() {
     try {
       const resp = await fetch(`${API}/profile`);
-      if (!resp.ok) throw new Error('Could not load');
+      if (!resp.ok) throw new Error(t('patterns.couldNotLoad'));
       setProfile(await resp.json());
       setError(null);
     } catch {
-      setError('Could not reach the backend.');
+      setError(t('error.backendUnreachable'));
     }
   }
 
@@ -325,7 +325,7 @@ export default function PatternsView() {
       });
       if (resp.ok) { setProfile(await resp.json()); setError(null); }
     } catch {
-      setError('Could not reach the backend.');
+      setError(t('error.backendUnreachable'));
     } finally { setBusy(false); }
   }
 
@@ -339,7 +339,7 @@ export default function PatternsView() {
       });
       await load();
     } catch {
-      setError('Could not reach the backend.');
+      setError(t('error.backendUnreachable'));
     } finally { setBusy(false); }
   }
 
@@ -358,19 +358,19 @@ export default function PatternsView() {
     try {
       const resp = await fetch(`${API}/profile/elicit`, { method: 'POST' });
       const body = await resp.json().catch(() => ({}));
-      if (!resp.ok) { setElicitNote(body.error || 'Clarity could not run that just now.'); return; }
+      if (!resp.ok) { setElicitNote(body.error || t('patterns.cannotRun')); return; }
       setProposals(body.pending || []);
       if (!body.added?.length) {
         // Silence has several causes and they are not interchangeable — a model
         // that found nothing is not the same as one whose every citation failed.
         const why = body.note
-          || (body.refused?.length ? 'It suggested things it could not back up with your own data, so they were discarded.'
-          : body.skipped?.length ? 'Nothing new — what it came up with, you have already seen or answered.'
-          : 'It did not find anything it could support yet.');
+          || (body.refused?.length ? t('patterns.unsupported')
+          : body.skipped?.length ? t('patterns.nothingNew')
+          : t('patterns.foundNothing'));
         setElicitNote(why);
       }
     } catch {
-      setElicitNote('Could not reach the backend.');
+      setElicitNote(t('error.backendUnreachable'));
     } finally { setEliciting(false); }
   }
 
@@ -385,7 +385,7 @@ export default function PatternsView() {
       if (resp.ok) setProposals((await resp.json()).pending || []);
       await load();
     } catch {
-      setError('Could not reach the backend.');
+      setError(t('error.backendUnreachable'));
     } finally { setBusy(false); }
   }
 
@@ -425,7 +425,7 @@ export default function PatternsView() {
     return <div style={wrap}><div style={{ color: T.ink60, fontSize: 13.5 }}>{error}</div></div>;
   }
   if (!o) {
-    return <div style={wrap}><div style={{ color: T.ink40, fontSize: 13.5 }}>Reading your history…</div></div>;
+    return <div style={wrap}><div style={{ color: T.ink40, fontSize: 13.5 }}>{t('patterns.loading')}</div></div>;
   }
 
   // Nothing the app itself recorded. Tasks may exist, but none carry a timing,
@@ -441,14 +441,11 @@ export default function PatternsView() {
     <div style={wrap}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-          from {o.tasksConsidered} task{o.tasksConsidered === 1 ? '' : 's'} · {o.windowDays > 0 ? `last ${o.windowDays} days` : 'all of your history'}
+          {t('patterns.fromNTasks', { n: o.tasksConsidered })} · {o.windowDays > 0 ? t('patterns.lastNDays', { n: o.windowDays }) : t('patterns.allHistory')}
         </div>
-        <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>Patterns</h1>
+        <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{t('nav.patterns')}</h1>
         <p style={{ margin: '10px 0 0', fontSize: 13.5, color: T.ink60, maxWidth: '62ch', lineHeight: 1.6 }}>
-          What Clarity has noticed from your own history — deadlines you moved, time you tracked against what you
-          planned, what you started and what you let go. Everything below is measured, not guessed, and no AI
-          produces it. The one exception is <em>Clarity wants to check something</em>, which is a model asking —
-          and nothing there enters your profile until you say so.
+          {t('patterns.intro')}
         </p>
         {o.windowFellBack && (
           <p style={{
@@ -463,8 +460,8 @@ export default function PatternsView() {
       </div>
 
       <Section
-        title="Clarity wants to check something"
-        note={proposals.length ? `${proposals.length} waiting on you` : 'a model asking, not telling'}
+        title={t('patterns.askSection')}
+        note={proposals.length ? t('patterns.nWaiting', { n: proposals.length }) : t('patterns.askingNotTelling')}
         T={T}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -482,9 +479,7 @@ export default function PatternsView() {
               border: `1px dashed ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12.5, color: T.ink60, lineHeight: 1.55,
             }}>
-              Everything above is arithmetic. This is the one place a model gets to form an opinion about you —
-              and it only ever <strong>asks</strong>. Whatever it suggests sits here until you accept it, and
-              anything you turn down never comes back.
+              {t('patterns.askEmpty')}
             </div>
           )}
 
@@ -502,9 +497,9 @@ export default function PatternsView() {
               border: `1px solid ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12.5, color: eliciting ? T.ink40 : T.ink,
               fontFamily: T.fontUI, cursor: eliciting ? 'default' : 'pointer',
-            }}>{eliciting ? 'Thinking\u2026' : 'Ask Clarity what it notices'}</button>
+            }}>{eliciting ? t('thread.thinking') : t('patterns.askClarity')}</button>
             <div style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, marginTop: 6 }}>
-              runs on your local model — nothing is sent anywhere
+              {t('patterns.localOnly')}
             </div>
           </div>
         </div>
@@ -512,8 +507,8 @@ export default function PatternsView() {
 
       {insights.length > 0 && (
         <Section
-          title="What Clarity thinks this means"
-          note={`${insights.length} conclusion${insights.length === 1 ? '' : 's'} · each one you can throw out`}
+          title={t('patterns.conclusions')}
+          note={t('patterns.conclusionsNote', { n: insights.length })}
           T={T}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -524,21 +519,19 @@ export default function PatternsView() {
             ))}
           </div>
           <p style={{ fontSize: 11.5, color: T.ink40, marginTop: 10, lineHeight: 1.55 }}>
-            Most of these are worked out from the measurements below, with no model involved. Any marked
-            <em> you confirmed this</em> came from a suggestion you accepted. Rejecting one is permanent either
-            way: it will not be worked out, or suggested, again.
+            {t('patterns.conclusionsFooter')}
           </p>
         </Section>
       )}
 
       {/* ── Load: the only thing about right now ── */}
-      <Section title="Right now" T={T}>
+      <Section title={t('patterns.rightNow')} T={T}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: 10 }}>
           {[
-            { k: 'Open', v: o.load.openTasks },
-            { k: 'Due this week', v: o.load.dueNext7Days },
-            { k: 'Overdue', v: o.load.overdue, tone: o.load.overdue > 0 ? T.danger : null },
-            { k: 'Planned this week', v: `${Math.round(o.load.committedMinutes / 60)}h` },
+            { k: t('patterns.open'), v: o.load.openTasks },
+            { k: t('patterns.dueThisWeek'), v: o.load.dueNext7Days },
+            { k: t('patterns.overdue'), v: o.load.overdue, tone: o.load.overdue > 0 ? T.danger : null },
+            { k: t('patterns.plannedThisWeek'), v: `${Math.round(o.load.committedMinutes / 60)}h` },
           ].map(s => (
             <div key={s.k} style={{
               background: T.paperSubtle, border: `1px solid ${T.hairline}`,
@@ -553,15 +546,15 @@ export default function PatternsView() {
 
       {nothingRecorded ? <NothingYet o={o} T={T} /> : (<>
       {/* ── Estimation ── */}
-      <Section title="How well you estimate" note={`${o.estimation.samples} task${o.estimation.samples === 1 ? '' : 's'} both estimated and timed`} T={T}>
+      <Section title={t('patterns.estimation')} note={t('patterns.estimationNote', { n: o.estimation.samples })} T={T}>
         {!o.estimation.enough ? (
-          <NotEnough samples={o.estimation.samples} what="your estimating" T={T} />
+          <NotEnough samples={o.estimation.samples} what={t('patterns.what.estimating')} T={T} />
         ) : (
           <>
             <Finding tone={o.estimation.bias === 'under' ? 'warn' : 'good'} samples={o.estimation.samples} T={T}>
-              {o.estimation.bias === 'under' && <>Work takes you about <b>{o.estimation.medianRatio}×</b> as long as you plan for.</>}
-              {o.estimation.bias === 'over' && <>You finish in about <b>{o.estimation.medianRatio}×</b> your estimate — you plan more time than you need.</>}
-              {o.estimation.bias === 'accurate' && <>Your estimates land close: a median of <b>{o.estimation.medianRatio}×</b> what you planned.</>}
+              {o.estimation.bias === 'under' && t('patterns.biasUnder', { ratio: o.estimation.medianRatio })}
+              {o.estimation.bias === 'over' && t('patterns.biasOver', { ratio: o.estimation.medianRatio })}
+              {o.estimation.bias === 'accurate' && t('patterns.biasAccurate', { ratio: o.estimation.medianRatio })}
             </Finding>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 14 }}>
               {estimationAreas.map(a => (
@@ -580,20 +573,20 @@ export default function PatternsView() {
       </Section>
 
       {/* ── Slippage ── */}
-      <Section title="Deadlines you moved" note={o.slippage.totalSlips ? `${o.slippage.totalSlips} across ${o.slippage.tasksSlipped} task${o.slippage.tasksSlipped === 1 ? '' : 's'}` : null} T={T}>
+      <Section title={t('patterns.slippage')} note={o.slippage.totalSlips ? t('patterns.slippageNote', { slips: o.slippage.totalSlips, tasks: o.slippage.tasksSlipped }) : null} T={T}>
         {o.slippage.totalSlips === 0 ? (
-          <Finding tone="good" T={T}>You have not pushed a deadline back in this window.</Finding>
+          <Finding tone="good" T={T}>{t('patterns.noSlips')}</Finding>
         ) : (
           <>
             {o.slippage.enough && (
               <Finding tone="warn" samples={o.slippage.tasksSlipped} T={T}>
-                When you move a deadline, you move it by a median of <b>{o.slippage.medianDaysPerSlip} days</b>.
+                {t('patterns.slipMedian', { days: o.slippage.medianDaysPerSlip })}
               </Finding>
             )}
             {o.slippage.chronic.length > 0 && (
               <div style={{ marginTop: o.slippage.enough ? 14 : 0 }}>
                 <div style={{ fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>
-                  Moved three times or more
+                  {t('patterns.movedThrice')}
                 </div>
                 {o.slippage.chronic.map(c => (
                   <div key={c.taskId} style={{
@@ -602,26 +595,26 @@ export default function PatternsView() {
                   }}>
                     <span style={{ fontSize: 13, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
                     <span style={{ fontFamily: T.fontMono, fontSize: 11.5, color: T.warn, whiteSpace: 'nowrap' }}>
-                      {c.slips}× · {c.totalDays}d later
+                      {c.slips}× · {t('patterns.daysLater', { days: c.totalDays })}
                     </span>
                   </div>
                 ))}
               </div>
             )}
             {!o.slippage.enough && o.slippage.chronic.length === 0 && (
-              <NotEnough samples={o.slippage.tasksSlipped} what="how you handle deadlines" T={T} />
+              <NotEnough samples={o.slippage.tasksSlipped} what={t('patterns.what.deadlines')} T={T} />
             )}
           </>
         )}
       </Section>
 
       {/* ── Time to start ── */}
-      <Section title="How long before you start" T={T}>
+      <Section title={t('patterns.latency')} T={T}>
         {!o.latency.enough ? (
-          <NotEnough samples={o.latency.samples} what="your starting habits" T={T} />
+          <NotEnough samples={o.latency.samples} what={t('patterns.what.starting')} T={T} />
         ) : (
           <Finding samples={o.latency.samples} T={T}>
-            A task waits a median of <b>{o.latency.medianDaysToStart} days</b> between being written down and being started.
+            {t('patterns.latencyBody', { days: o.latency.medianDaysToStart })}
           </Finding>
         )}
       </Section>
@@ -629,11 +622,11 @@ export default function PatternsView() {
       </>)}
 
       {/* ── Abandonment ── */}
-      <Section title="What you let go" note={`${o.abandonment.count} archived without finishing`} T={T}>
+      <Section title={t('patterns.abandonment')} note={t('patterns.abandonmentNote', { n: o.abandonment.count })} T={T}>
         {!o.abandonment.enough ? (
-          <NotEnough samples={o.abandonment.samples} what="what you abandon" T={T} />
+          <NotEnough samples={o.abandonment.samples} what={t('patterns.what.abandon')} T={T} />
         ) : abandonAreas.length === 0 ? (
-          <Finding tone="good" T={T}>Nothing archived unfinished in this window.</Finding>
+          <Finding tone="good" T={T}>{t('patterns.noAbandoned')}</Finding>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {abandonAreas.map(a => (
@@ -651,9 +644,9 @@ export default function PatternsView() {
 
       {/* ── Rhythm ── */}
       {!nothingRecorded && (
-      <Section title="When you actually work" note={o.rhythm.enough ? `busiest around ${hourLabel(o.rhythm.peakHour)}` : null} T={T}>
+      <Section title={t('patterns.rhythm')} note={o.rhythm.enough ? t('patterns.rhythmNote', { hour: hourLabel(o.rhythm.peakHour) }) : null} T={T}>
         {!o.rhythm.enough ? (
-          <NotEnough samples={o.rhythm.samples} what="your working rhythm" T={T} />
+          <NotEnough samples={o.rhythm.samples} what={t('patterns.what.rhythm')} T={T} />
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 64, marginBottom: 6 }}>
@@ -686,14 +679,14 @@ export default function PatternsView() {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap',
       }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
-          Computed on this machine · nothing sent anywhere · {new Date(o.computedAt).toLocaleString()}
+          {t('patterns.computedHere')} · {fmtDateTime(o.computedAt)}
         </span>
         <button onClick={recompute} disabled={busy} style={{
           padding: '6px 13px', background: 'transparent',
           border: `1px solid ${T.hairline}`, borderRadius: T.r6,
           fontSize: 12, color: busy ? T.ink40 : T.ink60,
           fontFamily: T.fontUI, cursor: busy ? 'default' : 'pointer',
-        }}>{busy ? 'Recomputing…' : 'Recompute'}</button>
+        }}>{busy ? t('patterns.recomputing') : t('patterns.recompute')}</button>
       </div>
     </div>
   );

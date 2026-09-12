@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { tagColor } from './TaskForm.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const RECURRING_LABEL = { daily: '↻ Daily', weekly: '↻ Weekly', monthly: '↻ Monthly' };
 
@@ -39,6 +40,7 @@ function CircleCheck({ done, focus, stale, T }) {
 
 export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onOpenDetail, onContextMenu }) {
   const { T } = useTheme();
+  const { t } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [hov, setHov] = useState(false);
   const { aiData } = task;
@@ -81,7 +83,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
       <button
         onClick={() => onStatusChange(task, isDone ? 'not_started' : 'done')}
         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}
-        title={isDone ? 'Mark incomplete' : 'Mark complete'}
+        title={isDone ? t('task.markIncomplete') : t('task.markComplete')}
       >
         <CircleCheck done={isDone} focus={isFocus} T={T} />
       </button>
@@ -106,7 +108,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               textTransform: 'uppercase', color: T.accentInk,
               padding: '2px 6px', background: T.accentSoft, borderRadius: 3,
               flexShrink: 0,
-            }}>Focus</span>
+            }}>{t('task.focus')}</span>
           )}
           {task.recurring && task.recurring !== 'none' && (
             <span style={{
@@ -215,7 +217,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               style={{ transition: 'transform 0.15s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
               <polyline points="6 9 12 15 18 9"/>
             </svg>
-            {expanded ? 'Less detail' : 'More detail'}
+            {expanded ? t('task.lessDetail') : t('task.moreDetail')}
           </button>
         )}
 
@@ -224,7 +226,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeUp 0.15s ease-out' }}>
             {subtasksTotal > 0 && (
               <div style={{ padding: '10px 12px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Subtasks</div>
+                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.subtasks')}</div>
                 {task.subtasks.map(s => (
                   <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer' }}>
                     <input type="checkbox" checked={s.done} onChange={() => onSubtaskToggle(task, s.id)}
@@ -239,7 +241,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
             {aiData?.actionPlan?.length > 0 && (
               <div style={{ padding: '10px 12px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Action Plan</div>
+                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.actionPlan')}</div>
                 <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {aiData.actionPlan.map((step, i) => (
                     <li key={i} style={{ fontSize: 12.5, color: T.ink60, display: 'flex', gap: 8 }}>
@@ -253,14 +255,14 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
             {aiData?.reasoning && (
               <div style={{ padding: '10px 12px', background: T.accentSoft, borderRadius: T.r6, border: `1px solid ${T.hairline}` }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.accentInk, marginBottom: 6 }}>Why this priority</div>
+                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.accentInk, marginBottom: 6 }}>{t('task.whyPriority')}</div>
                 <p style={{ fontSize: 12.5, color: T.accentInk, lineHeight: 1.6, margin: 0, opacity: 0.85 }}>{aiData.reasoning}</p>
               </div>
             )}
 
             {aiData?.dependencies?.length > 0 && (
               <div style={{ padding: '10px 12px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Must complete first</div>
+                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.mustCompleteFirst')}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {aiData.dependencies.map(id => (
                     <span key={id} style={{ fontSize: 12, padding: '3px 9px', background: T.paperMuted, color: T.ink60, borderRadius: T.rPill, border: `1px solid ${T.hairline}` }}>
@@ -289,13 +291,13 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
             marginBottom: 4,
           }}
         >
-          <option value="not_started">Not Started</option>
-          <option value="in_progress">In Progress</option>
-          <option value="done">Done</option>
+          <option value="not_started">{t('status.notStarted')}</option>
+          <option value="in_progress">{t('status.inProgress')}</option>
+          <option value="done">{t('status.done')}</option>
         </select>
-        <button onClick={() => onEdit(task)} style={actionBtn(T)}>Edit</button>
-        <button onClick={() => onArchive(task.id)} style={actionBtn(T)}>Archive</button>
-        <button onClick={() => onDelete(task.id)} style={{ ...actionBtn(T), color: T.danger }}>Delete</button>
+        <button onClick={() => onEdit(task)} style={actionBtn(T)}>{t('common.edit')}</button>
+        <button onClick={() => onArchive(task.id)} style={actionBtn(T)}>{t('common.archive')}</button>
+        <button onClick={() => onDelete(task.id)} style={{ ...actionBtn(T), color: T.danger }}>{t('common.delete')}</button>
       </div>
     </div>
   );

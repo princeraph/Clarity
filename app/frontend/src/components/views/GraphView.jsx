@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 // ─── Physics constants ────────────────────────────────────────────────────────
 const REPULSION  = 9000;
@@ -19,7 +20,14 @@ const TOPIC_HUES = [258, 155, 65, 320, 200, 30];
 const topicColor = (i, alpha = 1) => `oklch(0.68 0.13 ${TOPIC_HUES[i % TOPIC_HUES.length]} / ${alpha})`;
 const topicFill  = (i) => `oklch(0.93 0.04 ${TOPIC_HUES[i % TOPIC_HUES.length]} / 0.20)`;
 
-const FILTERS = ['All', 'By topic', 'In progress', 'Overdue'];
+// The id is what the filter logic compares; the key is what the button shows.
+// Keeping them apart is what stops a translated label from breaking a filter.
+const FILTERS = [
+  { id: 'All',         key: 'status.all' },
+  { id: 'By topic',    key: 'graph.byTopic' },
+  { id: 'In progress', key: 'status.inProgress' },
+  { id: 'Overdue',     key: 'capture.overdue' },
+];
 
 const STATUS_COLOR = {
   not_started: null,  // uses T.ink20
@@ -35,9 +43,11 @@ function statusColor(status, T) {
   return T.ink20;
 }
 
-function statusLabel(status) {
-  const map = { not_started: 'Not started', in_progress: 'In progress', done: 'Done', overdue: 'Overdue' };
-  return map[status] || status;
+// Returns a KEY, not text: the caller translates. Internal status ids stay
+// English so the filter logic never depends on the interface language.
+function statusKey(status) {
+  const map = { not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done', overdue: 'capture.overdue' };
+  return map[status] || null;
 }
 
 function todayStart() { const d = new Date(); d.setHours(0,0,0,0); return d; }
@@ -196,6 +206,7 @@ function tickPhysics(nodes, edges, pinnedIds, byTopic, topicOrder) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GraphView({ rankedTasks, onOpenDetail }) {
+  const { t } = useLocale();
   const { T } = useTheme();
 
   const [filter,     setFilter]     = useState('All');
@@ -398,8 +409,8 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
               <line x1="10.7" y1="10.7" x2="7" y2="17"/><line x1="13.3" y1="10.7" x2="17" y2="7"/>
             </svg>
           </div>
-          <p style={{ fontSize: 15, fontWeight: 500, color: T.ink60, margin: 0 }}>No tasks to graph</p>
-          <p style={{ fontSize: 13, color: T.ink40, marginTop: 6 }}>Add tasks to see connections here</p>
+          <p style={{ fontSize: 15, fontWeight: 500, color: T.ink60, margin: 0 }}>{t('graph.noTasks')}</p>
+          <p style={{ fontSize: 13, color: T.ink40, marginTop: 6 }}>{t('graph.addTasks')}</p>
         </div>
       </div>
     );
@@ -507,7 +518,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
                 <circle cx={x + 11} cy={y + 44} r={3.5} fill={sColor} />
                 <text x={x + 21} y={y + 47.5}
                   style={{ fontFamily: T.fontMono, fontSize: 9, fill: T.ink40, pointerEvents: 'none', userSelect: 'none' }}>
-                  {statusLabel(status)}
+                  {statusKey(status) ? t(statusKey(status)) : status}
                 </text>
               </g>
             );
@@ -536,21 +547,21 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
           onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}
           style={{ fontSize: 11.5, color: T.ink60, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: T.fontUI, padding: 0 }}
         >
-          Reset
+          {t('graph.reset')}
         </button>
       </div>
 
       {/* ── Top-right filter pills ── */}
       <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6, zIndex: 10 }}>
         {FILTERS.map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{
+          <button key={f.id} onClick={() => setFilter(f.id)} style={{
             borderRadius: T.rPill, padding: '5px 12px', fontSize: 12,
-            background: f === filter ? T.ink  : T.paper,
-            color:      f === filter ? T.paper : T.ink80,
-            border:     `1px solid ${f === filter ? T.ink : T.hairline}`,
-            fontWeight: f === filter ? 500 : 400,
+            background: f.id === filter ? T.ink  : T.paper,
+            color:      f.id === filter ? T.paper : T.ink80,
+            border:     `1px solid ${f.id === filter ? T.ink : T.hairline}`,
+            fontWeight: f.id === filter ? 500 : 400,
             cursor: 'pointer', fontFamily: T.fontUI,
-          }}>{f}</button>
+          }}>{t(f.key)}</button>
         ))}
       </div>
 
@@ -562,8 +573,8 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
         </div>
         <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
           {[
-            { label: 'Not started', color: T.ink20 },
-            { label: 'In progress', color: T.accent },
+            { label: t('status.notStarted'), color: T.ink20 },
+            { label: t('status.inProgress'), color: T.accent },
             { label: 'Done',        color: T.done },
             { label: 'Overdue',     color: T.warn },
           ].map(({ label, color }) => (
@@ -619,7 +630,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
             boxShadow: '0 4px 12px rgba(25,25,26,0.08)',
           }}>
             <p style={{ fontSize: 14, fontWeight: 500, color: T.ink60, margin: 0 }}>No {filter.toLowerCase()} tasks</p>
-            <p style={{ fontSize: 12, color: T.ink40, marginTop: 4, marginBottom: 0 }}>Try a different filter</p>
+            <p style={{ fontSize: 12, color: T.ink40, marginTop: 4, marginBottom: 0 }}>{t('graph.tryFilter')}</p>
           </div>
         </div>
       )}

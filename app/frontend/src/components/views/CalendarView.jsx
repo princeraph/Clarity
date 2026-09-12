@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -15,6 +16,7 @@ function buildCalendar(year, month) {
 }
 
 export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
@@ -55,7 +57,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>Calendar</div>
+          <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('nav.calendar')}</div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
             {MONTHS[month]} {year}
           </h1>
@@ -75,7 +77,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
           </button>
           <button onClick={() => { setYear(today.getFullYear()); setMonth(today.getMonth()); }} style={{
             ...navBtn, width: 'auto', padding: '0 12px', fontSize: 12, fontFamily: T.fontMono,
-          }}>Today</button>
+          }}>{t('time.today')}</button>
         </div>
       </div>
 
@@ -139,7 +141,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
       {noDeadline.length > 0 && (
         <div style={{ marginTop: 28 }}>
           <div style={{ fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginBottom: 10 }}>
-            No deadline set
+            {t('detail.noDeadline')}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {noDeadline.map(task => (

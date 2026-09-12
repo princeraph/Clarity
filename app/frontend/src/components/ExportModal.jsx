@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
 function toMarkdown(data) {
   const { tasks, analysis, weeklySummary, exportedAt } = data;
-  const lines = [`# Clarity Export`, `Exported: ${new Date(exportedAt).toLocaleString()}`, ''];
+  const lines = [`# Clarity Export`, `Exported: ${new Date(exportedAt).toISOString()}`, ''];
   if (analysis?.whatToDoNext) lines.push('## AI Recommendation', analysis.whatToDoNext, '');
   lines.push('## Tasks', '');
   tasks.forEach(task => {
@@ -32,6 +33,7 @@ function toMarkdown(data) {
 }
 
 export default function ExportModal({ onClose }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -58,7 +60,7 @@ export default function ExportModal({ onClose }) {
       URL.revokeObjectURL(url);
       setDone(true);
       setTimeout(onClose, 1500);
-    } catch { alert('Export failed. Is the backend running?'); }
+    } catch { alert(t('export.failed')); }
     finally { setLoading(false); }
   }
 
@@ -76,23 +78,23 @@ export default function ExportModal({ onClose }) {
       }}>
         <div style={{ padding: '20px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 500, color: T.ink }}>Export Data</h2>
+            <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 500, color: T.ink }}>{t('export.title')}</h2>
             <button onClick={onClose} style={{ fontSize: 16, color: T.ink40, background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>✕</button>
           </div>
 
           {done ? (
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 28, marginBottom: 8, color: T.done }}>✓</div>
-              <p style={{ fontSize: 13.5, color: T.ink60 }}>Export downloaded!</p>
+              <p style={{ fontSize: 13.5, color: T.ink60 }}>{t('export.downloaded')}</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 12.5, color: T.ink60, margin: '0 0 4px' }}>
-                Export all your tasks, AI analysis, and weekly summaries.
+                {t('export.body')}
               </p>
               {[
-                { fmt: 'markdown', label: 'Markdown', tag: 'MD', hint: 'Human-readable, works in Notion, Obsidian' },
-                { fmt: 'json',     label: 'JSON',     tag: '{}', hint: 'Full data with AI analysis included' },
+                { fmt: 'markdown', label: 'Markdown', tag: 'MD', hint: t('export.mdHint') },
+                { fmt: 'json',     label: 'JSON',     tag: '{}', hint: t('export.jsonHint') },
               ].map(({ fmt, label, tag, hint }) => (
                 <button key={fmt} onClick={() => handleExport(fmt)} disabled={loading} style={{
                   display: 'flex', alignItems: 'center', gap: 14,

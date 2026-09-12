@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
 export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onOpenDetail, onSaved, onFocusMode, onSchedule }) {
   const { T } = useTheme();
+  const { t } = useLocale();
   const ref = useRef(null);
   const [showMoveToArea, setShowMoveToArea] = useState(false);
   const [pos, setPos] = useState({ x, y });
@@ -98,20 +100,20 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
       }}>
         <MenuItem
           icon="✓"
-          label={isDone ? 'Mark incomplete' : 'Mark complete'}
+          label={isDone ? t('task.markIncomplete') : t('task.markComplete')}
           kbd="Space"
           onClick={() => { onStatusChange(task, isDone ? 'not_started' : 'done'); onClose(); }}
         />
         <MenuItem
           icon="↗"
-          label="Open detail"
+          label={t('menu.openDetail')}
           kbd="↵"
           onClick={() => { onOpenDetail?.(task); onClose(); }}
         />
         <Divider />
         <MenuItem
           icon="◷"
-          label="Schedule…"
+          label={t('menu.schedule')}
           hasArrow
           muted
           onClick={() => { onSchedule?.(task, pos.x + 228, pos.y); onClose(); }}
@@ -119,7 +121,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
         {!showMoveToArea ? (
           <MenuItem
             icon="⤢"
-            label="Move to topic"
+            label={t('menu.moveToTopic')}
             hasArrow
             muted
             onClick={() => setShowMoveToArea(true)}
@@ -127,10 +129,10 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
         ) : (
           <div style={{ padding: '4px 0' }}>
             <div style={{ padding: '4px 12px 6px', fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink40 }}>
-              Move to topic
+              {t('menu.moveToTopic')}
             </div>
             {areas.length === 0 ? (
-              <div style={{ padding: '4px 12px 8px', fontSize: 12, color: T.ink40, fontFamily: T.fontUI }}>No topics yet</div>
+              <div style={{ padding: '4px 12px 8px', fontSize: 12, color: T.ink40, fontFamily: T.fontUI }}>{t('menu.noTopics')}</div>
             ) : areas.map(tag => {
               const isCurrent = task.tags?.includes(tag);
               return (
@@ -149,7 +151,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
                 >
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.ink40, flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{tag}</span>
-                  {isCurrent && <span style={{ fontSize: 10, color: T.ink40 }}>current</span>}
+                  {isCurrent && <span style={{ fontSize: 10, color: T.ink40 }}>{t('menu.current')}</span>}
                 </button>
               );
             })}
@@ -163,19 +165,19 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
         {onFocusMode && task.status !== 'done' && (
           <MenuItem
             icon="◎"
-            label="Enter focus"
+            label={t('menu.enterFocus')}
             onClick={() => { onFocusMode(task); onClose(); }}
           />
         )}
         <MenuItem
           icon="⊕"
-          label="Add subtask"
+          label={t('menu.addSubtask')}
           onClick={() => { onEdit(task); onClose(); }}
         />
         <Divider />
         <MenuItem
           icon="⌫"
-          label="Delete"
+          label={t('menu.delete')}
           kbd="Del"
           danger
           onClick={() => { onDelete(task.id); onClose(); }}

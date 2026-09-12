@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -11,6 +12,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPanel({ onClose, taskCount }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   const [messages, setMessages] = useState([{
     role: 'assistant',
@@ -130,7 +132,7 @@ export default function ChatPanel({ onClose, taskCount }) {
             </div>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 500, color: T.ink }}>AI Assistant</div>
-              <div style={{ fontSize: 11, color: T.ink60, fontFamily: T.fontMono }}>Powered by Clarity AI</div>
+              <div style={{ fontSize: 11, color: T.ink60, fontFamily: T.fontMono }}>{t('chat.poweredBy')}</div>
             </div>
           </div>
           <button onClick={onClose} style={{ fontSize: 16, color: T.ink40, background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 6px' }}>✕</button>
@@ -160,7 +162,7 @@ export default function ChatPanel({ onClose, taskCount }) {
         {/* Suggestions */}
         {messages.length === 1 && (
           <div style={{ padding: '0 20px 12px' }}>
-            <p style={{ fontSize: 11.5, color: T.ink60, marginBottom: 8, fontFamily: T.fontMono }}>Try asking:</p>
+            <p style={{ fontSize: 11.5, color: T.ink60, marginBottom: 8, fontFamily: T.fontMono }}>{t('chat.tryAsking')}</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {SUGGESTIONS.map((s, i) => (
                 <button key={i} onClick={() => { setInput(s); inputRef.current?.focus(); }} style={{
@@ -181,7 +183,7 @@ export default function ChatPanel({ onClose, taskCount }) {
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), send())}
-              placeholder="Ask about your tasks…"
+              placeholder={t('chat.askAboutYourTasks')}
               rows={2}
               disabled={streaming}
               style={{
@@ -202,7 +204,7 @@ export default function ChatPanel({ onClose, taskCount }) {
               </svg>
             </button>
           </div>
-          <p style={{ fontSize: 11, color: T.ink40, marginTop: 6, fontFamily: T.fontMono }}>Enter to send · Shift+Enter for new line</p>
+          <p style={{ fontSize: 11, color: T.ink40, marginTop: 6, fontFamily: T.fontMono }}>{t('chat.enterToSend')}</p>
         </div>
       </div>
     </div>

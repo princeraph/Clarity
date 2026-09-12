@@ -2,12 +2,15 @@ import { useState, useMemo, useEffect } from 'react';
 import TaskCard from '../TaskCard.jsx';
 import { tagColor } from '../TaskForm.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 const STATUSES = ['', 'not_started', 'in_progress', 'done'];
-const STATUS_LABELS = { '': 'All', not_started: 'Not Started', in_progress: 'In Progress', done: 'Done' };
+// Keys, resolved at render time so the filter relabels when the language changes.
+const STATUS_KEYS = { '': 'status.all', not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
 
 export default function TasksView({ rankedTasks, analyzing, onAddTask, activeArea, onClearArea, ...handlers }) {
   const { T } = useTheme();
+  const { t } = useLocale();
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch]           = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -63,10 +66,10 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
           <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-            All Tasks
+            {t('tasks.allTasks')}
           </div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
-            {rankedTasks.length} task{rankedTasks.length !== 1 ? 's' : ''}
+            {t('tasks.count', { n: rankedTasks.length })}
             {analyzing && <span style={{ fontSize: 14, color: T.accent, marginLeft: 12, fontWeight: 400 }}>· analyzing…</span>}
           </h1>
         </div>
@@ -85,7 +88,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
         </svg>
         <input
           value={searchInput} onChange={e => setSearchInput(e.target.value)}
-          placeholder="Search tasks…"
+          placeholder={t('tasks.searchPlaceholder')}
           style={{
             width: '100%', paddingLeft: 38, paddingRight: 14,
             paddingTop: 10, paddingBottom: 10,
@@ -107,7 +110,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {STATUSES.map(s => (
             <button key={s} onClick={() => setStatusFilter(s)} style={pill(statusFilter === s)}>
-              {STATUS_LABELS[s]}
+              {t(STATUS_KEYS[s])}
             </button>
           ))}
         </div>
@@ -121,7 +124,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
             cursor: 'pointer', fontFamily: T.fontUI, flexShrink: 0,
           }}
         >
-          {hideDone ? 'Show completed' : 'Hide completed'}
+          {hideDone ? t('tasks.showCompleted') : t('tasks.hideCompleted')}
         </button>
       </div>
 
@@ -162,9 +165,9 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
             <circle cx="48" cy="26" r="11" fill={T.accentSoft} stroke={T.accent} strokeWidth="1.2" />
             <path d="M43.5 26.5l3 3 6-6" stroke={T.accent} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>Inbox zero.</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>{t('tasks.emptyTitle')}</h2>
           <p style={{ margin: 0, fontSize: 14.5, color: T.ink60, lineHeight: 1.6, maxWidth: 380 }}>
-            Everything is sorted. Capture something new, or enjoy the quiet.
+            {t('tasks.emptyBody')}
           </p>
           <button onClick={onAddTask} style={{
             fontFamily: T.fontUI, fontSize: 13, fontWeight: 500, cursor: 'pointer',
@@ -172,17 +175,17 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
             background: T.ink, color: T.paper, border: 'none',
             display: 'inline-flex', alignItems: 'center', gap: 8,
           }}>
-            Capture a task
+            {t('tasks.captureTask')}
             <span style={{ fontFamily: T.fontMono, fontSize: 10, opacity: 0.6, background: 'rgba(255,255,255,0.15)', padding: '2px 5px', borderRadius: 3 }}>Ctrl+K</span>
           </button>
         </div>
       ) : (
         <div style={{ textAlign: 'center', paddingTop: 48 }}>
-          <p style={{ fontSize: 13.5, color: T.ink60, marginBottom: 16 }}>No tasks match your filters</p>
+          <p style={{ fontSize: 13.5, color: T.ink60, marginBottom: 16 }}>{t('tasks.noMatch')}</p>
           <button onClick={clearFilters} style={{
             fontSize: 13, color: T.accent, background: 'transparent', border: 'none',
             cursor: 'pointer', fontFamily: T.fontUI,
-          }}>Clear filters</button>
+          }}>{t('tasks.clearFilters')}</button>
         </div>
       )}
     </div>

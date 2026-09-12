@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 // Custom SVG icons for collapsed rail
 const IcoInbox = ({ color }) => (
@@ -56,6 +57,7 @@ const IcoGraph = ({ color }) => (
 );
 
 function AskClarityNavItem({ active, onClick, T }) {
+  const { t } = useLocale();
   const [hov, setHov] = useState(false);
   return (
     <button
@@ -73,7 +75,7 @@ function AskClarityNavItem({ active, onClick, T }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, color: active ? T.ink : T.ink80, fontWeight: active ? 500 : 400 }}>Ask Clarity</span>
+        <span style={{ fontSize: 13, color: active ? T.ink : T.ink80, fontWeight: active ? 500 : 400 }}>{t('nav.askClarity')}</span>
       </div>
       <span style={{
         fontFamily: T.fontMono, fontSize: 10, color: T.ink40,
@@ -93,18 +95,20 @@ const IcoPatterns = ({ color }) => (
   </svg>
 );
 
+// Labels are keys, not text: they are resolved at render time so switching
+// language re-renders them, rather than being frozen when this module loaded.
 const NAV_ITEMS = [
-  { id: 'inbox',    label: 'Inbox',    view: 'tasks',    Icon: IcoInbox },
-  { id: 'today',    label: 'Today',    view: 'focus',    Icon: IcoToday },
-  { id: 'upcoming', label: 'Calendar', view: 'calendar', Icon: IcoUpcoming },
-  { id: 'anytime',  label: 'Anytime',  view: 'tasks',    Icon: IcoAnytime },
-  { id: 'someday',  label: 'Archive',  view: 'archive',  Icon: IcoSomeday },
-  { id: 'history',  label: 'History',  view: 'history',  Icon: IcoHistory },
-  { id: 'graph',    label: 'Graph',    view: 'graph',    Icon: IcoGraph },
-  { id: 'patterns', label: 'Patterns', view: 'patterns', Icon: IcoPatterns },
+  { id: 'inbox',    labelKey: 'nav.inbox',    view: 'tasks',    Icon: IcoInbox },
+  { id: 'today',    labelKey: 'nav.today',    view: 'focus',    Icon: IcoToday },
+  { id: 'upcoming', labelKey: 'nav.calendar', view: 'calendar', Icon: IcoUpcoming },
+  { id: 'anytime',  labelKey: 'nav.anytime',  view: 'tasks',    Icon: IcoAnytime },
+  { id: 'someday',  labelKey: 'nav.archive',  view: 'archive',  Icon: IcoSomeday },
+  { id: 'history',  labelKey: 'nav.history',  view: 'history',  Icon: IcoHistory },
+  { id: 'graph',    labelKey: 'nav.graph',    view: 'graph',    Icon: IcoGraph },
+  { id: 'patterns', labelKey: 'nav.patterns', view: 'patterns', Icon: IcoPatterns },
 ];
 
-function NavItemCollapsed({ item, active, onClick, accent, T }) {
+function NavItemCollapsed({ item, active, onClick, accent, T, label }) {
   const [hov, setHov] = useState(false);
   const color = active ? T.ink : hov ? T.ink80 : T.ink60;
   return (
@@ -112,7 +116,7 @@ function NavItemCollapsed({ item, active, onClick, accent, T }) {
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      title={item.label}
+      title={label}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: 34, width: '100%',
@@ -128,7 +132,7 @@ function NavItemCollapsed({ item, active, onClick, accent, T }) {
   );
 }
 
-function NavItemExpanded({ item, active, onClick, count, T }) {
+function NavItemExpanded({ item, active, onClick, count, T, label }) {
   const [hov, setHov] = useState(false);
   return (
     <button
@@ -151,7 +155,7 @@ function NavItemExpanded({ item, active, onClick, count, T }) {
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 9, color: active ? T.ink : T.ink60 }}>
         <item.Icon color={active ? T.ink : T.ink60} accent={T.accent} />
-        <span style={{ color: active ? T.ink : T.ink80 }}>{item.label}</span>
+        <span style={{ color: active ? T.ink : T.ink80 }}>{label}</span>
       </span>
       {count !== undefined && count > 0 && (
         <span style={{ fontFamily: T.fontMono, fontSize: 11, color: active ? T.ink60 : T.ink40 }}>
@@ -209,6 +213,7 @@ export default function Sidebar({
   taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings,
 }) {
   const { T } = useTheme();
+  const { t } = useLocale();
   const userName = getUserName();
   const userInitial = userName ? userName.trim()[0].toUpperCase() : 'C';
   const [collapsed, setCollapsed] = useState(() => {
@@ -275,7 +280,7 @@ export default function Sidebar({
           padding: '6px 0', width: '100%',
           display: 'flex', justifyContent: 'center',
           marginBottom: 8,
-        }} title="Expand sidebar">
+        }} title={t('nav.expandSidebar')}>
           <ApertureMark s={20} />
         </button>
 
@@ -285,6 +290,7 @@ export default function Sidebar({
             <NavItemCollapsed
               key={item.id}
               item={item}
+              label={t(item.labelKey)}
               active={isActive(item)}
               onClick={() => setView(item.view)}
               accent={T.accent}
@@ -304,7 +310,7 @@ export default function Sidebar({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: T.ink40, fontSize: 11,
           padding: 0, marginBottom: 8,
-        }} title="Expand sidebar">
+        }} title={t('nav.expandSidebar')}>
           <svg width="8" height="12" viewBox="0 0 8 12" fill="none">
             <path d="M2 2l4 4-4 4" stroke={T.ink40} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -313,7 +319,7 @@ export default function Sidebar({
         {/* Bottom: status dot + gear + avatar */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div
-            title={health.ollama ? `AI · ${health.model || 'connected'}` : 'AI offline — click for settings'}
+            title={health.ollama ? `AI · ${health.model || 'connected'}` : t('sidebar.aiOfflineLong')}
             onClick={() => !health.ollama && setView('settings')}
             style={{ cursor: health.ollama ? 'default' : 'pointer' }}
           >
@@ -359,7 +365,7 @@ export default function Sidebar({
         <button onClick={toggleCollapse} style={{
           background: 'transparent', border: 'none', cursor: 'pointer',
           color: T.ink40, padding: '3px 4px', borderRadius: 4, lineHeight: 1,
-        }} title="Collapse sidebar">
+        }} title={t('nav.collapseSidebar')}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -372,6 +378,7 @@ export default function Sidebar({
           <NavItemExpanded
             key={item.id}
             item={item}
+            label={t(item.labelKey)}
             active={isActive(item)}
             onClick={() => setView(item.view)}
             count={getCount(item)}
@@ -387,7 +394,7 @@ export default function Sidebar({
         <div style={{
           fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.1em',
           textTransform: 'uppercase', color: T.ink40, padding: '0 10px 10px',
-        }}>Topics</div>
+        }}>{t('nav.topics')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {areas.map(({ tag, count }) => (
             <AreaItemExpanded
@@ -418,7 +425,7 @@ export default function Sidebar({
                   if (e.key === 'Escape') { setAddingTopic(false); setNewTopicName(''); }
                 }}
                 onBlur={() => { setAddingTopic(false); setNewTopicName(''); }}
-                placeholder="Topic name…"
+                placeholder={t('nav.topicNamePlaceholder')}
                 style={{
                   width: '100%', boxSizing: 'border-box',
                   padding: '5px 8px',
@@ -442,7 +449,7 @@ export default function Sidebar({
               onMouseLeave={e => { e.currentTarget.style.color = T.ink40; }}
             >
               <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
-              <span>New topic</span>
+              <span>{t('nav.newTopic')}</span>
             </button>
           )}
         </div>
@@ -468,10 +475,10 @@ export default function Sidebar({
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, lineHeight: 1.1, minWidth: 0 }}>
             <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink60 }}>
-              {analyzing ? 'Analyzing…' : 'On-device'}
+              {analyzing ? t('sidebar.analyzing') : t('tray.onDevice')}
             </span>
             <span style={{ fontSize: 11.5, color: health.ollama ? T.ink80 : T.warn, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {health.ollama ? `Clarity AI · ${health.model || 'running locally'}` : 'AI offline — tap to fix'}
+              {health.ollama ? `Clarity AI · ${health.model || 'running locally'}` : t('sidebar.aiOffline')}
             </span>
           </div>
         </div>
@@ -495,13 +502,14 @@ export default function Sidebar({
 }
 
 function SettingsGearBtn({ onClick, T }) {
+  const { t } = useLocale();
   const [hov, setHov] = useState(false);
   return (
     <button
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      title="Settings · Ctrl+,"
+      title={t('nav.settings')}
       style={{
         width: 26, height: 26, borderRadius: T.r6, flexShrink: 0,
         background: hov ? T.paperMuted : 'transparent',

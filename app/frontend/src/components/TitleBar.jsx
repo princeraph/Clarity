@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const isElectron = !!window.clarity?.isElectron;
 
@@ -28,6 +29,7 @@ function WinBtn({ onClick, hoverBg, hoverColor, children, title }) {
 }
 
 export default function TitleBar({ isDark, toggleTheme }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   return (
     <div
@@ -57,7 +59,7 @@ export default function TitleBar({ isDark, toggleTheme }) {
           }}
         >
           <span style={{ width: 5, height: 5, borderRadius: '50%', background: T.done, flexShrink: 0 }} />
-          On-device
+          {t('tray.onDevice')}
         </span>
       </div>
 
@@ -66,7 +68,7 @@ export default function TitleBar({ isDark, toggleTheme }) {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          title={isDark ? 'Switch to light' : 'Switch to dark'}
+          title={isDark ? t('window.switchLight') : t('window.switchDark')}
           className="h-full flex items-center justify-center px-3 transition-colors duration-100"
           style={{ color: T.ink40, background: 'transparent', border: 'none', cursor: 'default' }}
           onMouseEnter={e => e.currentTarget.style.color = T.ink60}
@@ -89,15 +91,15 @@ export default function TitleBar({ isDark, toggleTheme }) {
 
         {isElectron && (
           <>
-            <WinBtn onClick={() => window.clarity.minimize()} hoverBg="rgba(25,25,26,0.07)" title="Minimize">
+            <WinBtn onClick={() => window.clarity.minimize()} hoverBg="rgba(25,25,26,0.07)" title={t('window.minimize')}>
               <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor"><rect width="10" height="1"/></svg>
             </WinBtn>
-            <WinBtn onClick={() => window.clarity.maximize()} hoverBg="rgba(25,25,26,0.07)" title="Maximize">
+            <WinBtn onClick={() => window.clarity.maximize()} hoverBg="rgba(25,25,26,0.07)" title={t('window.maximize')}>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1">
                 <rect x="0.75" y="0.75" width="8.5" height="8.5" rx="0.5"/>
               </svg>
             </WinBtn>
-            <WinBtn onClick={() => window.clarity.close()} hoverBg="#C42B1C" hoverColor="#fff" title="Close">
+            <WinBtn onClick={() => window.clarity.close()} hoverBg="#C42B1C" hoverColor="#fff" title={t('window.close')}>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/>
               </svg>

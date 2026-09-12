@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 function generateId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -15,6 +16,7 @@ export function tagColor(tag) {
 }
 
 export default function TaskForm({ task, onSave, onClose, saving }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   const [form, setForm] = useState({
     title: '', description: '', deadline: '', deliverable: '',
@@ -105,7 +107,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
               {task ? 'Edit Task' : 'New Task'}
             </h2>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
-              Describe in plain language — AI handles the rest
+              {t('form.plainLanguage')}
             </p>
           </div>
           <button
@@ -119,26 +121,26 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
           {/* Title */}
           <div>
             <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-              Title *
+              {t('form.title')}
             </label>
             <input ref={titleRef} value={form.title} onChange={e => set('title', e.target.value)}
-              placeholder="e.g. Finish project proposal" required style={field} />
+              placeholder={t('form.eGFinishProjectProposal')} required style={field} />
           </div>
 
           {/* Description */}
           <div>
             <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-              Description
+              {t('form.description')}
             </label>
             <textarea value={form.description} onChange={e => set('description', e.target.value)}
-              placeholder="What needs to happen?" rows={3}
+              placeholder={t('form.whatNeedsToHappen')} rows={3}
               style={{ ...field, resize: 'vertical', lineHeight: 1.55 }} />
           </div>
 
           {/* Tags */}
           <div>
             <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-              Tags
+              {t('form.tags')}
             </label>
             {form.tags.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -164,7 +166,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <input value={newTag} onChange={e => setNewTag(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                placeholder="Add tag and press Enter…"
+                placeholder={t('form.addTagAndPressEnter')}
                 style={{ ...field, flex: 1, padding: '7px 12px' }} />
             </div>
           </div>
@@ -173,20 +175,20 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-                Deadline
+                {t('detail.deadline')}
               </label>
               <input type="date" value={form.deadline} onChange={e => set('deadline', e.target.value)}
                 style={{ ...field }} />
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-                Status
+                {t('form.status')}
               </label>
               <div style={{ position: 'relative' }}>
                 <select value={form.status} onChange={e => set('status', e.target.value)}
                   style={{ ...field, width: '100%', paddingRight: 28, cursor: 'pointer' }}>
-                  <option value="not_started">Not Started</option>
-                  <option value="in_progress">In Progress</option>
+                  <option value="not_started">{t('status.notStarted')}</option>
+                  <option value="in_progress">{t('status.inProgress')}</option>
                   <option value="done">Done</option>
                 </select>
                 <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
@@ -198,32 +200,32 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-                Recurring
+                {t('form.recurring')}
               </label>
               <div style={{ position: 'relative' }}>
                 <select value={form.recurring} onChange={e => set('recurring', e.target.value)}
                   style={{ ...field, width: '100%', paddingRight: 28, cursor: 'pointer' }}>
-                  <option value="none">One-time</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
+                  <option value="none">{t('form.oneTime')}</option>
+                  <option value="daily">{t('form.daily')}</option>
+                  <option value="weekly">{t('form.weekly')}</option>
+                  <option value="monthly">{t('form.monthly')}</option>
                 </select>
                 <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
               </div>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-                Deliverable
+                {t('form.deliverable')}
               </label>
               <input value={form.deliverable} onChange={e => set('deliverable', e.target.value)}
-                placeholder="End result…" style={{ ...field, padding: '7px 12px' }} />
+                placeholder={t('form.endResult')} style={{ ...field, padding: '7px 12px' }} />
             </div>
           </div>
 
           {/* Subtasks */}
           <div>
             <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-              Subtasks
+              {t('task.subtasks')}
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
               {form.subtasks.map(s => (
@@ -238,7 +240,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <input value={newSubtask} onChange={e => setNewSubtask(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addSubtask())}
-                placeholder="Add a subtask and press Enter…"
+                placeholder={t('form.addASubtaskAndPress')}
                 style={{ ...field, flex: 1, padding: '7px 12px' }} />
             </div>
           </div>
@@ -246,10 +248,10 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
           {/* Notes */}
           <div>
             <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-              Notes
+              {t('detail.notes')}
             </label>
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
-              placeholder="Extra context for the AI…" rows={2}
+              placeholder={t('form.extraContextForTheAi')} rows={2}
               style={{ ...field, resize: 'vertical', lineHeight: 1.55 }} />
           </div>
 
@@ -260,7 +262,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
               background: T.paperSubtle, border: `1px solid ${T.hairline}`,
               borderRadius: T.r6, fontSize: 13.5, color: T.ink60,
               cursor: 'pointer', fontFamily: T.fontUI,
-            }}>Cancel</button>
+            }}>{t('common.cancel')}</button>
             <button type="submit" disabled={saving || !form.title.trim()} style={{
               flex: 1, padding: '10px 0',
               background: T.ink, border: 'none',

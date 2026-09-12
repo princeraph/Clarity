@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -17,6 +18,7 @@ function renderMarkdown(text, T) {
 }
 
 export default function WeeklySummaryView({ weeklySummary, health, onRefresh, onOpenSettings }) {
+  const { t, fmtDate } = useLocale();
   const { T } = useTheme();
   const [generating, setGenerating] = useState(false);
   const [streamedText, setStreamedText] = useState('');
@@ -54,7 +56,7 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
       setGenerating(false);
     } catch (err) {
       if (err.name !== 'AbortError') {
-        setStreamedText('Could not connect to the AI provider. Check your settings.');
+        setStreamedText(t('weekly.noProvider'));
         setGenerating(false);
       }
     }
@@ -68,12 +70,12 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
         <div>
           <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-            Weekly Review
+            {t('weekly.title')}
           </div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
             {generatedAt
-              ? `Generated ${new Date(generatedAt).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`
-              : 'Your week in review'}
+              ? t('weekly.generated', { date: fmtDate(generatedAt, { weekday: 'long', month: 'short', day: 'numeric' }) })
+              : t('weekly.subtitle')}
           </h1>
         </div>
         <button
@@ -90,10 +92,10 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
           {generating ? (
             <>
               <span style={{ width: 12, height: 12, borderRadius: '50%', border: `2px solid ${T.paper}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-              Generating…
+              {t('weekly.generating')}
             </>
           ) : (
-            <>{weeklySummary ? 'Regenerate' : 'Generate Summary'}</>
+            <>{weeklySummary ? t('weekly.regenerate') : t('weekly.generate')}</>
           )}
         </button>
       </div>
@@ -103,17 +105,17 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
           padding: '14px 18px', marginBottom: 24, borderRadius: T.r10,
           background: T.paperSubtle, border: `1px solid ${T.hairline}`,
         }}>
-          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>AI is offline</p>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t('focus.aiOffline')}</p>
           {health.providerType === 'ollama' || !health.providerType ? (
             <p style={{ margin: '4px 0 0', fontSize: 12, color: T.ink60 }}>
-              Start Ollama: <code style={{ fontFamily: T.fontMono, background: T.paperMuted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>ollama serve</code>
+              {t('weekly.startOllama')} <code style={{ fontFamily: T.fontMono, background: T.paperMuted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>ollama serve</code>
               {' '}or{' '}
               <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>switch to a cloud provider →</button>
             </p>
           ) : (
             <p style={{ margin: '4px 0 0', fontSize: 12, color: T.ink60 }}>
               {health.providerType === 'anthropic' ? 'Anthropic' : health.providerType === 'openai' ? 'OpenAI' : 'OpenRouter'} can't be reached.{' '}
-              <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>Check your API key in Settings →</button>
+              <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>{t('weekly.checkKey')}</button>
             </p>
           )}
         </div>
@@ -144,8 +146,8 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
           </div>
-          <p style={{ fontSize: 13.5, color: T.ink60 }}>No summary yet</p>
-          <p style={{ fontSize: 12, color: T.ink40, marginTop: 4 }}>Click Generate to create your weekly review</p>
+          <p style={{ fontSize: 13.5, color: T.ink60 }}>{t('weekly.noSummary')}</p>
+          <p style={{ fontSize: 12, color: T.ink40, marginTop: 4 }}>{t('weekly.clickGenerate')}</p>
         </div>
       )}
     </div>

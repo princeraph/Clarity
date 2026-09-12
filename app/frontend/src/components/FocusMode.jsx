@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const SESSION_SECS = 25 * 60; // 25-minute pomodoro session
 const R = 70;
@@ -13,6 +14,7 @@ function fmtTime(sec) {
 }
 
 export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTimerStart, onTimerStop, onSubtaskToggle }) {
+  const { t } = useLocale();
   const { T } = useTheme();
 
   // Elapsed seconds from when this component mounted (or from task.timerStarted)
@@ -126,13 +128,13 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <ApertureMark s={16} />
-          <span style={{ fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink60 }}>Focus mode</span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink60 }}>{t('focusmode.title')}</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {nextTask && (
-            <FMBtn label="Skip task" ghost T={T} onClick={onSkip} />
+            <FMBtn label={t('focusmode.skipTask')} ghost T={T} onClick={onSkip} />
           )}
-          <FMBtn label="Exit focus" ghost T={T} onClick={onExit} />
+          <FMBtn label={t('focusmode.exitFocus')} ghost T={T} onClick={onExit} />
         </div>
       </div>
 
@@ -227,8 +229,8 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
         {/* Controls */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <FMBtn label={paused ? '▶ Resume' : '⏸ Pause'} T={T} onClick={handleToggleTimer} />
-          <FMBtn label="✓ Done" primary T={T} onClick={handleDone} />
-          <FMBtn label="Take a break" ghost T={T} onClick={handleBreak} />
+          <FMBtn label={t('focusmode.done')} primary T={T} onClick={handleDone} />
+          <FMBtn label={t('focusmode.takeABreak')} ghost T={T} onClick={handleBreak} />
         </div>
       </div>
 
@@ -240,7 +242,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
           borderTop: `1px solid ${T.hairlineSoft}`,
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40 }}>Next up</span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40 }}>{t('focusmode.nextUp')}</span>
           <span style={{ fontSize: 13, color: T.ink60 }}>{nextTask.title}</span>
           {nextTask.tags?.[0] && (
             <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>{nextTask.tags[0]}</span>

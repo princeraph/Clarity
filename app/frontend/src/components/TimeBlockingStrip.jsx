@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const DAY_START = 6;
 const DAY_END   = 22;
@@ -43,6 +44,7 @@ function Legend({ color, label }) {
 }
 
 export default function TimeBlockingStrip({ blocks = [] }) {
+  const { t } = useLocale();
   const { T, isDark } = useTheme();
   const BLOCK_COLORS = getBlockColors(T, isDark);
   const [hovered, setHovered] = useState(null);
@@ -64,16 +66,16 @@ export default function TimeBlockingStrip({ blocks = [] }) {
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40 }}>Timeline</span>
-          <Legend color={BLOCK_COLORS.focus}   label="Focus" />
-          <Legend color={BLOCK_COLORS.meeting} label="Meeting" />
-          <Legend color={BLOCK_COLORS.away}    label="Away" />
+          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40 }}>{t('timeline.title')}</span>
+          <Legend color={BLOCK_COLORS.focus}   label={t('timeline.focus')} />
+          <Legend color={BLOCK_COLORS.meeting} label={t('timeline.meeting')} />
+          <Legend color={BLOCK_COLORS.away}    label={t('timeline.away')} />
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontFamily: T.fontUI, fontSize: 11.5, color: T.ink60 }}>
           {focusHours > 0 ? (
             <span><span style={{ fontWeight: 500, color: T.ink }}>{focusHours.toFixed(1).replace('.0', '')}h</span> focus</span>
           ) : (
-            <span style={{ color: T.ink40 }}>No blocks scheduled</span>
+            <span style={{ color: T.ink40 }}>{t('timeline.noBlocks')}</span>
           )}
           {meetingBlocks.length > 0 && (
             <span><span style={{ fontWeight: 500, color: T.ink }}>{meetingBlocks.length}</span> {meetingBlocks.length === 1 ? 'meeting' : 'meetings'}</span>

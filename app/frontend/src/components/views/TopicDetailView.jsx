@@ -1,25 +1,27 @@
 import { useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 function getTodayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function formatDeadline(dateStr) {
+function formatDeadline(dateStr, t, fmt) {
   const today = getTodayStr();
   const d = new Date(dateStr + 'T00:00:00');
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
-  if (dateStr < today) return 'Overdue';
-  if (dateStr === today) return 'Today';
-  if (dateStr === tomorrowStr) return 'Tomorrow';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (dateStr < today) return { label: t('capture.overdue'), overdue: true };
+  if (dateStr === today) return { label: t('time.today'), overdue: false };
+  if (dateStr === tomorrowStr) return { label: t('time.tomorrow'), overdue: false };
+  return { label: fmt(d), overdue: false };
 }
 
 function TaskRow({ task, onOpenDetail, T }) {
-  const due = task.deadline ? formatDeadline(task.deadline) : null;
-  const isOverdue = due === 'Overdue';
+  const { t, fmtDate } = useLocale();
+  const { label: due, overdue: isOverdue } = task.deadline
+    ? formatDeadline(task.deadline, t, fmtDate) : { label: null, overdue: false };
   const isDone = task.status === 'done';
   const meta = due || (task.estimatedDuration ? (task.estimatedDuration >= 60 ? `${Math.round(task.estimatedDuration / 60 * 10) / 10}h` : `${task.estimatedDuration}m`) : '');
 
@@ -77,6 +79,7 @@ function TaskGroup({ label, count, tasks, onOpenDetail, T }) {
 }
 
 export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onBack }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   const today = getTodayStr();
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -126,9 +129,9 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M7.5 2L4 6l3.5 4" stroke={T.ink40} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Topics
+          {t('nav.topics')}
         </button>
-        <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>Topic</div>
+        <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('topic.label')}</div>
         <h1 style={{ margin: 0, fontSize: 36, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{topic}</h1>
       </header>
 
@@ -142,7 +145,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
         }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, color: T.ink80 }}>Progress</span>
+              <span style={{ fontSize: 13, color: T.ink80 }}>{t('topic.progress')}</span>
               <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.ink60 }}>{doneCount} of {total} done</span>
             </div>
             <div style={{ height: 6, background: T.paperMuted, borderRadius: 999, overflow: 'hidden' }}>
@@ -167,16 +170,16 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
       {/* Task groups */}
       {total === 0 && topicArchived.length === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 40 }}>
-          <p style={{ fontSize: 14, color: T.ink60 }}>No tasks in this topic yet.</p>
+          <p style={{ fontSize: 14, color: T.ink60 }}>{t('topic.empty')}</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-          <TaskGroup label="Today"    count={todayTasks.length}    tasks={todayTasks}    onOpenDetail={onOpenDetail} T={T} />
-          <TaskGroup label="Upcoming" count={upcomingTasks.length} tasks={upcomingTasks} onOpenDetail={onOpenDetail} T={T} />
-          <TaskGroup label="Anytime"  count={anytimeTasks.length}  tasks={anytimeTasks}  onOpenDetail={onOpenDetail} T={T} />
-          <TaskGroup label="Done"     count={doneCount}            tasks={doneTasks}     onOpenDetail={onOpenDetail} T={T} />
+          <TaskGroup label={t('topic.today')}    count={todayTasks.length}    tasks={todayTasks}    onOpenDetail={onOpenDetail} T={T} />
+          <TaskGroup label={t('topic.upcoming')} count={upcomingTasks.length} tasks={upcomingTasks} onOpenDetail={onOpenDetail} T={T} />
+          <TaskGroup label={t('topic.anytime')}  count={anytimeTasks.length}  tasks={anytimeTasks}  onOpenDetail={onOpenDetail} T={T} />
+          <TaskGroup label={t('topic.done')}     count={doneCount}            tasks={doneTasks}     onOpenDetail={onOpenDetail} T={T} />
           {topicArchived.length > 0 && (
-            <TaskGroup label="Archive" count={topicArchived.length} tasks={topicArchived} onOpenDetail={onOpenDetail} T={T} />
+            <TaskGroup label={t('topic.archive')} count={topicArchived.length} tasks={topicArchived} onOpenDetail={onOpenDetail} T={T} />
           )}
         </div>
       )}

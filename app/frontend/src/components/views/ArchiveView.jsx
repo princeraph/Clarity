@@ -1,16 +1,18 @@
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
 export default function ArchiveView({ archivedTasks, onRestore, onDelete, onAddTask }) {
   const { T } = useTheme();
+  const { t, fmtDate } = useLocale();
 
   const statusLabel = (s) => s.replace('_', ' ');
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '36px 56px', fontFamily: T.fontUI, boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>Archive</div>
+        <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('archive.label')}</div>
         <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
-          {archivedTasks.length} archived task{archivedTasks.length !== 1 ? 's' : ''}
+          {t('archive.count', { n: archivedTasks.length })}
         </h1>
       </div>
 
@@ -26,15 +28,15 @@ export default function ArchiveView({ archivedTasks, onRestore, onDelete, onAddT
             <rect x="28" y="38" width="24" height="2.5" rx="1.25" fill={T.ink20} />
             <path d="M42 18l1.5 4.5h4.7l-3.8 2.8 1.4 4.5L42 27l-3.8 2.8 1.4-4.5-3.8-2.8h4.7z" fill={T.accentSoft} stroke={T.accent} strokeWidth="0.8" />
           </svg>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>Ideas live here.</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>{t('archive.emptyTitle')}</h2>
           <p style={{ margin: 0, fontSize: 14.5, color: T.ink60, lineHeight: 1.6, maxWidth: 380 }}>
-            Archive is for things you want to do but not now. No due dates, no pressure — just a place to park what matters eventually.
+            {t('archive.emptyBody')}
           </p>
           <button onClick={onAddTask} style={{
             fontFamily: T.fontUI, fontSize: 13, fontWeight: 500, cursor: 'pointer',
             padding: '9px 16px', borderRadius: T.r6,
             background: T.ink, color: T.paper, border: 'none',
-          }}>Add to Archive</button>
+          }}>{t('archive.add')}</button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -60,7 +62,7 @@ export default function ArchiveView({ archivedTasks, onRestore, onDelete, onAddT
                   <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{statusLabel(task.status)}</span>
                   {task.archivedAt && (
                     <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>
-                      Archived {new Date(task.archivedAt).toLocaleDateString()}
+                      {t('history.archived')} {fmtDate(task.archivedAt)}
                     </span>
                   )}
                 </div>
@@ -70,12 +72,12 @@ export default function ArchiveView({ archivedTasks, onRestore, onDelete, onAddT
                   fontSize: 12.5, padding: '5px 12px', borderRadius: T.r6,
                   background: T.paperSubtle, color: T.ink60,
                   border: `1px solid ${T.hairline}`, cursor: 'pointer', fontFamily: T.fontUI,
-                }}>Restore</button>
+                }}>{t('archive.restore')}</button>
                 <button onClick={() => onDelete(task.id)} style={{
                   fontSize: 12.5, padding: '5px 12px', borderRadius: T.r6,
                   background: T.paperSubtle, color: T.danger,
                   border: `1px solid ${T.dangerBorder}`, cursor: 'pointer', fontFamily: T.fontUI,
-                }}>Delete</button>
+                }}>{t('common.delete')}</button>
               </div>
             </div>
           ))}

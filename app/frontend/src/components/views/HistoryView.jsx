@@ -1,29 +1,33 @@
 import { useState, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useLocale } from '../../contexts/LocaleContext.jsx';
 
-function relativeTime(iso) {
+function relativeTime(iso, t) {
   if (!iso) return '';
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('time.justNow');
+  if (mins < 60) return t('time.minutesAgo', { n: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return t('time.hoursAgo', { n: hrs });
+  return t('time.daysAgo', { n: Math.floor(hrs / 24) });
 }
 
-function dayKey(iso) {
-  if (!iso) return 'Unknown';
+// Takes the formatter rather than hard-coding en-US: a date is part of the
+// interface language too, not a thing that stays American when the rest moves.
+function dayKey(iso, t, fmtDate) {
+  if (!iso) return t('time.unknown');
   const d = new Date(iso);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
   const taskDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  if (taskDay.getTime() === today.getTime()) return 'TODAY';
-  if (taskDay.getTime() === yesterday.getTime()) return 'YESTERDAY';
-  return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
+  if (taskDay.getTime() === today.getTime()) return t('time.today').toUpperCase();
+  if (taskDay.getTime() === yesterday.getTime()) return t('time.yesterday').toUpperCase();
+  return fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
 }
 
 function HistoryRow({ task, isArchived, onRestore, T }) {
+  const { t } = useLocale();
   const [hov, setHov] = useState(false);
   const timestamp = isArchived ? task.archivedAt : task.updatedAt;
 
@@ -66,7 +70,7 @@ function HistoryRow({ task, isArchived, onRestore, T }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40, whiteSpace: 'nowrap' }}>
-          {isArchived ? 'Archived' : 'Completed'} {relativeTime(timestamp)}
+          {isArchived ? t('history.archived') : t('history.completed')} {relativeTime(timestamp, t)}
         </span>
         {hov && onRestore && (
           <button
@@ -76,7 +80,7 @@ function HistoryRow({ task, isArchived, onRestore, T }) {
               background: 'transparent', border: 'none', cursor: 'pointer',
               fontFamily: T.fontUI, padding: 0, whiteSpace: 'nowrap',
             }}
-          >Restore</button>
+          >{t('archive.restore')}</button>
         )}
       </div>
     </div>
@@ -85,6 +89,7 @@ function HistoryRow({ task, isArchived, onRestore, T }) {
 
 export default function HistoryView({ tasks, archivedTasks, onRestore }) {
   const { T } = useTheme();
+  const { t, fmtDate } = useLocale();
   const [tab, setTab] = useState('completed');
   const [search, setSearch] = useState('');
 
@@ -117,7 +122,7 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
   const groups = useMemo(() => {
     const map = new Map();
     for (const task of filtered) {
-      const key = dayKey(isArchived ? task.archivedAt : task.updatedAt);
+      const key = dayKey(isArchived ? task.archivedAt : task.updatedAt, t, fmtDate);
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(task);
     }
@@ -128,9 +133,9 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
     <div style={{ height: '100%', overflowY: 'auto', padding: '36px 56px', fontFamily: T.fontUI, boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-          {tab === 'completed' ? `${completed.length} tasks completed` : `${archived.length} tasks archived`}
+          {tab === 'completed' ? t('history.countCompleted', { n: completed.length }) : t('history.countArchived', { n: archived.length })}
         </div>
-        <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>History</h1>
+        <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{t('history.title')}</h1>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
@@ -141,7 +146,7 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
           </svg>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search history…"
+            placeholder={t('history.searchPlaceholder')}
             style={{
               width: '100%', padding: '8px 12px 8px 32px',
               background: T.paperSubtle, border: `1px solid ${T.hairline}`,
@@ -152,7 +157,7 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
         </div>
 
         <div style={{ display: 'flex', gap: 4, background: T.paperSubtle, padding: 3, borderRadius: T.rPill, border: `1px solid ${T.hairline}` }}>
-          {[['completed', 'Completed'], ['archived', 'Archived']].map(([id, label]) => (
+          {[['completed', t('history.completed')], ['archived', t('history.archived')]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               padding: '5px 14px', borderRadius: T.rPill, border: 'none', cursor: 'pointer',
               fontFamily: T.fontUI, fontSize: 12.5, fontWeight: tab === id ? 500 : 400,
@@ -171,9 +176,9 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
               <circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/>
             </svg>
           </div>
-          <p style={{ fontSize: 16, fontWeight: 500, color: T.ink60, margin: 0 }}>Nothing here yet.</p>
+          <p style={{ fontSize: 16, fontWeight: 500, color: T.ink60, margin: 0 }}>{t('history.emptyTitle')}</p>
           <p style={{ fontSize: 13, color: T.ink40, marginTop: 6 }}>
-            {tab === 'completed' ? 'Completed tasks will appear here.' : 'Archived tasks will appear here.'}
+            {tab === 'completed' ? t('history.emptyCompleted') : t('history.emptyArchived')}
           </p>
         </div>
       ) : (

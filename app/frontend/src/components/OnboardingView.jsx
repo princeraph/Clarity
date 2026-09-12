@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
 const SCREENS = [
-  { key: 'welcome', foot: 'Welcome',             cta: 'Get started →' },
-  { key: 'local',   foot: 'Local-first',         cta: 'Continue →' },
-  { key: 'capture', foot: 'Your first capture',  cta: 'Save & open Clarity →' },
+  { key: 'welcome', footKey: 'onboarding.foot.welcome', ctaKey: 'onboarding.cta.start' },
+  { key: 'local',   footKey: 'onboarding.foot.local',   ctaKey: 'onboarding.cta.continue' },
+  { key: 'capture', footKey: 'onboarding.foot.capture', ctaKey: 'onboarding.cta.save' },
 ];
 
 // Thin line trace in the header — the design uses growing dashes, not dots.
@@ -75,6 +76,7 @@ function Cta({ label, onClick, disabled, T }) {
 }
 
 export default function OnboardingView({ onComplete }) {
+  const { t } = useLocale();
   const { T } = useTheme();
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
@@ -94,7 +96,7 @@ export default function OnboardingView({ onComplete }) {
   const isLast = step === SCREENS.length - 1;
   const s = SCREENS[step];
   const advance = isLast ? finish : () => setStep(n => n + 1);
-  const ctaLabel = isLast ? (completing ? 'Opening Clarity…' : s.cta) : s.cta;
+  const ctaLabel = isLast && completing ? t('onboarding.opening') : t(s.ctaKey);
 
   return (
     <div style={{
@@ -122,10 +124,10 @@ export default function OnboardingView({ onComplete }) {
                 <ApertureMark s={88} />
               </div>
               <h1 style={{ margin: 0, fontSize: 44, fontWeight: 500, letterSpacing: '-0.04em', color: T.ink, lineHeight: 1.05 }}>
-                A clearer way to keep<br />track of yourself.
+                {t('onboarding.headline')}
               </h1>
               <p style={{ margin: '20px 0 36px', fontSize: 15.5, color: T.ink60, lineHeight: 1.55 }}>
-                Clarity is a personal task manager with an assistant that lives on your laptop. No accounts, no cloud, no spying — just your tasks and a quiet hand on the rudder.
+                {t('onboarding.welcomeBody')}
               </p>
               <Cta label={ctaLabel} onClick={advance} disabled={completing} T={T} />
             </div>
@@ -134,12 +136,12 @@ export default function OnboardingView({ onComplete }) {
           {step === 1 && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56, alignItems: 'center', maxWidth: 920, width: '100%' }}>
               <div>
-                <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 12 }}>On your machine</div>
+                <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 12 }}>{t('onboarding.onYourMachine')}</div>
                 <h2 style={{ margin: 0, fontSize: 34, fontWeight: 500, letterSpacing: '-0.035em', lineHeight: 1.1 }}>
-                  Your tasks never leave this laptop.
+                  {t('onboarding.localTitle')}
                 </h2>
                 <p style={{ margin: '18px 0 28px', fontSize: 15, color: T.ink80, lineHeight: 1.55 }}>
-                  The model that parses your captures, suggests plans, and answers your questions runs entirely on-device. No syncing, no telemetry, no servers to trust. The on-device badge tells you it's still true.
+                  {t('onboarding.localBody')}
                 </p>
                 <Cta label={ctaLabel} onClick={advance} disabled={completing} T={T} />
               </div>
@@ -156,13 +158,13 @@ export default function OnboardingView({ onComplete }) {
                   textTransform: 'uppercase', color: T.ink60,
                 }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.done }} />
-                  On-device · llama-3 8b
+                  {t('onboarding.onDeviceModel')}
                 </div>
                 <div style={{ display: 'grid', gap: 10 }}>
-                  <SpecRow label="Storage"       value="%APPDATA%\Clarity" T={T} />
-                  <SpecRow label="Model size"    value="4.2 GB" T={T} />
-                  <SpecRow label="Network calls" value="0" done T={T} />
-                  <SpecRow label="Cloud sync"    value="Off" T={T} />
+                  <SpecRow label={t('onboarding.storage')}       value="%APPDATA%\Clarity" T={T} />
+                  <SpecRow label={t('onboarding.modelSize')}    value="4.2 GB" T={T} />
+                  <SpecRow label={t('onboarding.networkCalls')} value="0" done T={T} />
+                  <SpecRow label={t('onboarding.cloudSync')}    value="Off" T={T} />
                 </div>
               </div>
             </div>
@@ -170,9 +172,9 @@ export default function OnboardingView({ onComplete }) {
 
           {step === 2 && (
             <div style={{ width: '100%', maxWidth: 600 }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 12, textAlign: 'center' }}>Try it now</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 12, textAlign: 'center' }}>{t('onboarding.tryItNow')}</div>
               <h2 style={{ margin: '0 0 28px', fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', textAlign: 'center', lineHeight: 1.15 }}>
-                What's on your mind?
+                {t('onboarding.captureTitle')}
               </h2>
               <div style={{
                 background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: 14,
@@ -187,16 +189,16 @@ export default function OnboardingView({ onComplete }) {
                   background: T.paperSubtle,
                   display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
                 }}>
-                  <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>Parsed</span>
-                  <Pill label="when" value="Tomorrow · 09:00" T={T} />
-                  <Pill label="task" value="Call the dentist" T={T} />
-                  <Pill label="duration" value="≈ 10 min" subtle T={T} />
+                  <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
+                  <Pill label={t('onboarding.when')} value="Tomorrow · 09:00" T={T} />
+                  <Pill label={t('onboarding.task')} value="Call the dentist" T={T} />
+                  <Pill label={t('onboarding.duration')} value="≈ 10 min" subtle T={T} />
                 </div>
               </div>
               <div style={{ textAlign: 'center', marginTop: 28 }}>
                 <Cta label={ctaLabel} onClick={advance} disabled={completing} T={T} />
                 <div style={{ marginTop: 10, fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>
-                  Ctrl+K from anywhere to capture again.
+                  {t('onboarding.captureHint')}
                 </div>
               </div>
             </div>
@@ -211,7 +213,7 @@ export default function OnboardingView({ onComplete }) {
         textTransform: 'uppercase', color: T.ink40,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        <span>{s.foot}</span>
+        <span>{t(s.footKey)}</span>
         <span>{step + 1} / {SCREENS.length}</span>
       </footer>
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ApertureMark from './ApertureMark.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -85,6 +86,7 @@ function ActionRow({ icon, label, kbd, muted, onClick }) {
 }
 
 export default function TrayMenu() {
+  const { t } = useLocale();
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
@@ -149,7 +151,7 @@ export default function TrayMenu() {
             <span style={{
               marginLeft: 'auto', fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.10em',
               textTransform: 'uppercase', color: C.ink35,
-            }}>On-device</span>
+            }}>{t('tray.onDevice')}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
             {stats.map(s => (
@@ -163,7 +165,7 @@ export default function TrayMenu() {
 
         {/* Next task */}
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.divider}` }}>
-          <div style={{ fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: C.ink35, marginBottom: 8 }}>Up next</div>
+          <div style={{ fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: C.ink35, marginBottom: 8 }}>{t('tray.upNext')}</div>
           {nextTask ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', border: `1.5px solid ${C.accent}`, flexShrink: 0 }} />
@@ -173,18 +175,18 @@ export default function TrayMenu() {
               )}
             </div>
           ) : (
-            <div style={{ fontSize: 13, color: C.ink45 }}>Nothing left today — nice.</div>
+            <div style={{ fontSize: 13, color: C.ink45 }}>{t('tray.nothingLeft')}</div>
           )}
         </div>
 
         {/* Quick actions */}
         <div style={{ padding: '6px 0' }}>
-          <ActionRow icon="⊕" label="Quick capture" kbd="Ctrl+K" onClick={act('capture')} />
-          <ActionRow icon="◎" label="Open Clarity"   kbd=""       onClick={act('open')} />
-          <ActionRow icon="◷" label="View today"     kbd="Ctrl+1" onClick={act('today')} />
-          <ActionRow icon="⊙" label="Ask Clarity"    kbd="Ctrl+/" onClick={act('chat')} />
+          <ActionRow icon="⊕" label={t('tray.quickCapture')} kbd="Ctrl+K" onClick={act('capture')} />
+          <ActionRow icon="◎" label={t('tray.openClarity')}   kbd=""       onClick={act('open')} />
+          <ActionRow icon="◷" label={t('tray.viewToday')}     kbd="Ctrl+1" onClick={act('today')} />
+          <ActionRow icon="⊙" label={t('tray.askClarity')}    kbd="Ctrl+/" onClick={act('chat')} />
           <div style={{ height: 1, background: C.divider, margin: '4px 0' }} />
-          <ActionRow icon="✕" label="Quit Clarity" muted onClick={act('quit')} />
+          <ActionRow icon="✕" label={t('tray.quitClarity')} muted onClick={act('quit')} />
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 {
   "nom": "Clarity — application de bureau",
-  "pourquoi": "Rien ne se déploie ici : l'application tourne après un simple clone, ce qui rend deux choses critiques. Le backend porte toute la logique testable — fournisseurs LLM, métriques du profil, frontière de sortie vers le modèle, règles des constats — et ses 71 tests sont le seul filet. Deux d'entre eux gardent des propriétés qu'aucune relecture ne rattrape : qu'une chaîne témoin placée dans les preuves et le journal n'atteigne jamais un fournisseur distant, et qu'un constat rejeté ne soit jamais redérivé. Et frontend/dist/ est versionné EXPRÈS parce qu'Electron le charge au runtime — un dist/ à moitié commité donne une fenêtre blanche au démarrage, sans message.",
+  "pourquoi": "Rien ne se déploie ici : l'application tourne après un simple clone, ce qui rend deux choses critiques. Le backend porte toute la logique testable — fournisseurs LLM, métriques du profil, frontière de sortie vers le modèle, règles des constats — et ses 71 tests sont le seul filet. Deux d'entre eux gardent des propriétés qu'aucune relecture ne rattrape : qu'une chaîne témoin placée dans les preuves et le journal n'atteigne jamais un fournisseur distant, et qu'un constat rejeté ne soit jamais redérivé. Et frontend/dist/ est versionné EXPRÈS parce qu'Electron le charge au runtime — un dist/ à moitié commité donne une fenêtre blanche au démarrage, sans message. Et le sélecteur de langue a longtemps proposé huit langues sans en implémenter aucune : rien dans la construction ne distinguait « traduit » de « prétend l'être ». Le vérificateur de locales le distingue, et refuse une langue à moitié faite.",
   "surveille": [
     "backend/**",
     "frontend/**",
@@ -21,6 +21,10 @@
     {
       "nom": "le paquet chargé par Electron est complet",
       "commande": "node ../../.github/qualite/verifier-liens.mjs frontend/dist"
+    },
+    {
+      "nom": "les deux langues sont complètes",
+      "commande": "node frontend/tools/verifier-locales.mjs"
     }
   ]
 }

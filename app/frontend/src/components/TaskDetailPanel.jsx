@@ -1,16 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import FollowUp from './FollowUp.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
-const STATUS_LABEL = { not_started: 'Not started', in_progress: 'In progress', done: 'Done' };
 
-function historyLabel(h) {
-  if (h.type === 'created')  return 'Task created';
-  if (h.type === 'status')   return `Status → ${STATUS_LABEL[h.to] || h.to}`;
-  if (h.type === 'deadline') return h.to ? `Deadline set to ${new Date(h.to + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Deadline removed';
-  if (h.type === 'area')     return h.to ? `Moved to ${h.to}` : 'Removed from area';
+const STATUS_KEY = { not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
+
+function historyLabel(h, t, fmtDate) {
+  if (h.type === 'created')  return t('detail.history.created');
+  if (h.type === 'status')   return t('detail.history.status', { to: STATUS_KEY[h.to] ? t(STATUS_KEY[h.to]) : h.to });
+  if (h.type === 'deadline') return h.to
+    ? t('detail.history.deadlineSet', { date: fmtDate(h.to + 'T00:00:00') })
+    : t('detail.history.deadlineRemoved');
+  if (h.type === 'area')     return h.to ? t('detail.history.movedTo', { area: h.to }) : t('detail.history.removedFromArea');
   return h.type;
 }
 
@@ -36,6 +40,7 @@ function TDPill({ label, value, accent, T }) {
 }
 
 function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
+  const { t, fmtDate } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [hov, setHov] = useState(false);
 
@@ -90,11 +95,11 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
       {expanded && (
         <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 10, borderTop: `1px solid ${T.hairlineSoft}` }}>
           <div style={{ paddingTop: 10, fontSize: 12.5, color: T.ink40, lineHeight: 1.5 }}>
-            {s.notes || <span style={{ fontStyle: 'italic' }}>No notes</span>}
+            {s.notes || <span style={{ fontStyle: 'italic' }}>{t('detail.noNotes')}</span>}
           </div>
           {s.dueDate && (
             <div style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
-              Due: {new Date(s.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {t('detail.due')}: {fmtDate(s.dueDate + 'T00:00:00')}
             </div>
           )}
           <button
@@ -105,7 +110,7 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
               borderRadius: T.r6, fontSize: 12, color: T.ink60,
               cursor: 'pointer', fontFamily: T.fontUI,
             }}
-          >Open in editor</button>
+          >{t('detail.openInEditor')}</button>
         </div>
       )}
     </div>
@@ -114,6 +119,7 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
 
 export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onFocusMode }) {
   const { T } = useTheme();
+  const { t, fmtDate: fmtLocaleDate, dateLocale } = useLocale();
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState('');
   const [newDeadline, setNewDeadline] = useState(task.deadline || '');
@@ -156,7 +162,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
       setBreaking(false);
     } catch (err) {
       if (err.name !== 'AbortError') {
-        setBreakdownError('Could not connect to AI. Check your settings.');
+        setBreakdownError(t('detail.aiUnreachable'));
         setBreaking(false);
       }
     }
@@ -216,17 +222,17 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
       onSaved?.();
       setRescheduling(false);
     } catch {
-      setRescheduleError('Failed to save deadline');
+      setRescheduleError(t('detail.deadlineSaveFailed'));
     }
   }
 
   const historyEvents = task.history || [];
-  const fmtTime = iso => new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const fmtTime = iso => new Date(iso).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
   const fmtDate = iso => {
     const d = new Date(iso);
     const today = new Date();
     if (d.toDateString() === today.toDateString()) return fmtTime(iso);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + fmtTime(iso);
+    return fmtLocaleDate(d) + ' ' + fmtTime(iso);
   };
 
   return (
@@ -251,7 +257,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           <span style={{
             fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em',
             textTransform: 'uppercase', color: T.ink40,
-          }}>Task detail</span>
+          }}>{t('detail.title')}</span>
           <button onClick={onClose} style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
             color: T.ink40, fontSize: 13, lineHeight: 1, padding: '2px 4px',
@@ -279,15 +285,15 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
         }}>
           {task.deadline && (
             <TDPill
-              label="Due"
-              value={new Date(task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              label={t('detail.due')}
+              value={fmtLocaleDate(task.deadline + 'T00:00:00')}
               accent={true}
               T={T}
             />
           )}
           {task.timeTracked > 0 && (
             <TDPill
-              label="Tracked"
+              label={t('detail.tracked')}
               value={task.timeTracked >= 60
                 ? `${Math.floor(task.timeTracked / 60)}h ${task.timeTracked % 60}m`
                 : `${task.timeTracked}m`}
@@ -297,7 +303,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           )}
           {task.tags?.[0] && (
             <TDPill
-              label="Topic"
+              label={t('detail.topic')}
               value={task.tags[0]}
               accent={false}
               T={T}
@@ -305,7 +311,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           )}
           {aiData?.priority && (
             <TDPill
-              label="Priority"
+              label={t('detail.priority')}
               value={`#${aiData.priority}`}
               accent={true}
               T={T}
@@ -318,7 +324,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
           {/* Notes / Description */}
           <div>
-            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Notes</div>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.notes')}</div>
             <div style={{
               minHeight: 66, padding: '10px 12px',
               background: T.paperSubtle, borderRadius: T.r6,
@@ -331,7 +337,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
             {/* Deadline reschedule inline */}
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Deadline</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.deadline')}</div>
               {rescheduling ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {rescheduleError && (
@@ -352,7 +358,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                   <button onClick={handleReschedule} style={{
                     padding: '7px 12px', background: T.ink, border: 'none',
                     borderRadius: T.r6, fontSize: 12, color: T.paper, cursor: 'pointer', fontFamily: T.fontUI,
-                  }}>Save</button>
+                  }}>{t('common.save')}</button>
                   <button onClick={() => { setRescheduling(false); setRescheduleError(''); }} style={{
                     padding: '7px 12px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, fontSize: 12, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
@@ -363,7 +369,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {task.deadline ? (
                     <span style={{ fontFamily: T.fontMono, fontSize: 12.5, color: isOverdue ? T.warn : isUrgent ? T.warn : T.ink }}>
-                      {new Date(task.deadline + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {fmtLocaleDate(task.deadline + 'T00:00:00', { weekday: 'short', month: 'short', day: 'numeric' })}
                       {days !== null && (
                         <span style={{ marginLeft: 8, color: isOverdue ? T.warn : T.ink40 }}>
                           {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? '· today' : `· in ${days}d`}
@@ -371,7 +377,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                       )}
                     </span>
                   ) : (
-                    <span style={{ fontSize: 12.5, color: T.ink40 }}>No deadline set</span>
+                    <span style={{ fontSize: 12.5, color: T.ink40 }}>{t('detail.noDeadline')}</span>
                   )}
                   <button
                     onClick={() => { setNewDeadline(task.deadline || ''); setRescheduling(true); }}
@@ -380,7 +386,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                       cursor: 'pointer', fontFamily: T.fontUI, padding: '2px 0',
                     }}
                   >
-                    {task.deadline ? 'Reschedule' : '+ Set date'}
+                    {task.deadline ? t('detail.reschedule') : t('detail.setDate')}
                   </button>
                 </div>
               )}
@@ -390,7 +396,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           {/* Subtasks — expandable cards */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40 }}>Subtasks</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40 }}>{t('task.subtasks')}</div>
               <button
                 onClick={handleBreakdown}
                 disabled={breaking}
@@ -403,8 +409,8 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                 }}
               >
                 {breaking ? (
-                  <><span style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${T.accent}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />Working…</>
-                ) : '✦ Break this down'}
+                  <><span style={{ width: 8, height: 8, borderRadius: '50%', border: `1.5px solid ${T.accent}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />{t('detail.working')}</>
+                ) : t('detail.breakDown')}
               </button>
             </div>
 
@@ -437,7 +443,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               }}
             >
               <span style={{ fontSize: 14 }}>+</span>
-              <span>Add subtask</span>
+              <span>{t('detail.addSubtask')}</span>
             </button>
           </div>
 
@@ -446,7 +452,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
           {/* Recurrence */}
           <div>
-            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Recurrence</div>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.recurrence')}</div>
             <select
               value={task.recurring || 'none'}
               onChange={async e => {
@@ -467,26 +473,26 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                 borderRadius: T.r6, padding: '5px 10px', cursor: 'pointer',
               }}
             >
-              <option value="none">Does not repeat</option>
-              <option value="daily">↻ Daily</option>
-              <option value="weekly">↻ Weekly</option>
-              <option value="monthly">↻ Monthly</option>
+              <option value="none">{t('recur.none')}</option>
+              <option value="daily">{t('recur.daily')}</option>
+              <option value="weekly">{t('recur.weekly')}</option>
+              <option value="monthly">{t('recur.monthly')}</option>
             </select>
           </div>
 
           {/* Activity log */}
           <div>
-            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Activity</div>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.activity')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {historyEvents.length > 0 ? [...historyEvents].reverse().map((h, i) => (
                 <div key={`${h.at}-${h.type}-${i}`} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
                   <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, minWidth: 64, flexShrink: 0 }}>{fmtDate(h.at)}</span>
-                  <span style={{ fontSize: 12.5, color: h.type === 'status' && h.to === 'done' ? T.done : T.ink60 }}>{historyLabel(h)}</span>
+                  <span style={{ fontSize: 12.5, color: h.type === 'status' && h.to === 'done' ? T.done : T.ink60 }}>{historyLabel(h, t, fmtLocaleDate)}</span>
                 </div>
               )) : task.createdAt ? (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
                   <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, minWidth: 64 }}>{fmtTime(task.createdAt)}</span>
-                  <span style={{ fontSize: 12.5, color: T.ink60 }}>Task created</span>
+                  <span style={{ fontSize: 12.5, color: T.ink60 }}>{t('detail.history.created')}</span>
                 </div>
               ) : null}
               {aiData?.priority && (
@@ -504,7 +510,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               padding: '14px 16px', background: T.accentSoft,
               borderRadius: T.r10, border: `1px solid ${T.hairline}`,
             }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Why AI prioritizes this</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.whyAiPriority')}</div>
               <p style={{ margin: 0, fontSize: 13, color: T.accentInk, lineHeight: 1.65, opacity: 0.9 }}>
                 {aiData.reasoning}
               </p>
@@ -514,7 +520,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           {/* Action Plan */}
           {aiData?.actionPlan?.length > 0 && (
             <div>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>AI Action Plan</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.aiActionPlan')}</div>
               <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {aiData.actionPlan.map((step, i) => (
                   <li key={i} style={{
@@ -533,7 +539,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           {/* Dependencies */}
           {aiData?.dependencies?.length > 0 && (
             <div>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Must complete first</div>
+              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.mustCompleteFirst')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {aiData.dependencies.map(id => (
                   <div key={id} style={{
@@ -548,7 +554,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
           {/* Timer */}
           <div>
-            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>Timer</div>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.timer')}</div>
             {timerRunning ? (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -568,7 +574,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                     fontSize: 12, color: T.ink60, background: 'transparent',
                     border: 'none', cursor: 'pointer', fontFamily: T.fontUI, padding: 0,
                   }}
-                >Stop</button>
+                >{t('detail.stop')}</button>
               </div>
             ) : (
               <div
@@ -583,7 +589,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                 onMouseLeave={e => e.currentTarget.style.background = T.paperSubtle}
               >
                 <span style={{ fontSize: 12, color: T.ink60 }}>▶</span>
-                <span style={{ fontSize: 13, color: T.ink60 }}>Start timer</span>
+                <span style={{ fontSize: 13, color: T.ink60 }}>{t('detail.startTimer')}</span>
               </div>
             )}
             {task.timeTracked > 0 && (
@@ -608,20 +614,20 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               color: T.paper, cursor: 'pointer', fontFamily: T.fontUI,
             }}
           >
-            {task.status === 'done' ? '↩ Mark incomplete' : '✓ Mark complete'}
+            {task.status === 'done' ? t('detail.markIncomplete') : t('detail.markComplete')}
           </button>
           {onFocusMode && task.status !== 'done' && (
             <button onClick={() => { onFocusMode(task); onClose(); }} style={{
               padding: '8px 12px', background: 'transparent',
               border: `1px solid ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12.5, color: T.accentInk, cursor: 'pointer', fontFamily: T.fontUI,
-            }}>Focus</button>
+            }}>{t('task.focus')}</button>
           )}
           <button onClick={() => onDelete(task.id)} style={{
             padding: '8px 12px', background: 'transparent',
             border: `1px solid ${T.hairline}`, borderRadius: T.r6,
             fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
-          }}>Delete</button>
+          }}>{t('common.delete')}</button>
         </div>
       </div>
     </>
