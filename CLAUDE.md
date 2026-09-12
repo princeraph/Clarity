@@ -37,6 +37,14 @@ Electron opens **two** windows off the same Vite build:
   (`window.location.hash === '#tray'`) and renders `<TrayMenu />` instead of
   `<App />`.
 
+**Single instance** (`electron/main.js`): the whole startup path sits behind
+`app.requestSingleInstanceLock()`. Two copies meant two backends writing the same
+`tasks.json`, each blind to the other's writes; a second launch now focuses the
+first window instead. **Navigation is locked** on both windows via
+`lockNavigation()` — `will-navigate` is refused and `setWindowOpenHandler`
+denies, with `http(s)` URLs handed to the system browser. Either window
+navigating away would run foreign content in a renderer holding the preload bridge.
+
 Tray behaviour (`electron/main.js`): the main window's close button **hides**
 rather than quits while a tray exists (Win11 convention — app state is
 preserved); a real quit goes through the tray menu and the `quittingForReal`
@@ -49,7 +57,7 @@ below the taskbar depending on which half of the screen the icon sits in.
 - **Theme system**: `useTheme()` → `T` object from `ThemeContext.jsx`. All colours come from `T.*` tokens — never hardcode colours. Key tokens: `T.ink`, `T.paper`, `T.paperSubtle`, `T.paperMuted`, `T.hairline`, `T.hairlineSoft`, `T.accent`, `T.accentSoft`, `T.accentInk`, `T.danger`, `T.dangerSoft`, `T.dangerBorder`, `T.done`, `T.warn`, `T.ink20/40/60/80`, `T.fontUI`, `T.fontMono`, `T.r6/r10/r14/rPill`.
 - **API base**: `const API = 'http://localhost:3001/api'` — declared independently in each file (pre-existing pattern, do not consolidate).
 - **localStorage keys**: `clarity-theme`, `clarity-accent`, `clarity-density`, `clarity-font`, `clarity-shortcuts`, `clarity-tutorialSeen`, `clarity-onboarding-done`, `clarity-userName`, `sidebar-collapsed`.
-- **Views**: FocusView (home), TasksView, CalendarView, WeeklySummaryView, ArchiveView, HistoryView, GraphView, TopicDetailView, SettingsView. Selected by the `view` state string in `App.jsx` — `TopicDetailView` is `view === 'topic-detail'` and reads the topic from `activeArea`.
+- **Views**: FocusView (home), TasksView, CalendarView, WeeklySummaryView, ArchiveView, HistoryView, GraphView, **PatternsView**, TopicDetailView, SettingsView. `PatternsView` (`view === 'patterns'`) renders the profile's observed layer from `GET /api/profile` — **no model is involved**, and a metric whose `enough` is false is shown as a sample count, never as a conclusion. Selected by the `view` state string in `App.jsx` — `TopicDetailView` is `view === 'topic-detail'` and reads the topic from `activeArea`.
 - **Modals/overlays**: SearchCapture, TaskForm, TaskDetailPanel, ChatPanel, FocusMode, SchedulingPopover, ContextMenu, TutorialOverlay, OnboardingView.
 - **SearchCapture** is the command palette, and it both **creates and finds**. `parseInput()` strips `#tag`, a `for 2h` / `~30m` duration and natural-language dates off the title; the same overlay searches existing tasks, navigates views (`onNavigate`) and opens the chat (`onOpenChat`). It replaced the older capture-only `QuickCapture`, which no longer exists.
 - **TrayMenu** renders in the tray popup only, never inside `<App />`. It carries its **own always-dark palette** (a local `C` object, not `T`) because the popup sits against the Windows taskbar whatever the app theme is — it is the one deliberate exception to the "all colours from `T`" rule.
@@ -58,9 +66,15 @@ below the taskbar depending on which half of the screen the icon sits in.
 
 Single Express file. All routes, business logic, AI calls, and file I/O live here.
 
-- **Data file**: `DATA_DIR/tasks.json` (default: `backend/data/tasks.json`). Readable via `readData()`, writable via `saveData(data)`.
+- **Bound to loopback**: `app.listen(PORT, BIND_HOST)` with `BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1'`. The API has **no authentication of any kind**, so binding every interface put the whole task store on the local network. Override only for the documented ngrok flow — which forwards from this machine and therefore works against `127.0.0.1` anyway.
+- **CORS allowlist**, not `*`: the Vite dev origins plus requests with **no `Origin` header** — which is what the packaged Electron renderer sends (verified: a `file://` page omits the header rather than sending `Origin: null`). An explicit `null` origin — a sandboxed iframe or `data:` URL — gets a 403.
+- **Error middleware** honours `err.status`, defaulting to 500. On an open SSE stream it writes an error frame and ends instead of trying to set a status.
+- **Data file**: `DATA_DIR/tasks.json` (default: `backend/data/tasks.json`). Readable via `readData()`, writable via `saveData(data)`. `readData()` distinguishes *missing* from *unparseable*: a corrupt file is moved aside as `tasks.corrupt-<ts>.json` and the newest parseable backup is restored, so a bad file can never be silently replaced by an empty store. `saveData()` writes through a temp file and renames, and refuses a payload with no `tasks` array.
 - **Settings file**: `DATA_DIR/settings.json`. `readSettings()` merges with `DEFAULT_SETTINGS`.
-- **Backups**: `DATA_DIR/backups/tasks-YYYY-MM-DD.json`, last 7 kept.
+- **Backups**: `DATA_DIR/backups/tasks-YYYY-MM-DD.json` **and** `profile-YYYY-MM-DD.json`, last 7 kept **per series** — one shared list would let a run of task backups evict every profile backup. Runs at startup and hourly.
+- **Profile store** (`src/profile/`): `DATA_DIR/profile.json` + `DATA_DIR/journal.jsonl`, via `createProfileStore({ dataDir })`. Kept **out of `tasks.json` on purpose** — `DELETE /api/tasks/all` wipes the task store, and clearing a to-do list must not erase the user model. `profile.observed` is recomputable from tasks; `profile.understanding` is not, which is why the profile is backed up.
+- **`src/profile/metrics.js` is pure** — no I/O, no model, no randomness — so it is unit-tested (`tests/metrics.test.js`). It is the **only** writer of `observed`; the model must never write that layer. Every metric carries `samples` and `enough`, and **a metric below `MIN_SAMPLES` is not a finding** — callers must not present a conclusion the sample size does not support.
+- **Local only**: `/api/profile*` is never composed into a cloud prompt. That path will go through the outbound-context builder, which reads a bounded brief.
 - **AI providers**: `backend/src/llm/` — `OllamaProvider`, `OpenAIProvider` (also used for OpenRouter), `AnthropicProvider`. Selected via `createProvider(settings)`. All expose `ping()`, `listModels()`, `generate(prompt, opts)`, `generateJSON(prompt)`, and optionally `generateChat(system, messages, opts)`.
 - **SSE streaming pattern**: all AI endpoints use `res.setHeader('Content-Type', 'text/event-stream')` and write `data: ${JSON.stringify({token})}\n\n`, then `data: ${JSON.stringify({done:true})}\n\n`, then `res.end()`. Errors write `data: ${JSON.stringify({error: msg})}\n\n`.
 

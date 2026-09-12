@@ -41,6 +41,24 @@ function startBackend() {
   backendProcess.on('error', (err) => console.error('[Backend] Failed to start:', err.message));
 }
 
+// Clarity only ever loads its own bundled files. Anything that tries to navigate
+// the window elsewhere — a stray link, injected markup, AI-generated content
+// rendered as HTML — would run in a renderer holding this app's preload bridge.
+// Navigation is refused and external URLs are handed to the real browser.
+function lockNavigation(win) {
+  const { shell } = require('electron');
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url !== win.webContents.getURL()) {
+      e.preventDefault();
+      if (/^https?:/.test(url)) shell.openExternal(url);
+    }
+  });
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -58,6 +76,7 @@ function createWindow() {
     },
   });
 
+  lockNavigation(mainWindow);
   mainWindow.loadFile(getFrontendPath());
 
   // DevTools only in development
@@ -98,6 +117,7 @@ function createTrayWindow() {
     },
   });
 
+  lockNavigation(trayWindow);
   trayWindow.loadFile(getFrontendPath(), { hash: 'tray' });
   // Dismiss when the popup loses focus (clicking elsewhere), matching Win11 behaviour.
   trayWindow.on('blur', () => { if (trayWindow && !trayWindow.webContents.isDevToolsFocused()) trayWindow.hide(); });
@@ -181,13 +201,28 @@ async function waitForBackend(retries = 20, delayMs = 250) {
 
 let quittingForReal = false;
 
-app.whenReady().then(async () => {
-  startBackend();
-  await waitForBackend();
-  createWindow();
-  createTray();
-  checkForUpdates();
-});
+// Two copies of Clarity meant two backends writing the same tasks.json, each
+// unaware of the other's writes. The second launch now surfaces the first
+// instance instead of starting a rival.
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  app.whenReady().then(async () => {
+    startBackend();
+    await waitForBackend();
+    createWindow();
+    createTray();
+    checkForUpdates();
+  });
+}
 
 app.on('window-all-closed', () => {
   // The tray keeps the app alive after the main window closes (Win11 tray convention).
