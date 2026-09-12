@@ -160,6 +160,96 @@ function Section({ title, subtitle, T, children }) {
   );
 }
 
+// Shows exactly what would be sent to the AI provider, before anything is sent.
+// A claim about privacy that cannot be inspected is just a sentence; this is the
+// same composition the chat endpoint uses, rendered.
+function OutboundPreview({ T }) {
+  const [ctx, setCtx] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${API}/context/preview`);
+        if (!resp.ok) throw new Error();
+        const json = await resp.json();
+        if (!cancelled) setCtx(json);
+      } catch { if (!cancelled) setError(true); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (error) return <div style={{ fontSize: 12.5, color: T.ink60 }}>Could not reach the backend.</div>;
+  if (!ctx) return <div style={{ fontSize: 12.5, color: T.ink40 }}>Checking…</div>;
+
+  const local = ctx.providerIsLocal;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{
+        padding: '13px 15px', borderRadius: T.r6,
+        background: local ? T.accentSoft : T.paperSubtle,
+        border: `1px solid ${local ? T.hairline : T.warn}`,
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+      }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+          background: local ? T.done : T.warn }} />
+        <div style={{ fontSize: 13, color: local ? T.accentInk : T.ink, lineHeight: 1.55 }}>
+          {local ? (
+            <><strong>Nothing leaves this machine.</strong> You are using a local model ({ctx.providerType}),
+            so prompts are never sent over the network.</>
+          ) : (
+            <><strong>{ctx.chars} characters would be sent to {ctx.providerType}</strong> with each message —
+            your task list and a short summary of your patterns. The raw material behind that summary stays here.</>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {ctx.parts.map(p => (
+          <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 10, alignItems: 'baseline' }}>
+            <span style={{ fontFamily: T.fontMono, fontSize: 12, color: p.included ? T.done : T.ink40 }}>
+              {p.included ? '✓' : '–'}
+            </span>
+            <div>
+              <span style={{ fontSize: 13, color: T.ink }}>{p.label}</span>
+              <span style={{ fontSize: 12, color: T.ink40 }}> — {p.detail}</span>
+            </div>
+          </div>
+        ))}
+        {ctx.withheld.map(w => (
+          <div key={w.id} style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 10, alignItems: 'baseline' }}>
+            <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.danger }}>✕</span>
+            <div>
+              <span style={{ fontSize: 13, color: T.ink }}>{w.label}</span>
+              <span style={{ fontSize: 12, color: T.ink40 }}> — {w.reason}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <button onClick={() => setOpen(o => !o)} style={{
+          padding: '7px 14px', background: 'transparent',
+          border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+          fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
+        }}>{open ? 'Hide the exact text' : 'Show me the exact text'}</button>
+      </div>
+
+      {open && (
+        <pre style={{
+          margin: 0, padding: '13px 15px', maxHeight: 320, overflow: 'auto',
+          background: T.paperSubtle, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+          fontFamily: T.fontMono, fontSize: 11.5, lineHeight: 1.6, color: T.ink80,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        }}>{ctx.text || '(nothing)'}</pre>
+      )}
+    </div>
+  );
+}
+
 function KeyboardSection({ T }) {
   const [customMap, setCustomMap] = useState(loadCustomShortcuts);
   const [capturing, setCapturing] = useState(null); // shortcut id being captured
@@ -810,17 +900,13 @@ export default function SettingsView({ onSaved }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             <PageHeader section="Privacy" title="Privacy" T={T} />
 
-            <div style={{
-              padding: '14px 16px',
-              background: T.accentSoft, borderRadius: T.r6,
-              border: `1px solid ${T.hairline}`,
-              display: 'flex', alignItems: 'flex-start', gap: 10,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.done, flexShrink: 0, marginTop: 5 }} />
-              <div style={{ fontSize: 13, color: T.accentInk, lineHeight: 1.55 }}>
-                <strong>On-device guarantee.</strong> Your tasks and notes never leave your machine. AI analysis runs locally via Ollama. When using cloud providers, only task text is sent — never personal metadata.
-              </div>
-            </div>
+            <Section
+              title="What gets sent"
+              subtitle="Composed the same way the assistant composes it, so this is what would actually go — not a description of it."
+              T={T}
+            >
+              <OutboundPreview T={T} />
+            </Section>
 
             <Section title="Diagnostics" subtitle="Anonymous data to help improve Clarity." T={T}>
               <SettingRow label="Anonymous usage data" hint="App feature usage (no task content)" T={T}>

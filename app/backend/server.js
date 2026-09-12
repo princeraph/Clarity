@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createProvider } from './src/llm/index.js';
 import { writeJSONAtomic } from './src/storage.js';
 import { createProfileStore } from './src/profile/store.js';
+import { buildOutboundContext } from './src/profile/brief.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -142,6 +143,25 @@ function runDailyBackup() {
 // ─── Profile store ────────────────────────────────────────────────────────────
 
 const profileStore = createProfileStore({ dataDir: DATA_DIR });
+
+// Ollama runs on this machine, so a prompt sent to it never crosses the device
+// boundary and the brief's redactions do not apply. Every other provider is
+// network-bound and gets the bounded summary instead.
+const providerIsLocal = (settings) => settings.providerType === 'ollama';
+
+// Read the profile, computing the observed layer if it has never been built.
+// Without this a fresh install sends an empty brief even though the history to
+// derive it from is sitting right there — the profile would only appear after
+// something happened to open the Patterns view.
+function currentProfile(tasks) {
+  const profile = profileStore.readProfile();
+  if (profile.observed) return profile;
+  try { return profileStore.recompute(tasks ?? readData().tasks); }
+  catch (err) {
+    console.error('[Clarity] could not compute the profile:', err.message);
+    return profile;
+  }
+}
 
 // Recompute the observed layer whenever the task set changes. Debounced with
 // the same idea as scheduleAnalysis: a burst of edits should cost one pass.
@@ -369,19 +389,34 @@ app.get('/api/backups', (req, res) => {
 // bounded brief rather than this route's output.
 
 app.get('/api/profile', (req, res) => {
-  const profile = profileStore.readProfile();
-  // Recompute on first read so a fresh install has real numbers immediately,
-  // rather than an empty panel until the next task edit.
-  if (!profile.observed) {
-    try { return res.json(profileStore.recompute(readData().tasks)); }
-    catch (err) { console.error('[Clarity] first profile compute failed:', err.message); }
-  }
-  res.json(profile);
+  res.json(currentProfile());
 });
 
 app.post('/api/profile/recompute', (req, res) => {
   const windowDays = Number.isFinite(req.body?.windowDays) ? req.body.windowDays : undefined;
   res.json(profileStore.recompute(readData().tasks, windowDays === undefined ? {} : { windowDays }));
+});
+
+// What would be sent, before it is sent. The boundary is only real if it can
+// be looked at.
+app.get('/api/context/preview', (req, res) => {
+  const data = readData();
+  const settings = readSettings();
+  const ctx = buildOutboundContext({
+    profile: currentProfile(data.tasks),
+    tasks: data.tasks,
+    analysis: data.analysis,
+    providerIsLocal: providerIsLocal(settings),
+  });
+  res.json({
+    providerType: settings.providerType,
+    providerIsLocal: ctx.providerIsLocal,
+    chars: ctx.chars,
+    budget: ctx.budget,
+    parts: ctx.parts,
+    withheld: ctx.withheld,
+    text: ctx.text,
+  });
 });
 
 app.get('/api/profile/journal', (req, res) => {
@@ -693,18 +728,20 @@ app.post('/api/chat', asyncRoute(async (req, res) => {
     const message  = typeof body.message === 'string' ? body.message : String(body.message ?? '');
     const history  = Array.isArray(body.history) ? body.history : [];
     const data     = readData();
+    const settings = readSettings();
 
-    const taskContext = data.tasks.filter(t => !!t && !t.archived).map(t => {
-      const ta = data.analysis?.taskAnalysis?.find(a => a.id === t.id);
-      // Stores poisoned before the status guard landed still hold nulls here.
-      const status = String(t.status ?? 'not_started').replace('_', ' ');
-      return `• [${status}] ${t.title ?? 'Untitled'}${ta ? ` | Priority #${ta.priority}` : ''}${t.deadline ? ` | Due ${t.deadline}` : ''}${t.tags?.length ? ` | Tags: ${t.tags.join(', ')}` : ''}`;
-    }).join('\n') || 'No tasks yet.';
+    // Every outbound prompt is composed here and nowhere else. This is what
+    // makes "raw evidence stays local" a property of the code path.
+    const ctx = buildOutboundContext({
+      profile: currentProfile(data.tasks),
+      tasks: data.tasks,
+      analysis: data.analysis,
+      providerIsLocal: providerIsLocal(settings),
+    });
 
     const systemPrompt = `You are a productivity coach inside Clarity, a personal task manager. Be concise, warm, and actionable. Refer to specific tasks by name when relevant.
 
-Current tasks:
-${taskContext}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analysis.whatToDoNext}` : ''}`;
+${ctx.text}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analysis.whatToDoNext}` : ''}`;
 
     // Build messages array from history + new message
     const messages = [
@@ -719,15 +756,39 @@ ${taskContext}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.ana
       ? provider.generateChat(systemPrompt, messages, { temperature: 0.7 })
       : provider.generate(`${systemPrompt}\n\nUser: ${message}\nAssistant:`, { temperature: 0.7 });
 
+    let reply = '';
     for await (const token of stream) {
+      reply += token;
       res.write(`data: ${JSON.stringify({ token })}\n\n`);
     }
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+
+    // The conversation used to live only in React state and vanish with the
+    // panel. It is the raw material for understanding the person, so it is
+    // kept — locally, and never sent back out as history.
+    try {
+      profileStore.appendEntry({ kind: 'exchange', message, reply });
+    } catch (err) {
+      console.error('[Clarity] could not journal the exchange:', err.message);
+    }
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
   }
   res.end();
 }));
+
+// Chat history, so a conversation survives closing the panel. Served from the
+// journal on this machine — it is never replayed to a cloud provider.
+app.get('/api/chat/history', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 40, 200);
+  const { entries } = profileStore.readEntries({ limit, kinds: ['exchange'] });
+  res.json({
+    messages: entries.flatMap(e => ([
+      { role: 'user', content: e.message, at: e.at },
+      { role: 'assistant', content: e.reply, at: e.at },
+    ])).filter(m => typeof m.content === 'string' && m.content.length > 0),
+  });
+});
 
 // ── Subtask breakdown (streaming) ─────────────────────────────────────────────
 

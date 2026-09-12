@@ -26,6 +26,23 @@ export default function ChatPanel({ onClose, taskCount }) {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // The conversation used to start over every time this panel closed, because it
+  // lived only in React state. It is now kept in the local journal, so pick it
+  // back up — the greeting above is only what a first-ever conversation opens with.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${API}/chat/history?limit=40`);
+        if (!resp.ok) return;
+        const { messages: past } = await resp.json();
+        if (cancelled || !Array.isArray(past) || past.length === 0) return;
+        setMessages(prev => [...prev, ...past.map(m => ({ role: m.role, content: m.content }))]);
+      } catch { /* a fresh conversation is a fine fallback */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
