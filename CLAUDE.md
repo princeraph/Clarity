@@ -22,18 +22,37 @@ Or on Windows: double-click `start.bat`.
 
 ```
 projet-clarity/app/
-  frontend/   React (Vite) — src/App.jsx is the root
+  frontend/   React (Vite) — src/main.jsx is the entry, src/App.jsx the main root
   backend/    Express — server.js is the single entry point
   electron/   Electron shell — preload.js + main.js
 ```
+
+### Two windows, one bundle
+
+Electron opens **two** windows off the same Vite build:
+
+- **Main window** — `mainWindow.loadFile(getFrontendPath())`, renders `<App />`.
+- **Tray popup** — a 336×420 frameless, transparent, always-on-top window loaded
+  with `{ hash: 'tray' }`. `main.jsx` reads that hash
+  (`window.location.hash === '#tray'`) and renders `<TrayMenu />` instead of
+  `<App />`.
+
+Tray behaviour (`electron/main.js`): the main window's close button **hides**
+rather than quits while a tray exists (Win11 convention — app state is
+preserved); a real quit goes through the tray menu and the `quittingForReal`
+flag. The popup hides on `blur`, and `positionTrayWindow()` anchors it to the
+tray icon, clamped inside the work area with an 8px gutter, flipping above or
+below the taskbar depending on which half of the screen the icon sits in.
 
 ### Frontend
 
 - **Theme system**: `useTheme()` → `T` object from `ThemeContext.jsx`. All colours come from `T.*` tokens — never hardcode colours. Key tokens: `T.ink`, `T.paper`, `T.paperSubtle`, `T.paperMuted`, `T.hairline`, `T.hairlineSoft`, `T.accent`, `T.accentSoft`, `T.accentInk`, `T.danger`, `T.dangerSoft`, `T.dangerBorder`, `T.done`, `T.warn`, `T.ink20/40/60/80`, `T.fontUI`, `T.fontMono`, `T.r6/r10/r14/rPill`.
 - **API base**: `const API = 'http://localhost:3001/api'` — declared independently in each file (pre-existing pattern, do not consolidate).
 - **localStorage keys**: `clarity-theme`, `clarity-accent`, `clarity-density`, `clarity-font`, `clarity-shortcuts`, `clarity-tutorialSeen`, `clarity-onboarding-done`, `clarity-userName`, `sidebar-collapsed`.
-- **Views**: FocusView (home), TasksView, CalendarView, WeeklySummaryView, ArchiveView, HistoryView, GraphView, SettingsView.
-- **Modals/overlays**: QuickCapture, TaskForm, TaskDetailPanel, ChatPanel, FocusMode, SchedulingPopover, ContextMenu, TutorialOverlay, OnboardingView.
+- **Views**: FocusView (home), TasksView, CalendarView, WeeklySummaryView, ArchiveView, HistoryView, GraphView, TopicDetailView, SettingsView. Selected by the `view` state string in `App.jsx` — `TopicDetailView` is `view === 'topic-detail'` and reads the topic from `activeArea`.
+- **Modals/overlays**: SearchCapture, TaskForm, TaskDetailPanel, ChatPanel, FocusMode, SchedulingPopover, ContextMenu, TutorialOverlay, OnboardingView.
+- **SearchCapture** is the command palette, and it both **creates and finds**. `parseInput()` strips `#tag`, a `for 2h` / `~30m` duration and natural-language dates off the title; the same overlay searches existing tasks, navigates views (`onNavigate`) and opens the chat (`onOpenChat`). It replaced the older capture-only `QuickCapture`, which no longer exists.
+- **TrayMenu** renders in the tray popup only, never inside `<App />`. It carries its **own always-dark palette** (a local `C` object, not `T`) because the popup sits against the Windows taskbar whatever the app theme is — it is the one deliberate exception to the "all colours from `T`" rule.
 
 ### Backend (`backend/server.js`)
 
@@ -96,6 +115,8 @@ Single Express file. All routes, business logic, AI calls, and file I/O live her
 - **loadData** in App.jsx: returns `fresh` (the API response) so callers can use it immediately without waiting for React state to update.
 - **FocusMode key**: always render `<FocusMode key={liveTask.id} ...>` so timer state resets when the active task changes.
 - **renderMarkdown** (WeeklySummaryView): uses function replacers `(_, g) => \`...\${g}...\`` — never string replacement patterns like `'$1'`, which JS interprets and breaks if AI output contains `$1`/`$&`.
+- **One bundle serves both windows**: anything added to `main.jsx` — a provider, a global listener, an import with side effects — also runs inside the tray popup. Keep window-specific work behind the `isTray` branch, and remember that a heavy import added there is paid twice.
+- **`dist/` is versioned on purpose** and Electron loads it at runtime (`getFrontendPath()`), so the app runs from a bare clone with no build step. After changing anything under `frontend/src/`, run `npm run build` in `frontend/` and commit the rebuilt `dist/` in the same commit — otherwise the app keeps shipping the old code while the source looks correct.
 
 ## Calendar integration
 
