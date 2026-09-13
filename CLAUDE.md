@@ -194,8 +194,14 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx) and are sorted by `aiData.p
 
 ## Git
 
-- **Remote**: `princeraph/Personal-Work`
-- **Production branch**: `main` — Clarity now lives there, under `projet-clarity/app/`
+- **Remote**: `princeraph/clarity` — Clarity is the whole repo, at its root
+- **Production branch**: `main`
 - **Author**: `git config user.email noreply@anthropic.com && git config user.name Claude`
 - Work on a `claude/*` branch, then merge into `main`
-- Scope commits to `projet-clarity/` — the repo hosts other, unrelated projects
+- Every commit must rebuild `app/frontend/dist/` when `app/frontend/src/` changes,
+  in the **same** commit — see `CONTRIBUTING.md`, it is the rule that breaks
+  fastest and shows least
+
+This repo was extracted from `princeraph/Personal-Work` by `git subtree split`,
+which is why the history before the extraction says `projet-clarity/app/` where
+this repo says `app/`. That history is real and complete; only the prefix moved.
