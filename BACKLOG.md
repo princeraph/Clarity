@@ -5,43 +5,52 @@ que laissées à la mémoire d'une conversation.
 
 ---
 
-## 1. ~~Le modèle local est très lent~~ — fait
+## 1. ~~Le modèle local est très lent~~ — fait, et mesuré sur la vraie machine
 
-Mesuré, corrigé, vérifié. Ce qui a été trouvé, dans l'ordre de ce que ça coûtait :
+Mesure du 13/09 (gemma4, machine de l'utilisateur) :
 
-1. **La sortie demandée grandissait avec la liste.** L'analyse réclamait deux ou
-   trois phrases de raisonnement et un plan en trois étapes pour CHAQUE tâche,
-   en un seul appel non diffusé : environ 2000 jetons de sortie à vingt tâches,
-   soit plus de deux minutes à vitesse locale typique, sans rien à l'écran.
-   Un modèle local passe son temps à ÉCRIRE, pas à lire. Désormais : une phrase
-   et deux étapes par tâche, et seules les douze tâches qui pourraient
-   plausiblement être « la prochaine » sont envoyées.
-2. **`num_ctx` n'était jamais fixé.** Au-delà du contexte par défaut (2048 pour
-   beaucoup de modèles), Ollama ne proteste pas : il coupe le DÉBUT du prompt.
-   Le prompt d'analyse dépassait 2048 jetons vers quinze tâches — le modèle ne
-   voyait donc plus les plus anciennes, en plus d'être lent. Calculé par appel
-   maintenant, plancher 2048, plafond 8192.
-3. **`keep_alive` n'était jamais envoyé.** Ollama décharge le modèle après cinq
-   minutes d'inactivité ; Clarity s'utilise par à-coups, donc presque chaque
-   requête payait un rechargement complet avant son premier jeton. Réglable
-   (Réglages → Assistant IA → Connexion), 30 min par défaut.
-4. **`num_predict` valait 3072 partout**, y compris là où la réponse fait trois
-   lignes de JSON. Chaque appel le dimensionne maintenant à ce qu'il attend.
-5. **Aucun préchauffage.** La première question de la session payait le
-   chargement pendant que la personne regardait un spinner. Fait au démarrage,
-   en silence, et sans empêcher l'app de démarrer s'il échoue.
+    chargement   ~9 000 ms
+    écriture     66 à 95 jetons/s
+    lecture      ~2 500 jetons/s
 
-Gain calculé sur l'analyse, à 15 jetons/s : 28 % à dix tâches, 57 % à vingt,
-78 % à quarante — plus les 8 à 15 secondes de rechargement évitées par rafale.
+**Le modèle n'est pas lent. Le chargement l'est.** À 80 jetons/s, neuf secondes
+de chargement valent plus de 700 jetons écrits : tant qu'un rechargement traîne
+dans le tableau, rien d'autre ne compte.
 
-**`backend/tools/mesurer-modele.mjs`** mesure sur la vraie machine : Ollama
-renvoie ses propres chronos, donc rien n'est estimé. Il sépare chargement,
-lecture et écriture, ce qui dit tout de suite lequel des trois fait mal.
+Ce qui a été corrigé :
 
-Reste possible si c'est encore lent : `generateJSON` ne diffuse toujours pas
-(l'attente est réelle, mais l'absence de retour la double dans la perception),
-et un modèle plus petit pour les appels structurés changerait l'ordre de
-grandeur là où le chat peut garder le gros.
+1. **`keep_alive` n'était jamais envoyé.** Ollama décharge après cinq minutes
+   d'inactivité, et Clarity s'utilise par à-coups : presque chaque requête
+   repayait les neuf secondes. Réglable (Réglages → Assistant IA → Connexion).
+2. **`num_ctx` doit être CONSTANT.** Première version : calculé par appel, pour
+   éviter que Ollama ne coupe silencieusement le début d'un prompt trop long.
+   La mesure a montré que c'était pire que le mal — `num_ctx` fait partie du
+   CHARGEMENT du modèle, pas de la requête. Le faire varier évince le modèle
+   résident et le recharge : 8 à 9 secondes constatées, sur les appels mêmes
+   qu'on voulait accélérer. Une seule valeur partout (8192), assez grande pour
+   le plus gros prompt que Clarity compose.
+3. **Aucun préchauffage.** La première question de la session payait le
+   chargement pendant qu'on regardait un spinner. Fait au démarrage, avec le
+   même `num_ctx` que les appels réels — sinon le premier vrai appel recharge
+   ce que le préchauffage vient de charger.
+4. **La sortie demandée n'était bornée par rien.** L'analyse réclamait un
+   paragraphe de raisonnement et un plan en trois étapes pour CHAQUE tâche.
+   Une phrase et deux étapes maintenant, sur les douze tâches qui pourraient
+   plausiblement être « la prochaine » — choisies par échéance, donc par
+   arithmétique, jamais par un modèle.
+5. **`num_predict` valait 3072 partout**, y compris pour trois lignes de JSON.
+
+Avec les chiffres mesurés, une analyse après une pause : ~22 s → ~9 s à dix
+tâches, ~34 s → ~11 s à vingt, ~57 s → ~11 s à quarante. Une réponse de chat
+après une pause : ~10 s → moins d'une seconde.
+
+**`backend/tools/mesurer-modele.mjs`** sépare chargement, lecture et écriture,
+et signale explicitement un rechargement survenu alors que le modèle aurait dû
+rester chaud — c'est le poste le plus cher et le plus facile à ne pas voir.
+
+Reste possible si ça gêne encore : `generateJSON` ne diffuse toujours pas, donc
+l'attente de l'analyse n'a aucun retour à l'écran. À 80 jetons/s ça fait une
+dizaine de secondes muettes.
 
 ---
 

@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import { createServer } from 'http';
-import { OllamaProvider, contextFor, DEFAULT_KEEP_ALIVE } from '../src/llm/OllamaProvider.js';
+import { OllamaProvider, NUM_CTX, wouldTruncate, DEFAULT_KEEP_ALIVE } from '../src/llm/OllamaProvider.js';
 
 // There is no Ollama here, and the interesting part is not what a model
 // replies — it is what Clarity ASKS for. A stub records the request bodies, so
@@ -49,30 +49,36 @@ describe('keep_alive — the reload that was being paid on every burst', () => {
   });
 });
 
-describe('num_ctx — Ollama drops the start of an over-long prompt without saying so', () => {
-  test('a small prompt stays at the floor rather than allocating a huge KV cache', () => {
-    expect(contextFor(400, 200)).toBe(2048);
+describe('num_ctx — constant, because changing it reloads the model', () => {
+  test('every kind of call sends the same value', async () => {
+    const p = provider();
+    await p.generateJSON('short', { maxTokens: 100 });
+    const a = last().options.num_ctx;
+    await p.generateJSON('x'.repeat(9000), { maxTokens: 2000 });
+    const b = last().options.num_ctx;
+    const it = p.generate('another');
+    await it.next();
+    const c = last().options.num_ctx;
+    // Measured on a real machine: a different num_ctx costs an 8-9 second
+    // reload, because it is part of how Ollama loads the model rather than a
+    // per-request option. Varying it defeated keep_alive on every call.
+    expect(a).toBe(NUM_CTX);
+    expect(b).toBe(NUM_CTX);
+    expect(c).toBe(NUM_CTX);
   });
 
-  test('grows past the default before the prompt could be truncated', () => {
-    // ~7700 chars is Clarity's analysis prompt at twenty tasks. Ollama's usual
-    // default of 2048 would silently drop the earliest tasks.
-    expect(contextFor(7698, 2000)).toBeGreaterThan(2048);
+  test('the warm-up loads at the same size the real calls will use', async () => {
+    await provider().warm();
+    expect(last().options.num_ctx).toBe(NUM_CTX);
   });
 
-  test('is capped, so a runaway prompt cannot demand unbounded memory', () => {
-    expect(contextFor(10_000_000, 4000)).toBe(8192);
+  test('it is big enough for the largest prompt Clarity composes', () => {
+    // The analysis at its cap of 12 tasks, plus the reply it asks for.
+    expect(wouldTruncate(7700, 840)).toBe(false);
   });
 
-  test('always leaves room for the reply as well as the prompt', () => {
-    for (const [chars, out] of [[1000, 500], [5000, 1500], [20000, 800]]) {
-      expect(contextFor(chars, out)).toBeGreaterThanOrEqual(Math.min(8192, chars / 3.5 + out));
-    }
-  });
-
-  test('the real request carries it', async () => {
-    await provider().generateJSON('x'.repeat(7698), { maxTokens: 2000 });
-    expect(last().options.num_ctx).toBe(contextFor(7698, 2000));
+  test('and truncation is still detectable rather than silent', () => {
+    expect(wouldTruncate(200000, 1000)).toBe(true);
   });
 });
 

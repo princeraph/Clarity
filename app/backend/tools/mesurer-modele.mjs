@@ -17,6 +17,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { NUM_CTX } from '../src/llm/OllamaProvider.js';
 
 const DATA = process.env.CLARITY_DATA_DIR
   || join(process.env.APPDATA || process.env.HOME || '.', 'clarity', 'data');
@@ -29,7 +30,11 @@ const COLD     = process.argv.includes('--froid') || process.argv.includes('--co
 const ms = (ns) => Math.round((ns || 0) / 1e6);
 const pad = (s, n) => String(s).padStart(n);
 
-async function call(prompt, { maxTokens, keepAlive = '30m', numCtx = 4096 }) {
+// num_ctx est CONSTANT ici parce qu'il l'est dans Clarity. Le faire varier
+// entre deux appels recharge le modèle — 8 à 9 secondes — et c'est précisément
+// ce que cette mesure a servi à découvrir. Une mesure qui ne reproduit pas le
+// comportement réel mesure autre chose.
+async function call(prompt, { maxTokens, keepAlive = '30m', numCtx = NUM_CTX }) {
   const t0 = Date.now();
   const resp = await fetch(`${ENDPOINT}/api/generate`, {
     method: 'POST',
@@ -82,19 +87,38 @@ try {
   line('réponse courte', await call('Réponds par un seul mot : bonjour.', { maxTokens: 20 }));
 
   console.log('\nune fois le modèle chaud :');
-  line('réponse courte', await call('Réponds par un seul mot : bonjour.', { maxTokens: 20 }));
-  line('prompt long, sortie courte', await call(analysisLike(20) + '\n\nRéponds par OK.', { maxTokens: 20, numCtx: 8192 }));
-  line('prompt court, sortie longue', await call('Écris un paragraphe sur le fait de planifier sa journée.', { maxTokens: 400 }));
+  const court = await call('Réponds par un seul mot : bonjour.', { maxTokens: 20 });
+  line('réponse courte', court);
+  const long = await call(analysisLike(20) + '\n\nRéponds par OK.', { maxTokens: 20 });
+  line('prompt long, sortie courte', long);
+  const sortie = await call('Écris un paragraphe sur le fait de planifier sa journée.', { maxTokens: 400 });
+  line('prompt court, sortie longue', sortie);
+
+  // Un rechargement alors que le modèle devrait être chaud est la chose la plus
+  // coûteuse que cette mesure puisse trouver, et la plus facile à ne pas voir.
+  const rechargements = [court, long, sortie].filter(r => r.load > 500);
+  if (rechargements.length) {
+    console.log(`\n  !! le modèle a été RECHARGÉ ${rechargements.length} fois alors qu'il aurait dû rester chaud`);
+    console.log(`     (${rechargements.map(r => r.load + ' ms').join(', ')})`);
+    console.log(`     Causes possibles : keep_alive trop court, un autre logiciel qui réclame la mémoire,`);
+    console.log(`     ou un paramètre de chargement — num_ctx, le modèle lui-même — qui change d'un appel à l'autre.`);
+  }
 
   console.log(`
-Comment lire :
-  · « chargement » non nul sur la première ligne et nul ensuite = keep_alive fait son travail.
-    S'il revient à chaque appel, le modèle est déchargé entre-temps.
-  · comparer les deux dernières lignes : si « sortie longue » coûte bien plus que
-    « prompt long », le temps est dans l'ÉCRITURE. Raccourcir ce qu'on demande au
-    modèle vaut mieux que raccourcir ce qu'on lui donne.
-  · en dessous d'environ 10 t/s, aucun réglage ne sauvera l'attente : c'est le
-    modèle qui est trop gros pour la machine.
+Comment lire, dans cet ordre :
+
+  1. CHARGEMENT. Non nul sur la première ligne, nul ensuite = keep_alive fait son
+     travail. S'il revient alors que le modèle devrait être chaud, c'est le poste
+     le plus cher du tableau et rien d'autre ne compte tant qu'il est là.
+
+  2. Les jetons par seconde. Au-dessus de 50 t/s, le modèle n'est PAS le problème :
+     un chargement de 9 s vaut plus de 700 jetons écrits. En dessous d'environ
+     10 t/s, l'inverse — aucun réglage ne sauvera l'attente, le modèle est trop
+     gros pour la machine.
+
+  3. Comparer les deux dernières lignes. Si « sortie longue » coûte bien plus que
+     « prompt long », le temps est dans l'ÉCRITURE : raccourcir ce qu'on DEMANDE
+     au modèle vaut mieux que raccourcir ce qu'on lui donne.
 `);
 } catch (err) {
   console.error(`\nimpossible de mesurer : ${err.message}`);

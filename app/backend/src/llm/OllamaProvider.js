@@ -13,16 +13,25 @@ export const DEFAULT_KEEP_ALIVE = '30m';
 // Ollama's default context is small (2048 for many models) and it does not
 // error when a prompt exceeds it — it silently drops the beginning. Clarity's
 // analysis prompt passes 2048 tokens at about fifteen tasks, so the model was
-// quietly not seeing the oldest ones while also being slow. num_ctx is
-// therefore computed per call rather than left to chance.
-const CTX_FLOOR = 2048;
-const CTX_CEILING = 8192;      // beyond this the KV cache costs more than the truncation did
+// quietly not seeing the oldest ones.
+//
+// The fix for that was once to size num_ctx per call. Measuring on a real
+// machine showed why that is wrong: num_ctx is part of how Ollama LOADS a
+// model, not a per-request option. Changing it evicts the resident model and
+// reloads it — 8 to 9 seconds, observed, on every call whose prompt landed in
+// a different size bucket. It defeated keep_alive on exactly the calls that
+// mattered, which is worse than the truncation it set out to fix.
+//
+// So there is ONE context size, used by every call. It has to be large enough
+// for the biggest prompt Clarity composes, and after that the only thing that
+// matters is that it never changes.
+export const NUM_CTX = 8192;
+
 const CHARS_PER_TOKEN = 3.5;   // deliberately pessimistic; under-estimating truncates
 
-export function contextFor(promptChars, maxTokens) {
-  const needed = Math.ceil(promptChars / CHARS_PER_TOKEN) + maxTokens;
-  const withHeadroom = Math.ceil(needed * 1.15);
-  return Math.min(CTX_CEILING, Math.max(CTX_FLOOR, 1 << Math.ceil(Math.log2(withHeadroom))));
+/** Would this prompt be silently truncated? Used to warn, never to resize. */
+export function wouldTruncate(promptChars, maxTokens, ctx = NUM_CTX) {
+  return Math.ceil(promptChars / CHARS_PER_TOKEN) + maxTokens > ctx;
 }
 
 export class OllamaProvider extends LLMProvider {
@@ -45,7 +54,8 @@ export class OllamaProvider extends LLMProvider {
       options: {
         temperature,
         num_predict: maxTokens,
-        num_ctx: contextFor(prompt.length, maxTokens),
+        // Constant on purpose — see NUM_CTX. A varying value reloads the model.
+        num_ctx: NUM_CTX,
       },
     };
   }
@@ -64,7 +74,10 @@ export class OllamaProvider extends LLMProvider {
       const resp = await fetch(`${this.endpoint}/api/generate`, {
         method: 'POST',
         headers: this._headers(),
-        body: JSON.stringify({ model: this.model, prompt: '', stream: false, keep_alive: this.keepAlive }),
+        // Same num_ctx as every real call, or the first real call reloads the
+        // model this just spent ten seconds loading.
+        body: JSON.stringify({ model: this.model, prompt: '', stream: false,
+                               keep_alive: this.keepAlive, options: { num_ctx: NUM_CTX } }),
         signal: AbortSignal.timeout(timeout),
       });
       return { ok: resp.ok, ms: Date.now() - started };
