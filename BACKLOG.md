@@ -73,36 +73,46 @@ dizaine de secondes muettes.
 
 ---
 
-## 2. Partager le projet avec un ami informaticien
+## 2. Partager le projet avec un ami informaticien — FAIT
 
-**À ne surtout pas faire : ajouter un collaborateur sur `princeraph/Personal-Work`.**
+Ce dépôt EST le résultat. `princeraph/clarity`, privé, extrait de
+`princeraph/Personal-Work` par `git subtree split --prefix=projet-clarity`.
+Reste à inviter l'ami dans Settings → Collaborators.
 
-Ce dépôt est privé pour une raison précise, écrite dans son `CLAUDE.md` : il
-contient la logistique du mariage et des coordonnées bancaires. Un collaborateur
-ajouté ici y a accès, ainsi qu'à l'historique complet des autres projets. Le
-partage doit porter sur Clarity seul.
+**Pourquoi l'extraction plutôt qu'un collaborateur sur Personal-Work :** ce
+dépôt-là est privé pour une raison précise — il contient la logistique du
+mariage et des coordonnées bancaires. Un collaborateur y a accès, ainsi qu'à
+l'historique complet des autres projets. Le partage devait porter sur Clarity
+seul, et c'est le modèle déjà appliqué une fois pour Bara et Laya vers
+`princeraph/Business-Project`.
 
-Le dépôt a déjà fait exactement cette opération une fois, pour Bara et Laya :
-extraction par `git subtree split` du seul chemin du projet vers
-`princeraph/Business-Project`. C'est le modèle à suivre.
+**L'audit d'historique, avant publication.** 177 chemins distincts, 35 commits.
+Aucun motif de secret (`sk-`, `sk-ant-`, `ghp_`, `AKIA`, clé privée). Aucun
+fichier de données réelles : `tasks.json`, `settings.json`, `profile.json`,
+`journal`, `.ics`, `threads.json`, `suggestions.json` n'ont jamais été commités
+— seul `seed-tasks.json`, qui est de la démo. Un secret retiré au dernier commit
+reste dans les précédents : c'est pourquoi l'audit porte sur l'historique
+entier, pas sur l'arbre de travail.
 
-Esquisse, à valider avant exécution :
+**Trois choses cassaient pour quiconque clone ailleurs, corrigées avant
+publication plutôt que documentées :**
 
-1. `git subtree split --prefix=projet-clarity -b export/clarity` — une branche
-   qui ne contient que l'historique de Clarity, sans rien des autres projets.
-2. Relire cette branche avant publication : vérifier qu'aucun fichier de données
-   réelles (`backend/data/tasks.json`, une `settings.json` avec une clé d'API,
-   un `.ics`) n'est dans l'historique. Un secret retiré au dernier commit reste
-   dans les commits précédents.
-3. Pousser vers un nouveau dépôt `princeraph/clarity`, privé, et y inviter l'ami.
-4. Y porter ce qui rend le dépôt travaillable par quelqu'un d'autre : un README
-   d'installation, `CONTRIBUTING`, la barrière de qualité (`qualite.json` existe
-   déjà), et les tests — 121 aujourd'hui.
-5. Décider du sens de retour : ses corrections arrivent par pull request sur
-   `princeraph/clarity`, et sont ramenées ici par `git subtree pull`. À décider
-   aussi : ce dépôt-ci reste-t-il la source de vérité, ou l'autre le devient-il.
+1. Six scripts Windows pointaient en dur vers
+   `%USERPROFILE%\Personal-Work\projet-clarity\app`. Ils se repèrent
+   maintenant par rapport à eux-mêmes (`%~dp0`, `$PSScriptRoot`,
+   `ScriptFullName`), ce qui marche dans les deux dépôts.
+2. L'invariant correspondant visait la mauvaise propriété : il vérifiait qu'un
+   chemin en dur restait *juste*, il refuse désormais *tout chemin absolu*.
+3. `qualite.json` appelait `../../.github/qualite/`, hors du dossier. Le
+   contrôle vit maintenant dans `app/tools/verifier-paquet.mjs` — un projet qui
+   vit seul porte ses propres outils.
 
-Point ouvert : `frontend/dist/` est versionné exprès. Un contributeur externe
-qui modifie `frontend/src/` doit reconstruire et committer `dist/` dans le même
-commit, sinon l'app continue de servir l'ancien code. À écrire noir sur blanc
-dans le `CONTRIBUTING`, c'est le piège le plus facile à tomber dedans.
+**Ce qui voyage avec l'extraction :** `.github/workflows/ci.yml`, inerte dans
+Personal-Work (GitHub ne lit les workflows qu'à la racine d'un dépôt) et actif
+ici. Elle relance le build du frontend et compare `dist/`, parce qu'un `dist/`
+à moitié commité fait tourner l'app sur l'ancien code pendant que la revue lit
+le nouveau. Plus `CONTRIBUTING.md`, qui ouvre sur cette règle-là précisément.
+
+**Source de vérité : ce dépôt.** Le sens de retour vers Personal-Work est
+décrit en fin de `CONTRIBUTING.md` (`git subtree pull`). Les corrections de
+l'ami arrivent par pull request ici.
