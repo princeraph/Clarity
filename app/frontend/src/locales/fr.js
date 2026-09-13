@@ -641,4 +641,11 @@ export default {
   'settings.suggest.rule.until': 'Silence jusqu’au {when}',
   'settings.suggest.rule.untilDone': 'Silence jusqu’à ce que la tâche soit faite',
   'settings.suggest.lift': 'Lever',
+
+  'settings.keepAlive': 'Garder le modèle chargé',
+  'settings.keepAliveHint': 'Ollama le décharge après 5 minutes par défaut : la plupart des requêtes payaient donc un rechargement complet.',
+  'settings.keepAlive.30m': '30 minutes — recommandé',
+  'settings.keepAlive.2h': '2 heures',
+  'settings.keepAlive.forever': 'Jusqu’à l’arrêt d’Ollama',
+  'settings.keepAlive.never': 'Décharger aussitôt — plus lent, libère la RAM',
 };

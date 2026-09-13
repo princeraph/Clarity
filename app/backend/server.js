@@ -35,6 +35,10 @@ const DEFAULT_SETTINGS = {
   providerType:       'ollama',
   llmEndpoint:        'http://localhost:11434',
   ollamaModel:        'gemma4:latest',
+  // How long Ollama keeps the model in memory after a request. Clarity is used
+  // in bursts, so the default 5 minutes meant most requests paid a full reload
+  // before their first token. '0' hands the RAM back at once instead.
+  keepAlive:          '30m',
   tunnelSecret:       '',
   apiKey:             '',
   onboardingComplete: false,
@@ -228,18 +232,44 @@ let isAnalyzing = false;
 let analysisError = null;
 let analysisDebounce = null;
 
-async function runAnalysis(tasks) {
-  if (!tasks.length || isAnalyzing) return;
+// A local model spends its time GENERATING, not reading. The old prompt asked
+// for two or three sentences of reasoning plus a three-step plan for every
+// task, so the wait grew with the length of the list: about 2000 output tokens
+// at twenty tasks, which is over two minutes at a typical local speed — with
+// nothing on screen, because generateJSON does not stream.
+//
+// So the output is bounded twice. Each task gets one sentence and two steps
+// instead of a paragraph and three, and only the tasks that could plausibly be
+// next are sent at all. The rest keep their own order; they were not going to
+// be "do this first" anyway.
+const ANALYSIS_MAX_TASKS = 12;
+
+// Nearest deadlines first, then already-started work, then the rest. Purely
+// arithmetic — this decides what the model is ASKED about, never what is true.
+function analysisShortlist(tasks, limit = ANALYSIS_MAX_TASKS) {
+  const rank = (t) => {
+    const due = t.deadline ? Date.parse(t.deadline + 'T00:00:00') : Infinity;
+    const started = t.status === 'in_progress' ? 0 : 1;
+    return [due, started];
+  };
+  return [...tasks]
+    .sort((a, b) => { const ra = rank(a), rb = rank(b); return (ra[0] - rb[0]) || (ra[1] - rb[1]); })
+    .slice(0, limit);
+}
+
+async function runAnalysis(allTasks) {
+  if (!allTasks.length || isAnalyzing) return;
+  const tasks = analysisShortlist(allTasks);
   isAnalyzing = true;
   analysisError = null;
-  console.log(`[AI] Analyzing ${tasks.length} task(s)...`);
+  console.log(`[AI] Analyzing ${tasks.length} of ${allTasks.length} task(s)...`);
 
   const taskList = tasks.map((t, i) =>
-    `Task ${i + 1}:\nID: ${t.id}\nTitle: ${t.title}\nDescription: ${t.description || 'N/A'}\n` +
-    `Deadline: ${t.deadline || 'None'}\nDeliverable: ${t.deliverable || 'N/A'}\nStatus: ${t.status}\n` +
+    `Task ${i + 1}:\nID: ${t.id}\nTitle: ${t.title}\nDescription: ${(t.description || 'N/A').slice(0, 300)}\n` +
+    `Deadline: ${t.deadline || 'None'}\nDeliverable: ${(t.deliverable || 'N/A').slice(0, 160)}\nStatus: ${t.status}\n` +
     `Tags: ${t.tags?.join(', ') || 'None'}\nRecurring: ${t.recurring || 'none'}\n` +
     `Subtasks: ${t.subtasks?.length ? t.subtasks.map(s => `${s.done ? '[done]' : '[todo]'} ${s.title}`).join(', ') : 'None'}\n` +
-    `Notes: ${t.notes || 'N/A'}`
+    `Notes: ${(t.notes || 'N/A').slice(0, 300)}`
   ).join('\n\n');
 
   const prompt = `You are a productivity assistant. Analyze these ${tasks.length} task(s) and return JSON.
@@ -249,15 +279,15 @@ ${taskList}
 
 Return ONLY this JSON:
 {
-  "whatToDoNext": "One specific action to take right now and why (2 sentences)",
-  "overallInsight": "One observation about this workload or task relationships (1-2 sentences)",
+  "whatToDoNext": "One specific action to take right now and why (ONE sentence)",
+  "overallInsight": "One observation about this workload (ONE sentence)",
   "taskAnalysis": [
     {
       "id": "exact task id",
       "priority": 1,
       "priorityLevel": "high",
-      "reasoning": "Why this priority (2-3 sentences)",
-      "actionPlan": ["Step 1", "Step 2", "Step 3"],
+      "reasoning": "Why this priority (ONE short sentence)",
+      "actionPlan": ["Step 1", "Step 2"],
       "dependencies": ["ids of tasks that must be done before this"],
       "relatedTasks": ["ids of related tasks"],
       "relationshipNote": "How tasks connect, or empty string"
@@ -269,7 +299,9 @@ Rules: priority 1 = do first. priorityLevel = high/medium/low. Include all ${tas
 
   try {
     const provider = getProvider();
-    const analysis = await provider.generateJSON(prompt);
+    // Sized to the reply actually asked for. The old blanket 3072 let the model
+    // keep writing long after the JSON closed, and that tail is pure waiting.
+    const analysis = await provider.generateJSON(prompt, { maxTokens: 180 + tasks.length * 55 });
     if (analysis?.taskAnalysis) {
       const data = readData();
       data.analysis = { ...analysis, analyzedAt: new Date().toISOString() };
@@ -474,7 +506,7 @@ app.post('/api/profile/elicit', asyncRoute(async (req, res) => {
                       note: 'Nothing to work from yet — add a few tasks, or talk to Clarity in the chat.' });
   }
 
-  const raw = await getProvider().generateJSON(prompt.text);
+  const raw = await getProvider().generateJSON(prompt.text, { maxTokens: 700 });   // at most 5 short proposals
 
   // Every citation is checked against the real corpus here. A ref the model
   // invented cannot resolve, and the proposal carrying it is discarded.
@@ -599,7 +631,7 @@ app.post('/api/tasks/:id/thread/suggest', asyncRoute(async (req, res) => {
     providerIsLocal: providerIsLocal(settings),
   });
 
-  const options = parseOptions(await getProvider().generateJSON(prompt.text));
+  const options = parseOptions(await getProvider().generateJSON(prompt.text, { maxTokens: 300 }));  // 4 one-line moves
   if (!options.length) return res.json({ thread: existing, added: 0 });
 
   const now = new Date();
@@ -1213,9 +1245,25 @@ const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
 // machine and therefore still reaches 127.0.0.1 without opening the port.
 const BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1';
 
+// Load the model before anyone asks it anything. Ollama loads on first use, so
+// without this the first question of the session pays for it while the person
+// watches a spinner. Failure here is silent on purpose: a warm-up that cannot
+// run is not a reason to refuse to start.
+function warmModel() {
+  const s = readSettings();
+  if (s.providerType !== 'ollama') return;
+  const provider = createProvider(s);
+  if (typeof provider.warm !== 'function') return;
+  provider.warm().then(r => {
+    if (r.ok) console.log(`[Clarity] model warm in ${r.ms} ms — kept for ${s.keepAlive}`);
+    else console.log(`[Clarity] could not warm the model (${r.error || 'not reachable'}) — it will load on first use`);
+  }).catch(() => {});
+}
+
 const server = app.listen(PORT, BIND_HOST, () => {
   const s = readSettings();
   console.log(`[Clarity v${VERSION}] Backend on ${BIND_HOST}:${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
+  warmModel();
   runDailyBackup();
   // Once at startup was not enough: a machine left running for days never took a
   // second snapshot, so the day's work had no backup behind it.

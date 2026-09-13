@@ -503,6 +503,7 @@ export default function SettingsView({ onSaved }) {
     llmEndpoint: 'http://localhost:11434',
     ollamaModel: 'gemma4:latest',
     tunnelSecret: '',
+    keepAlive: '30m',
     apiKey: '',
   });
   const [apiKeySet, setApiKeySet] = useState(false);
@@ -548,6 +549,7 @@ export default function SettingsView({ onSaved }) {
             llmEndpoint:  s.llmEndpoint  || 'http://localhost:11434',
             ollamaModel:  s.ollamaModel  || '',
             tunnelSecret: s.tunnelSecret || '',
+            keepAlive:    s.keepAlive    || '30m',
             apiKey:       isSet ? '' : (s.apiKey || ''),
           }));
         }
@@ -889,6 +891,20 @@ export default function SettingsView({ onSaved }) {
                 <FieldRow label={t('settings.tunnelSecret')} hint={t('settings.bearerTokenForNgrokSsh')} T={T}>
                   <input type="password" value={form.tunnelSecret} onChange={e => set('tunnelSecret', e.target.value)}
                     placeholder={t('settings.ai.tunnelPlaceholder')} style={field} />
+                </FieldRow>
+                {/* The trade is stated, because it is a real one: speed now, or
+                    the RAM back sooner. */}
+                <FieldRow label={t('settings.keepAlive')} hint={t('settings.keepAliveHint')} T={T}>
+                  <select value={form.keepAlive} onChange={e => set('keepAlive', e.target.value)} style={{
+                    fontFamily: T.fontMono, fontSize: 12.5, color: T.ink60,
+                    background: T.paperSubtle, border: `1px solid ${T.hairline}`,
+                    borderRadius: T.r6, padding: '5px 10px', cursor: 'pointer',
+                  }}>
+                    <option value="30m">{t('settings.keepAlive.30m')}</option>
+                    <option value="2h">{t('settings.keepAlive.2h')}</option>
+                    <option value="-1">{t('settings.keepAlive.forever')}</option>
+                    <option value="0">{t('settings.keepAlive.never')}</option>
+                  </select>
                 </FieldRow>
               </Section>
             )}

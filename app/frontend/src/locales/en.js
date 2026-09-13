@@ -640,4 +640,11 @@ export default {
   'settings.suggest.rule.until': 'Quiet until {when}',
   'settings.suggest.rule.untilDone': 'Quiet until that task is done',
   'settings.suggest.lift': 'Lift',
+
+  'settings.keepAlive': 'Keep the model loaded',
+  'settings.keepAliveHint': 'Ollama unloads after 5 minutes by default, so most requests paid a full reload first.',
+  'settings.keepAlive.30m': '30 minutes — recommended',
+  'settings.keepAlive.2h': '2 hours',
+  'settings.keepAlive.forever': 'Until Ollama stops',
+  'settings.keepAlive.never': 'Unload immediately — slower, frees RAM',
 };

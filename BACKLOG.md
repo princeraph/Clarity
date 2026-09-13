@@ -5,36 +5,43 @@ que laissées à la mémoire d'une conversation.
 
 ---
 
-## 1. Le modèle local est très lent
+## 1. ~~Le modèle local est très lent~~ — fait
 
-Constat de l'utilisateur : lenteur marquée dès qu'un prompt part ou qu'une
-décision se prend. Pistes vérifiables dans le code, de la plus probable à la
-moins, **aucune n'est encore mesurée** — le premier travail est de chronométrer,
-pas de corriger au jugé.
+Mesuré, corrigé, vérifié. Ce qui a été trouvé, dans l'ordre de ce que ça coûtait :
 
-1. **`keep_alive` n'est jamais envoyé.** Ollama décharge le modèle de la mémoire
-   au bout de 5 minutes d'inactivité par défaut. Chaque prompt qui suit une pause
-   paie donc le rechargement complet du modèle avant le premier jeton. Sur un
-   usage par à-coups — ce qu'est Clarity — c'est le suspect numéro un, et
-   `keep_alive: '30m'` dans `OllamaProvider` coûte une ligne.
-2. **Aucun préchauffage au démarrage.** La première utilisation après le
-   lancement paie toujours le chargement à froid. Un ping au démarrage le
-   déplacerait hors du chemin critique.
-3. **`generateJSON` ne diffuse pas** (`stream: false`). L'analyse et
-   l'élicitation n'affichent rien jusqu'à la fin. Une partie de « c'est lent »
-   est ici : le temps d'attente est réel mais l'absence de retour le double
-   dans la perception.
-4. **`num_predict: 1024` partout**, y compris là où la réponse attendue fait
-   trois lignes de JSON. Le modèle a le droit de parler longtemps.
-5. **`num_ctx` jamais fixé.** Le prompt d'analyse embarque toutes les tâches ;
-   au-delà du contexte par défaut, Ollama retraite au lieu de réutiliser.
-6. **Le modèle par défaut est `gemma4:latest`.** La taille du modèle domine tout
-   le reste. Un modèle plus petit ou plus quantifié pour les appels structurés
-   (analyse, découpage, élicitation) changerait l'ordre de grandeur, là où le
-   chat peut garder le gros modèle.
+1. **La sortie demandée grandissait avec la liste.** L'analyse réclamait deux ou
+   trois phrases de raisonnement et un plan en trois étapes pour CHAQUE tâche,
+   en un seul appel non diffusé : environ 2000 jetons de sortie à vingt tâches,
+   soit plus de deux minutes à vitesse locale typique, sans rien à l'écran.
+   Un modèle local passe son temps à ÉCRIRE, pas à lire. Désormais : une phrase
+   et deux étapes par tâche, et seules les douze tâches qui pourraient
+   plausiblement être « la prochaine » sont envoyées.
+2. **`num_ctx` n'était jamais fixé.** Au-delà du contexte par défaut (2048 pour
+   beaucoup de modèles), Ollama ne proteste pas : il coupe le DÉBUT du prompt.
+   Le prompt d'analyse dépassait 2048 jetons vers quinze tâches — le modèle ne
+   voyait donc plus les plus anciennes, en plus d'être lent. Calculé par appel
+   maintenant, plancher 2048, plafond 8192.
+3. **`keep_alive` n'était jamais envoyé.** Ollama décharge le modèle après cinq
+   minutes d'inactivité ; Clarity s'utilise par à-coups, donc presque chaque
+   requête payait un rechargement complet avant son premier jeton. Réglable
+   (Réglages → Assistant IA → Connexion), 30 min par défaut.
+4. **`num_predict` valait 3072 partout**, y compris là où la réponse fait trois
+   lignes de JSON. Chaque appel le dimensionne maintenant à ce qu'il attend.
+5. **Aucun préchauffage.** La première question de la session payait le
+   chargement pendant que la personne regardait un spinner. Fait au démarrage,
+   en silence, et sans empêcher l'app de démarrer s'il échoue.
 
-Ordre de travail : mesurer d'abord (temps au premier jeton vs temps total, à
-froid vs à chaud), puis 1 et 2, puis 3.
+Gain calculé sur l'analyse, à 15 jetons/s : 28 % à dix tâches, 57 % à vingt,
+78 % à quarante — plus les 8 à 15 secondes de rechargement évitées par rafale.
+
+**`backend/tools/mesurer-modele.mjs`** mesure sur la vraie machine : Ollama
+renvoie ses propres chronos, donc rien n'est estimé. Il sépare chargement,
+lecture et écriture, ce qui dit tout de suite lequel des trois fait mal.
+
+Reste possible si c'est encore lent : `generateJSON` ne diffuse toujours pas
+(l'attente est réelle, mais l'absence de retour la double dans la perception),
+et un modèle plus petit pour les appels structurés changerait l'ordre de
+grandeur là où le chat peut garder le gros.
 
 ---
 
