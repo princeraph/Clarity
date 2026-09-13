@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
 import ApertureMark from '../ApertureMark.jsx';
@@ -30,6 +30,7 @@ const SECTIONS = [
   { id: 'appearance', labelKey: 'settings.section.appearance' },
   { id: 'ai',         labelKey: 'settings.section.ai' },
   { id: 'capture',    labelKey: 'settings.section.capture' },
+  { id: 'suggestions', labelKey: 'settings.section.suggestions' },
   { id: 'privacy',    labelKey: 'settings.section.privacy' },
   { id: 'data',       labelKey: 'settings.section.data' },
   { id: 'keyboard',   labelKey: 'settings.section.keyboard' },
@@ -332,6 +333,94 @@ function KeyboardSection({ T }) {
                 >reset</button>
               )}
             </div>
+          </div>
+        ))}
+      </Section>
+    </div>
+  );
+}
+
+// What Clarity is allowed to interrupt for, and the off switch.
+//
+// The status line is the point of this pane: it reports the live verdict from
+// the same function the suggester uses, so a person who notices Clarity has
+// gone quiet is told which of their own settings did it — rather than left to
+// wonder whether the feature is broken.
+function SuggestionSettings({ T }) {
+  const { t } = useLocale();
+  const [status, setStatus] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/suggestions/status`);
+      if (r.ok) setStatus(await r.json());
+    } catch { setStatus(null); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function lift(id) {
+    setBusy(true);
+    try { await fetch(`${API}/suggestions/quiet/${id}`, { method: 'DELETE' }); await load(); }
+    catch {} finally { setBusy(false); }
+  }
+
+  if (!status) return <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.checking')}</div>;
+
+  const p = status.preferences || {};
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      <PageHeader section={t('settings.section.suggestions')} title={t('settings.suggest.title')} T={T} />
+
+      <div style={{
+        padding: '14px 16px', borderRadius: T.r6,
+        background: status.allowed ? T.accentSoft : T.paperSubtle,
+        border: `1px solid ${status.allowed ? T.hairline : T.warn}`,
+        fontSize: 13, color: status.allowed ? T.accentInk : T.ink, lineHeight: 1.55,
+      }}>
+        {status.allowed
+          ? t('settings.suggest.allowed', { n: status.remaining })
+          : `${t('settings.suggest.silent')} ${status.reason}`}
+      </div>
+
+      <Section title={t('settings.suggest.budget')} subtitle={t('settings.suggest.budgetHint')} T={T}>
+        <FieldRow label={t('settings.suggest.mode')} hint={t(`settings.suggest.mode.${p.suggestionMode || 'active'}`)} T={T}>
+          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{p.suggestionMode || 'active'}</span>
+        </FieldRow>
+        <FieldRow label={t('settings.suggest.perDay')} hint={t('settings.suggest.perDayHint')} T={T}>
+          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
+            {status.sentToday} / {p.maxSuggestionsPerDay}
+          </span>
+        </FieldRow>
+        <FieldRow label={t('settings.suggest.gap')} hint={t('settings.suggest.gapHint')} T={T}>
+          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{p.minGapMinutes} min</span>
+        </FieldRow>
+        <FieldRow label={t('settings.suggest.night')} hint={t('settings.suggest.nightHint')} T={T}>
+          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
+            {String(p.quietHours?.from ?? 22).padStart(2, '0')}:00 → {String(p.quietHours?.to ?? 7).padStart(2, '0')}:00
+          </span>
+        </FieldRow>
+      </Section>
+
+      <Section title={t('settings.suggest.quietRules')} subtitle={t('settings.suggest.quietRulesHint')} T={T}>
+        {!status.quiet?.length ? (
+          <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.suggest.noQuiet')}</div>
+        ) : status.quiet.map(r => (
+          <div key={r.id} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0',
+            borderBottom: `1px solid ${T.hairlineSoft}`,
+          }}>
+            <span style={{ flex: 1, fontSize: 13, color: T.ink }}>
+              {r.kind === 'indefinite' ? t('settings.suggest.rule.always')
+                : r.kind === 'duration' ? t('settings.suggest.rule.until', { when: new Date(r.until).toLocaleString() })
+                : t('settings.suggest.rule.untilDone')}
+              {r.reason && <span style={{ color: T.ink40 }}> — {r.reason}</span>}
+            </span>
+            <button disabled={busy} onClick={() => lift(r.id)} style={{
+              padding: '5px 11px', background: 'transparent', color: T.ink60,
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+            }}>{t('settings.suggest.lift')}</button>
           </div>
         ))}
       </Section>
@@ -887,6 +976,9 @@ export default function SettingsView({ onSaved }) {
               </SettingRow>
             </Section>
           </div>
+
+        ) : section === 'suggestions' ? (
+          <SuggestionSettings T={T} />
 
         ) : section === 'privacy' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>

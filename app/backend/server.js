@@ -12,6 +12,9 @@ import { parseProposals, MAX_PROPOSALS_PER_RUN } from './src/profile/elicitation
 import { buildOptionsPrompt, parseOptions } from './src/profile/brief.js';
 import { createThreadStore } from './src/threads/store.js';
 import * as thread from './src/threads/logic.js';
+import { createSuggestStore } from './src/suggest/store.js';
+import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
+import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -149,6 +152,7 @@ function runDailyBackup() {
 
 const profileStore = createProfileStore({ dataDir: DATA_DIR });
 const threadStore  = createThreadStore({ dataDir: DATA_DIR });
+const suggestStore = createSuggestStore({ dataDir: DATA_DIR });
 
 // Ollama runs on this machine, so a prompt sent to it never crosses the device
 // boundary and the brief's redactions do not apply. Every other provider is
@@ -603,6 +607,79 @@ app.post('/api/tasks/:id/thread/suggest', asyncRoute(async (req, res) => {
     options.reduce((acc, text) => thread.addOption(acc, { text, source: 'suggested' }, { now }), t));
   res.json({ thread: updated, added: options.length });
 }));
+
+// ─── Proactive suggestions (Stage 4) ──────────────────────────────────────────
+//
+// Two routes that look similar and are not. /status PEEKS: it reports whether
+// Clarity may speak and why not, and changes nothing. /next SPEAKS: it decides,
+// picks, records the delivery, and returns it. Only the second spends budget.
+// If a peek spent budget, polling would drain the day while Clarity stayed
+// silent — so the split is the design, not tidiness.
+
+function suggestContext() {
+  const data = readData();
+  const profile = currentProfile(data.tasks);
+  const prefs = profile.preferences || {};
+  const quiet = suggestStore.pruneQuiet({ tasks: data.tasks });
+  const { sentToday, lastSentAt, log } = suggestStore.budgetState();
+  return { data, profile, prefs, quiet, sentToday, lastSentAt, log };
+}
+
+app.get('/api/suggestions/status', (req, res) => {
+  const { data, prefs, quiet, sentToday, lastSentAt } = suggestContext();
+  const verdict = mayInterrupt({ preferences: prefs, quiet, tasks: data.tasks, sentToday, lastSentAt });
+  res.json({
+    ...verdict,
+    sentToday,
+    lastSentAt,
+    quiet,
+    preferences: {
+      suggestionMode: prefs.suggestionMode,
+      maxSuggestionsPerDay: prefs.maxSuggestionsPerDay,
+      minGapMinutes: prefs.minGapMinutes,
+      quietHours: prefs.quietHours,
+    },
+  });
+});
+
+app.post('/api/suggestions/next', (req, res) => {
+  const { data, profile, prefs, quiet, sentToday, lastSentAt, log } = suggestContext();
+
+  const verdict = mayInterrupt({ preferences: prefs, quiet, tasks: data.tasks, sentToday, lastSentAt });
+  if (!verdict.allowed) return res.json({ suggestion: null, ...verdict });
+
+  const { threads } = threadStore.readAll();
+  const choice = pick(candidates({ tasks: data.tasks, threads, observed: profile.observed }), { log });
+  // Nothing worth saying is not a refusal, and must not cost budget either.
+  if (!choice) return res.json({ suggestion: null, allowed: true, code: 'nothing-to-say' });
+
+  const entry = suggestStore.recordDelivery(choice);
+  try { profileStore.appendEntry({ kind: 'suggestion', suggestionId: entry.id, taskId: choice.taskId, what: choice.kind }); } catch {}
+  res.json({ suggestion: entry, allowed: true, code: 'ok', remaining: verdict.remaining - 1 });
+});
+
+app.post('/api/suggestions/:id/respond', (req, res) => {
+  const outcome = ['acted', 'dismissed', 'snoozed'].includes(req.body?.outcome) ? req.body.outcome : null;
+  if (!outcome) return res.status(400).json({ error: 'outcome must be acted, dismissed or snoozed' });
+  const entry = suggestStore.recordOutcome(req.params.id, outcome);
+  if (!entry) return res.status(404).json({ error: 'No such suggestion' });
+  res.json({ suggestion: entry });
+});
+
+// "Stop suggesting" — for a while, until a task is done, or until told otherwise.
+app.post('/api/suggestions/quiet', (req, res) => {
+  const { kind, minutes, taskId, reason } = req.body || {};
+  if (!QUIET_KINDS.has(kind)) return res.status(400).json({ error: `kind must be one of: ${[...QUIET_KINDS].join(', ')}` });
+  try {
+    res.json({ rule: suggestStore.addQuiet({ kind, minutes, taskId, reason }) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/suggestions/quiet/:id', (req, res) => {
+  res.json({ lifted: suggestStore.liftQuiet(req.params.id) });
+});
 
 app.get('/api/profile/journal', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 1000);

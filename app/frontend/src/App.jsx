@@ -22,6 +22,7 @@ import PatternsView from './components/views/PatternsView.jsx';
 import FocusMode from './components/FocusMode.jsx';
 import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TutorialOverlay from './components/TutorialOverlay.jsx';
+import SuggestionCard from './components/SuggestionCard.jsx';
 import { useLocale } from './contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -103,6 +104,7 @@ function AppInner() {
     } catch { return false; }
   });
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [suggestion, setSuggestion] = useState(null);
   const [focusTask, setFocusTask] = useState(null);
   const [toast, setToast]       = useState(null);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
@@ -379,6 +381,35 @@ function AppInner() {
   function openAddTask(defaults = {}) { setEditingTask(Object.keys(defaults).length ? defaults : null); setShowForm(true); }
   function openEditTask(task)  { setEditingTask(task); setShowForm(true); setDetailTask(null); }
   function openDetail(task)    { setDetailTask(task); setContextMenu(null); }
+
+  // Ask the backend whether it has anything to say. The decision — budget,
+  // quiet rules, the hour — lives entirely on that side; this only asks.
+  //
+  // Two rules hold this to the interruption budget rather than around it:
+  // nothing is asked while a card is already up (two at once is not a budget,
+  // it is a pile), and nothing is asked during onboarding. And the request is
+  // the SAME one that spends budget, so polling can never quietly drain the
+  // day: a refusal costs nothing, a delivery costs exactly one.
+  const suggestionRef = useRef(null);
+  suggestionRef.current = suggestion;
+  useEffect(() => {
+    if (showOnboarding) return undefined;
+    let live = true;
+    const ask = async () => {
+      if (!live || suggestionRef.current) return;
+      try {
+        const resp = await fetch(`${API}/suggestions/next`, { method: 'POST' });
+        if (!resp.ok) return;
+        const body = await resp.json();
+        if (!live || !body.suggestion) return;
+        setSuggestion(body.suggestion);
+        try { window.clarity?.showNotification?.('Clarity', body.suggestion.title); } catch {}
+      } catch { /* offline: try again next tick */ }
+    };
+    const first = setTimeout(ask, 45000);       // not the instant the app opens
+    const timer = setInterval(ask, 5 * 60000);
+    return () => { live = false; clearTimeout(first); clearInterval(timer); };
+  }, [showOnboarding]);
   function openContextMenu(e, task) { setContextMenu({ task, x: e.clientX, y: e.clientY }); }
   function openScheduling(task, x, y) { setScheduling({ task, x, y }); setContextMenu(null); }
   function enterFocusMode(task) { setFocusTask(task); setDetailTask(null); setContextMenu(null); }
@@ -433,6 +464,13 @@ function AppInner() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {suggestion && (
+        <SuggestionCard
+          suggestion={suggestion}
+          onClose={() => setSuggestion(null)}
+          onOpenTask={(id) => { const task = data.tasks.find(t => t.id === id); if (task) openDetail(task); }}
+        />
+      )}
       {showOnboarding && <OnboardingView onComplete={() => {
         setShowOnboarding(false);
         try { localStorage.setItem('clarity-onboarding-done', '1'); } catch {}
