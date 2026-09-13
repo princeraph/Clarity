@@ -44,6 +44,25 @@ Avec les chiffres mesurés, une analyse après une pause : ~22 s → ~9 s à dix
 tâches, ~34 s → ~11 s à vingt, ~57 s → ~11 s à quarante. Une réponse de chat
 après une pause : ~10 s → moins d'une seconde.
 
+### Vérifié après correction (même machine, 13/09)
+
+                              avant              après
+    à froid            11 277 ms load      6 794 ms load   (normal)
+    court, chaud            7 ms                6 ms
+    prompt long         8 922 ms load  ←reload  6 ms
+    sortie longue       8 350 ms load  ←reload  2 ms
+
+17,3 s de rechargements disparus sur cette seule séquence de quatre appels. La
+ligne « prompt long, sortie courte » — la forme même de l'analyse — passe de
+9 840 ms à 687 ms.
+
+Ce qui reste est du vrai travail de génération : écrire 400 jetons à ~60 j/s
+prend 6,8 s, et aucun réglage n'y changera rien. Les trois appels non diffusés
+qui subsistent (analyse, élicitation, pistes d'un fil) sont désormais bornés à
+840, 700 et 300 jetons, et affichent tous un indicateur pendant l'attente —
+l'analyse tourne en plus en arrière-plan, sans rien bloquer. Diffuser
+`generateJSON` reste possible, mais ne gagnerait plus que de la perception.
+
 **`backend/tools/mesurer-modele.mjs`** sépare chargement, lecture et écriture,
 et signale explicitement un rechargement survenu alors que le modèle aurait dû
 rester chaud — c'est le poste le plus cher et le plus facile à ne pas voir.
