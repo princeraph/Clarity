@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 title Clarity - Load Sample Tasks
 
-set "SRC=%USERPROFILE%\Personal-Work\projet-clarity\app\backend\data\seed-tasks.json"
+set "SRC=%~dp0backend\data\seed-tasks.json"
 set "DEST=%APPDATA%\Clarity\data"
 set "TASKS=%DEST%\tasks.json"
 

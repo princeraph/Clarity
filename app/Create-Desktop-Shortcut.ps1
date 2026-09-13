@@ -1,7 +1,7 @@
 # Creates a Clarity desktop shortcut with the Aperture mark icon.
 # Run once after cloning: right-click -> Run with PowerShell
 
-$clarityDir = "$env:USERPROFILE\Personal-Work\projet-clarity\app"
+$clarityDir = $PSScriptRoot
 $iconPath   = "$clarityDir\build\icon.ico"
 $vbsPath    = "$clarityDir\Clarity.vbs"
 

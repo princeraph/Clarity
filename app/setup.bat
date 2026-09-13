@@ -4,7 +4,7 @@ echo.
 echo  Setting up Clarity...
 echo.
 
-cd /d "%USERPROFILE%\Personal-Work\projet-clarity\app"
+cd /d "%~dp0"
 
 echo  [1/4] Installing Electron...
 call npm install

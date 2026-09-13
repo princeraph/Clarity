@@ -1,3 +1,3 @@
 @echo off
-cd /d "%USERPROFILE%\Personal-Work\projet-clarity\app"
+cd /d "%~dp0"
 npm start

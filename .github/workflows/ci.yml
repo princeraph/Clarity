@@ -1,0 +1,56 @@
+# Portée : ce dépôt.
+#
+# Ce fichier est inerte dans Personal-Work — GitHub ne lit les workflows qu'à la
+# racine d'un dépôt, et ici il est dans projet-clarity/. Il devient actif dans
+# le dépôt extrait, où ce dossier EST la racine. C'est la seule façon de faire
+# voyager la CI avec l'extraction.
+name: qualité
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  controles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # L'historique complet : le contrôle du paquet compare des fichiers
+        # versionnés entre eux, et un clone superficiel rend tout verdict faux.
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: dépendances du backend
+        working-directory: app/backend
+        run: npm install --no-audit --no-fund
+
+      - name: tests du backend
+        working-directory: app/backend
+        run: npm test
+
+      - name: les deux langues sont complètes
+        working-directory: app/frontend
+        run: node tools/verifier-locales.mjs
+
+      - name: le paquet chargé par Electron est complet
+        working-directory: app
+        run: node tools/verifier-paquet.mjs frontend/dist
+
+      # frontend/dist/ est versionné exprès. S'il ne correspond plus aux
+      # sources, l'app tourne sur l'ancien code alors que la revue lit le
+      # nouveau — le défaut le plus facile à ne pas voir de tout ce dépôt.
+      - name: dist/ correspond bien aux sources
+        working-directory: app/frontend
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          if ! git diff --quiet -- dist/; then
+            echo "::error::dist/ ne correspond pas aux sources."
+            echo "Lancer 'npm run build' dans app/frontend/ et committer dist/ dans le MÊME commit."
+            git diff --stat -- dist/
+            exit 1
+          fi

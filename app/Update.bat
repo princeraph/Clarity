@@ -1,6 +1,6 @@
 @echo off
 title Clarity — Updating...
-cd /d "%USERPROFILE%\Personal-Work"
+cd /d "%~dp0"
 
 echo.
 echo  Downloading latest updates...
@@ -25,7 +25,7 @@ if errorlevel 1 (
 
 echo.
 echo  Checking dependencies...
-cd /d "%USERPROFILE%\Personal-Work\projet-clarity\app\backend"
+cd /d "%~dp0backend"
 call npm install --silent
 
 echo.
