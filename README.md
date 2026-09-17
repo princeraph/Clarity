@@ -37,7 +37,7 @@ règle dans Réglages → *Assistant IA* sans toucher au code.
 
 ```bash
 cd app
-npm run setup      # première fois : dépendances des trois paquets + build du frontend
+npm run setup      # première fois : dépendances des trois paquets
 npm start          # lance l'application Electron
 ```
 
@@ -49,6 +49,12 @@ cd app/backend  && node server.js  # API Express sur :3001
 ```
 
 Sous Windows, `app/start.bat` fait la même chose en double-cliquant.
+
+**Pas d'étape de build à l'installation, et c'est voulu.** `frontend/dist/` est
+versionné : l'app tourne depuis un clone nu. Le reconstruire à l'installation ne
+produirait rien de neuf, mais salirait un dossier suivi par git — et le prochain
+`git pull` serait refusé. Qui modifie `frontend/src/` reconstruit avec
+`npm run build:frontend` et commite `dist/` dans le même commit.
 
 ## Provenance
 

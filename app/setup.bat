@@ -6,27 +6,35 @@ echo.
 
 cd /d "%~dp0"
 
-echo  [1/5] Installing Electron...
+echo  [1/4] Installing Electron...
 call npm install
 echo.
 
-echo  [2/5] Installing backend...
+echo  [2/4] Installing backend...
 cd backend
 call npm install
 cd ..
 echo.
 
-echo  [3/5] Installing frontend...
+echo  [3/4] Installing frontend...
 cd frontend
 call npm install
-echo.
-
-echo  [4/5] Building frontend...
-call npm run build
 cd ..
 echo.
 
-echo  [5/5] Creating desktop shortcut...
+REM  Pas de "npm run build" ici. frontend/dist/ est VERSIONNE : CLAUDE.md dit
+REM  que l'app tourne depuis un clone nu, sans etape de build, et la CI verifie
+REM  a chaque push que dist/ correspond bien aux sources. Le reconstruire a
+REM  l'installation ne produit donc rien de neuf - mais il SALIT un dossier
+REM  suivi par git, et le prochain "git pull" est refuse :
+REM      error: Your local changes to the following files would be overwritten
+REM             app/frontend/dist/index.html
+REM  Une installation ne doit jamais rendre un depot impossible a mettre a jour.
+REM  Qui modifie frontend/src/ reconstruit avec "npm run build:frontend" et
+REM  commite dist/ dans le meme commit - c'est la regle, et c'est autre chose
+REM  qu'installer.
+
+echo  [4/4] Creating desktop shortcut...
 REM  Pas d'appel a generate-icon.js ici. build/icon.ico et build/icon.png sont
 REM  VERSIONNES, comme frontend/dist/ : un clone les a deja. Le script les
 REM  regenerait donc par-dessus des fichiers corrects, via rsvg-convert, qui
