@@ -15,6 +15,24 @@ pensée pour Windows d'abord.
 documents de conception, pas du code exécuté — ils vivent donc à côté de l'app,
 pas dedans.
 
+## Prérequis
+
+**Node.js 18+** et **[Ollama](https://ollama.com)** avec un modèle chargé. Sans
+Ollama, l'app démarre, les tâches se créent et s'éditent normalement, mais tout
+ce qui passe par le modèle reste muet : analyse, suggestions, fils de suivi,
+« Demander à Clarity ». En bas de la barre latérale, la pastille verte passe
+alors au gris et le texte devient « IA hors ligne — toucher pour corriger » :
+c'est le premier endroit à regarder si l'IA ne répond pas, et un clic y mène
+directement aux réglages.
+
+```bash
+ollama pull gemma4:latest     # le modèle attendu par défaut
+ollama serve                  # écoute sur http://localhost:11434
+```
+
+Un autre modèle, ou un fournisseur distant (OpenAI, Anthropic, OpenRouter), se
+règle dans Réglages → *Assistant IA* sans toucher au code.
+
 ## Lancer l'app
 
 ```bash
