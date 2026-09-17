@@ -4,6 +4,22 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 
 function generateId() { return Math.random().toString(36).slice(2, 10); }
 
+// minutes → les deux champs de saisie, et retour.
+export function splitEstimate(minutes) {
+  if (typeof minutes !== 'number' || minutes <= 0) return { estimateValue: '', estimateUnit: 'min' };
+  if (minutes % 60 === 0) return { estimateValue: String(minutes / 60), estimateUnit: 'h' };
+  return { estimateValue: String(minutes), estimateUnit: 'min' };
+}
+
+// Rendre null plutôt que 0 quand le champ est vide : la métrique d'estimation
+// n'accepte qu'une durée > 0, et un 0 enregistré se lirait comme « estimé à
+// rien » au lieu de « pas estimé ».
+export function joinEstimate(value, unit) {
+  const n = parseFloat(String(value).replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(unit === 'h' ? n * 60 : n);
+}
+
 const TAG_PALETTE = [
   '#5b6cf9', '#2da3e0', '#27a87a', '#c9962a', '#d65f70', '#1ba6b5',
 ];
@@ -18,9 +34,14 @@ export function tagColor(tag) {
 export default function TaskForm({ task, onSave, onClose, saving }) {
   const { t } = useLocale();
   const { T } = useTheme();
+  // estimateValue + estimateUnit sont des champs de SAISIE, pas le modèle. Le
+  // backend ne connaît que `estimatedDuration`, en minutes ; la paire n'existe
+  // que pour qu'on puisse écrire « 2 heures » sans convertir de tête, et elle
+  // est reconvertie avant l'envoi. Rien d'autre dans l'app ne les voit.
   const [form, setForm] = useState({
     title: '', description: '', deadline: '', deliverable: '',
     status: 'not_started', notes: '', subtasks: [], tags: [], recurring: 'none',
+    estimateValue: '', estimateUnit: 'min',
   });
   const [newSubtask, setNewSubtask] = useState('');
   const [newTag, setNewTag] = useState('');
@@ -38,6 +59,10 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
         subtasks:    (task.subtasks    || []).filter(s => s?.id && s?.title),
         tags:        task.tags         || [],
         recurring:   task.recurring    || 'none',
+        // Les heures rondes se relisent en heures. 90 min reste en minutes
+        // plutôt que de devenir « 1,5 h », qu'on ne pourrait pas ressaisir
+        // sans décimale.
+        ...splitEstimate(task.estimatedDuration),
       });
     }
     setTimeout(() => titleRef.current?.focus(), 50);
@@ -65,7 +90,14 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.title.trim()) return;
-    onSave({ ...form, deadline: form.deadline || null });
+    // estimateValue/estimateUnit ne quittent pas ce composant : on envoie la
+    // minute que le backend attend, et rien d'autre.
+    const { estimateValue, estimateUnit, ...rest } = form;
+    onSave({
+      ...rest,
+      deadline: form.deadline || null,
+      estimatedDuration: joinEstimate(estimateValue, estimateUnit),
+    });
   }
 
   const field = {
@@ -196,7 +228,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
             </div>
           </div>
 
-          {/* Recurring + Deliverable */}
+          {/* Récurrence + Durée estimée */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
@@ -213,13 +245,44 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
                 <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
               </div>
             </div>
+            {/* Durée estimée. Sans ce champ, `estimatedDuration` n'avait qu'une
+                seule entrée dans toute l'app — la syntaxe « ~2h » de la saisie
+                rapide — et le biais d'estimation du profil, qui exige une
+                estimation ET un temps mesuré sur cinq tâches, ne pouvait pas
+                atteindre son seuil. */}
             <div>
               <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-                {t('form.deliverable')}
+                {t('form.estimate')}
               </label>
-              <input value={form.deliverable} onChange={e => set('deliverable', e.target.value)}
-                placeholder={t('form.endResult')} style={{ ...field, padding: '7px 12px' }} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                {/* step="any", surtout pas une valeur ronde : avec step="5" la
+                    validation HTML5 refusait « 2 » — deux HEURES — et bloquait
+                    la soumission du formulaire entier, sans message. Les unités
+                    utiles ici vont de 15 min à 1,5 h ; aucune grille ne les
+                    couvre. */}
+                <input type="number" min="0" step="any" inputMode="decimal"
+                  value={form.estimateValue} onChange={e => set('estimateValue', e.target.value)}
+                  placeholder={t('form.estimatePlaceholder')}
+                  style={{ ...field, flex: 1, minWidth: 0 }} />
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <select value={form.estimateUnit} onChange={e => set('estimateUnit', e.target.value)}
+                    style={{ ...field, width: 'auto', paddingRight: 26, cursor: 'pointer' }}>
+                    <option value="min">{t('form.unitMinutes')}</option>
+                    <option value="h">{t('form.unitHours')}</option>
+                  </select>
+                  <span style={{ position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Livrable */}
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
+              {t('form.deliverable')}
+            </label>
+            <input value={form.deliverable} onChange={e => set('deliverable', e.target.value)}
+              placeholder={t('form.endResult')} style={{ ...field, padding: '7px 12px' }} />
           </div>
 
           {/* Subtasks */}
