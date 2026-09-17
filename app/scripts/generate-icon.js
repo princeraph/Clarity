@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Generates build/icon.png (512x512) and build/icon.ico (256x256)
-// using the Aperture mark from the design handoff — two concentric C-arcs
-// plus a center accent dot. Uses rsvg-convert (librsvg2-bin) for rendering.
+// Regenerates build/icon.png (512x512) and build/icon.ico (256x256) from the
+// Aperture mark — two concentric C-arcs plus a center accent dot.
+//
+// MAINTENANCE TOOL, NOT A SETUP STEP. Both outputs are versioned, like
+// frontend/dist/: a clone already carries them and the app loads those. Run
+// this by hand only when the mark itself changes, then commit the result.
+// It needs rsvg-convert, which has no usual Windows package — which is why
+// setup.bat no longer calls it.
 
 const { execSync } = require('child_process');
 const fs   = require('fs');
@@ -116,6 +121,16 @@ try {
   console.log('\nIcons ready.');
 } catch (err) {
   console.error('Icon generation failed:', err.message);
-  console.error('Make sure rsvg-convert is installed: apt-get install librsvg2-bin');
+  console.error('');
+  console.error('rsvg-convert renders the SVG, and it is not installed:');
+  console.error('  Debian/Ubuntu   apt-get install librsvg2-bin');
+  console.error('  macOS           brew install librsvg');
+  console.error('  Windows         no usual package — run this on Linux or macOS,');
+  console.error('                  or in WSL, and commit the two files it writes.');
+  console.error('');
+  console.error('This is NOT part of setting Clarity up. build/icon.png and');
+  console.error('build/icon.ico are versioned, like frontend/dist/ — a clone');
+  console.error('already has them, and the app reads those. This script only');
+  console.error('regenerates them, for when the Aperture mark itself changes.');
   process.exit(1);
 }
