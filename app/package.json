@@ -9,7 +9,7 @@
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run build:frontend && electron-builder",
     "generate-icons": "node scripts/generate-icon.js",
-    "setup": "npm install && cd backend && npm install && cd ../frontend && npm install && npm run build",
+    "setup": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "test": "cd backend && npm test"
   },
   "devDependencies": {
