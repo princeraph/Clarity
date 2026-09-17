@@ -570,6 +570,7 @@ export default {
   'capture.goToday': 'Go to Today',
   'capture.openChat': 'Open Ask Clarity',
   'capture.openSettings': 'Open Settings',
+  'capture.placeholderCapture': 'What needs doing?',
   'capture.placeholder': 'Search tasks or capture new…',
   'schedule.title': 'Schedule task',
   'settings.save': 'Save Settings',

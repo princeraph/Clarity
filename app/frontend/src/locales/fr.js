@@ -571,6 +571,7 @@ export default {
   'capture.goToday': 'Aller à Aujourd’hui',
   'capture.openChat': 'Ouvrir Demander à Clarity',
   'capture.openSettings': 'Ouvrir les réglages',
+  'capture.placeholderCapture': 'Qu’y a-t-il à faire ?',
   'capture.placeholder': 'Rechercher ou saisir une tâche…',
   'schedule.title': 'Planifier la tâche',
   'settings.save': 'Enregistrer les réglages',

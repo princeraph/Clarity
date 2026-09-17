@@ -1,56 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { parseInput } from '../lib/saisie.js';
 
 const API = 'http://localhost:3001/api';
-
-function parseInput(text) {
-  const tagSet = new Set();
-  let deadline = null;
-  let estimatedDuration = null;
-  let title = text;
-
-  title = title.replace(/#([\w-]+)/g, (_, t) => { tagSet.add(t.toLowerCase()); return ''; }).trim();
-  const tags = [...tagSet];
-
-  title = title.replace(
-    /(?:for\s+|~)(\d+(?:\.\d+)?)\s*(h(?:ours?)?|min(?:utes?)?|m)\b/gi,
-    (_, n, unit) => {
-      const num = parseFloat(n);
-      estimatedDuration = unit.toLowerCase().startsWith('h') ? Math.round(num * 60) : Math.round(num);
-      return '';
-    }
-  ).trim().replace(/\s{2,}/g, ' ');
-
-  const today = new Date();
-  const fmt = d => {
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const dy = String(d.getDate()).padStart(2, '0');
-    return `${y}-${mo}-${dy}`;
-  };
-  const nextWeekday = n => {
-    const d = new Date(today);
-    const diff = ((n - today.getDay() + 7) % 7) || 7;
-    d.setDate(d.getDate() + diff);
-    return fmt(d);
-  };
-  const todayFmt = fmt(today);
-  const tomorrowFmt = (() => { const d = new Date(today); d.setDate(d.getDate() + 1); return fmt(d); })();
-  const DATE_WORDS = {
-    today: todayFmt, tonight: todayFmt, tomorrow: tomorrowFmt,
-    monday: nextWeekday(1), tuesday: nextWeekday(2), wednesday: nextWeekday(3),
-    thursday: nextWeekday(4), friday: nextWeekday(5), saturday: nextWeekday(6), sunday: nextWeekday(0),
-    mon: nextWeekday(1), tue: nextWeekday(2), wed: nextWeekday(3),
-    thu: nextWeekday(4), fri: nextWeekday(5), sat: nextWeekday(6), sun: nextWeekday(0),
-  };
-  title = title.replace(
-    /\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/gi,
-    (_, w) => { if (!deadline) deadline = DATE_WORDS[w.toLowerCase()]; return ''; }
-  ).trim().replace(/\s{2,}/g, ' ');
-
-  return { title: title.trim(), tags, deadline, estimatedDuration };
-}
 
 function fmtDuration(mins) {
   return mins >= 60 ? `${Math.round(mins / 60 * 10) / 10}h` : `${mins}m`;
@@ -185,6 +138,11 @@ export default function SearchCapture({
   allTasks = [], onClose, onSaved, onSavedAndOpen, onOpenTask, onNavigate, onOpenChat,
 }) {
   const { T } = useTheme();
+  // Ce composant appelait t() dix-sept fois et fmtDate une fois sans jamais
+  // avoir eu ce hook : Ctrl+K levait « t is not defined » à chaque ouverture.
+  // Le contrôle des locales ne le voyait pas — il exigeait la parenthèse
+  // fermante des paramètres sur la même ligne, et ceux-ci tiennent sur deux.
+  const { t, fmtDate } = useLocale();
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('search'); // 'search' | 'capture'
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -195,7 +153,7 @@ export default function SearchCapture({
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const recentTasks = useMemo(() =>
-    allTasks.filter(t => !t.archived && t.status !== 'done').slice(0, 4),
+    allTasks.filter(tache => !tache.archived && tache.status !== 'done').slice(0, 4),
     [allTasks]
   );
 
@@ -203,7 +161,7 @@ export default function SearchCapture({
     if (!query.trim()) return [];
     const q = query.toLowerCase();
     return allTasks
-      .filter(t => !t.archived && t.title.toLowerCase().includes(q))
+      .filter(tache => !tache.archived && tache.title.toLowerCase().includes(q))
       .slice(0, 5);
   }, [query, allTasks]);
 
@@ -219,12 +177,12 @@ export default function SearchCapture({
     if (mode === 'capture') return [];
     if (!query.trim()) {
       return [
-        ...recentTasks.map(t => ({ type: 'task', item: t })),
+        ...recentTasks.map(tache => ({ type: 'task', item: tache })),
         ...commands.map(c => ({ type: 'command', item: c })),
       ];
     }
     return [
-      ...searchResults.map(t => ({ type: 'task', item: t })),
+      ...searchResults.map(tache => ({ type: 'task', item: tache })),
       { type: 'capture' },
     ];
   }, [mode, query, recentTasks, searchResults, commands]);
@@ -327,7 +285,7 @@ export default function SearchCapture({
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={mode === 'capture' ? 'What needs doing?' : t('capture.placeholder')}
+            placeholder={mode === 'capture' ? t('capture.placeholderCapture') : t('capture.placeholder')}
             disabled={saving}
             style={{
               flex: 1, fontSize: 16, color: T.ink,
