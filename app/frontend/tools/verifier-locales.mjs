@@ -53,21 +53,64 @@ for (const f of files) {
   COMPUTED.lastIndex = 0;
 }
 
+// Every .js in locales/ is taken to be a dictionary — that is what the folder
+// means. A file here that default-exports anything else used to kill this
+// script on `'key' in undefined`: a TypeError with a stack trace and no clue,
+// stopping the whole quality barrier over what is really a misplaced file. It
+// now says which file, and where such a file belongs. (This happened: a
+// quick-capture grammar module landed here before moving to src/lib/.)
 const dicts = {};
 for (const name of readdirSync(LOCALES).filter(f => f.endsWith('.js'))) {
   const mod = await import(pathToFileURL(join(LOCALES, name)).href);
-  dicts[name.replace(/\.js$/, '')] = mod.default;
+  const dict = mod.default;
+  if (!dict || typeof dict !== 'object' || Array.isArray(dict)) {
+    console.error(`locales/${name} does not default-export a dictionary object.`);
+    console.error('Only dictionaries belong in src/locales/. Language helpers');
+    console.error('that are not key/value tables go in src/lib/, where nothing');
+    console.error('treats them as one.');
+    process.exit(1);
+  }
+  dicts[name.replace(/\.js$/, '')] = dict;
 }
 
 // A component that calls t() without useLocale() in scope compiles fine and
 // then throws "t is not defined" the moment it renders. Vite cannot see it;
 // this can, so it is checked here rather than discovered by a user.
-const FN_START = /^(?:export default )?function ([A-Za-z][\w]*)\s*\(([^)]*)\)/;
+// The closing paren must NOT be required on the same line. The old pattern
+// ended in `([^)]*)\)`, so a component whose props are destructured across
+// several lines —
+//     export default function SearchCapture({
+//       open, onClose, …
+//     }) {
+// — never matched. It was therefore not a function as far as this check was
+// concerned, and its body was folded into the PRECEDING function's. When that
+// neighbour happened to hold useLocale(), the check saw a hook and stayed
+// quiet. That is how SearchCapture shipped calling t() seventeen times with no
+// hook of its own: Ctrl+K threw "t is not defined" on every open, and the one
+// guard meant to catch exactly this was blind to it — the worst kind of
+// failure, since it reported success.
+const FN_START = /^(?:export default )?function ([A-Za-z][\w]*)\s*\(/;
+
+// Arguments run from the opening paren to its match, however many lines that
+// takes. Depth counting rather than a lazy regex, so a default value that
+// itself contains parens does not end the list early.
+function argsOf(lines, start) {
+  const texte = lines.slice(start, start + 40).join('\n');
+  const debut = texte.indexOf('(');
+  if (debut === -1) return '';
+  let profondeur = 0;
+  for (let i = debut; i < texte.length; i++) {
+    if (texte[i] === '(') profondeur++;
+    else if (texte[i] === ')' && --profondeur === 0) return texte.slice(debut + 1, i);
+  }
+  return '';
+}
+
 const scopeProblems = [];
 for (const f of files) {
   const lines = readFileSync(f, 'utf8').split('\n');
   const starts = [];
-  lines.forEach((l, i) => { const m = l.match(FN_START); if (m) starts.push({ i, name: m[1], args: m[2] }); });
+  lines.forEach((l, i) => { const m = l.match(FN_START); if (m) starts.push({ i, name: m[1], args: argsOf(lines, i) }); });
   starts.forEach((fn, idx) => {
     const body = lines.slice(fn.i, idx + 1 < starts.length ? starts[idx + 1].i : lines.length).join('\n');
     const callsT = /\bt\(\s*['`]/.test(body) || /\bt\(\s*[A-Za-z_$][\w$.]*\s*[,)]/.test(body);

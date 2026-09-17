@@ -36,6 +36,10 @@ jobs:
         working-directory: app/frontend
         run: node tools/verifier-locales.mjs
 
+      - name: la saisie rapide comprend les deux langues
+        working-directory: app/frontend
+        run: node tools/verifier-saisie.mjs
+
       - name: le paquet chargé par Electron est complet
         working-directory: app
         run: node tools/verifier-paquet.mjs frontend/dist

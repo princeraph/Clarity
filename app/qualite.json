@@ -25,6 +25,10 @@
     {
       "nom": "les deux langues sont complètes",
       "commande": "node frontend/tools/verifier-locales.mjs"
+    },
+    {
+      "nom": "la saisie rapide comprend les deux langues",
+      "commande": "node frontend/tools/verifier-saisie.mjs"
     }
   ]
 }
