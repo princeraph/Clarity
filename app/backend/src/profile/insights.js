@@ -85,6 +85,22 @@ export function deriveInsights(observed) {
         `You estimate your time well — a median of ${est.medianRatio}× what you planned.`,
         confidenceFor(est.samples),
         [metric('observed.estimation.medianRatio', `${est.medianRatio}× median over ${est.samples} tasks`)]);
+    } else if (est.bias === 'over') {
+      // estimationBias has three outcomes; this one used to fall through and
+      // say nothing at all. Someone who pads their estimates — a median ratio
+      // at or below 0.80 — watched the profile stay empty forever with a disk
+      // full of evidence behind it. That reads as "Clarity is broken", not as
+      // "nothing worth reporting", and it is the failure this whole module
+      // exists to avoid: MIN_SAMPLES is meant to distinguish "not enough data"
+      // from "no pattern", not to hide a measured one.
+      //
+      // A trait, not a strength and not a blocker. Finishing early is no fault,
+      // and calling it a strength would flatter a habit that also hides spare
+      // capacity. The statement reports the measurement and stops there.
+      add('observed:estimation:overall', 'traits',
+        `You finish in about ${est.medianRatio}× the time you plan — your estimates carry room.`,
+        confidenceFor(est.samples),
+        [metric('observed.estimation.medianRatio', `${est.medianRatio}× median over ${est.samples} tasks`)]);
     }
     for (const [area, v] of Object.entries(est.byArea || {})) {
       if (!v.enough || v.bias !== 'under') continue;
