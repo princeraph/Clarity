@@ -1,12 +1,36 @@
-# dist/ is a build artifact versioned on purpose — Electron loads it at runtime,
-# so the app must run from a bare clone. That only holds if the bytes here are
-# the bytes Vite produced.
+# dist/ est un artefact de build versionné exprès — Electron le charge au
+# runtime, donc l'app doit tourner depuis un clone nu. Il est donc à la fois
+# suivi par git et réécrit par vite, ce qui est la combinaison qui fait mal :
+# il suffit que l'outil n'écrive pas les mêmes octets que ceux commités pour
+# que le dossier devienne sale, et le `git pull` suivant est refusé en nommant
+# des fichiers que personne n'a édités.
 #
-# Without this, git on Windows (core.autocrlf=true, the default) rewrites LF to
-# CRLF on checkout. The next `npm run build` writes LF back, and dist/ shows as
-# modified — which blocks `git pull` on any machine that has run setup.bat,
-# naming files the user never edited.
+# CE QUI ARRIVE VRAIMENT, mesuré plutôt que supposé. Sous Windows, un build
+# rend un bundle IDENTIQUE au bit près — mêmes noms d'assets, donc même
+# contenu — et un dist/index.html qui diffère sur TOUTES ses lignes à la fois.
+# C'est la signature d'une fin de ligne et de rien d'autre : vite écrit ce
+# fichier avec la fin de ligne de la plateforme, LF sous Linux, CRLF sous
+# Windows.
 #
-# This file lives beside dist/, not inside it: `vite build` empties the output
-# directory, so a .gitattributes placed within dist/ is deleted by every build.
+# La version précédente de ce fichier posait `-text` sur tout dist/, en
+# supposant l'inverse : que git réécrivait LF en CRLF au checkout et que vite
+# remettait LF. Mais `-text` empêche justement git de convertir quoi que ce
+# soit au checkout — le CRLF ne pouvait donc venir que de vite. Et `-text`
+# étant « compare octet pour octet », il GARANTISSAIT que la différence
+# ressorte au lieu de l'absorber. La règle visait juste, dans la mauvaise
+# direction.
+#
+# Ce fichier vit à côté de dist/, pas dedans : `vite build` vide le dossier de
+# sortie, donc un .gitattributes placé dans dist/ serait supprimé à chaque
+# build.
+
+# Les bundles et les feuilles de style : jamais convertis. Un .js minifié peut
+# contenir un \r à l'intérieur d'une chaîne, et le normaliser corromprait le
+# fichier livré.
 dist/** -text
+
+# index.html : normalisé en LF. git le stocke et le restitue en LF, et surtout
+# ramène le fichier de travail en LF avant de le comparer — un index.html
+# réécrit en CRLF par vite ne ressort donc plus comme modifié. Cette ligne est
+# APRÈS la précédente : la dernière règle qui correspond l'emporte.
+dist/index.html text eol=lf
