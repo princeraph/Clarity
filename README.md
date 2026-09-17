@@ -37,7 +37,7 @@ règle dans Réglages → *Assistant IA* sans toucher au code.
 
 ```bash
 cd app
-npm run setup      # première fois : dépendances, build du frontend, icônes
+npm run setup      # première fois : dépendances des trois paquets + build du frontend
 npm start          # lance l'application Electron
 ```
 
