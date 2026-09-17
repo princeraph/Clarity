@@ -87,6 +87,31 @@ describe('deriveInsights', () => {
     expect(overall.category).toBe('strengths');
   });
 
+  // Les trois issues de estimationBias sont under, accurate et over. Les deux
+  // premières produisaient un constat ; la troisième ne produisait RIEN, et les
+  // tests avaient exactement le même angle mort — ce qui est la raison pour
+  // laquelle personne ne l'avait vu. Quelqu'un qui met systématiquement de la
+  // marge dans ses estimations (ratio ≤ 0,80) voyait donc un profil vide à
+  // jamais, avec des données plein le disque.
+  test('over-estimation is reported too, as a trait rather than a verdict', () => {
+    const observed = computeObserved(tasksWith(8, { estimatedDuration: 100, timeTracked: 50 }), { now: new Date('2026-09-10T00:00:00Z') });
+    expect(observed.estimation.bias).toBe('over');
+    const overall = deriveInsights(observed).find(i => i.key === 'observed:estimation:overall');
+    expect(overall).toBeDefined();
+    expect(overall.category).toBe('traits');
+    expect(overall.evidence[0].ref).toBe('observed.estimation.medianRatio');
+    expect(validateInsight(overall)).toBeNull();
+  });
+
+  test('every bias outcome says something — none of the three is mute', () => {
+    const pour = (est, suivi) => deriveInsights(
+      computeObserved(tasksWith(8, { estimatedDuration: est, timeTracked: suivi }), { now: new Date('2026-09-10T00:00:00Z') })
+    ).find(i => i.key === 'observed:estimation:overall');
+    expect(pour(100, 200)).toBeDefined();   // under
+    expect(pour(100, 102)).toBeDefined();   // accurate
+    expect(pour(100, 50)).toBeDefined();    // over
+  });
+
   test('handles a null observed layer', () => {
     expect(deriveInsights(null)).toEqual([]);
   });
