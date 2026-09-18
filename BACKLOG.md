@@ -116,3 +116,76 @@ le nouveau. Plus `CONTRIBUTING.md`, qui ouvre sur cette règle-là précisément
 **Source de vérité : ce dépôt.** Le sens de retour vers Personal-Work est
 décrit en fin de `CONTRIBUTING.md` (`git subtree pull`). Les corrections de
 l'ami arrivent par pull request ici.
+
+---
+
+## 3. La boucle du profil ne pouvait pas se fermer — FAIT
+
+Les étapes 2b, 3 et 4 — élicitation, fils de suivi, suggestions — reposent
+toutes sur le profil, et le profil sur ses métriques. La métrique phare, le
+biais d'estimation, exige par tâche une **estimation** ET un **temps mesuré**,
+sur cinq tâches (`MIN_SAMPLES`). Trois défauts en série empêchaient d'y
+arriver, chacun invisible seul.
+
+**1. Aucun champ pour l'estimation.** `estimatedDuration` n'apparaissait pas une
+seule fois dans `TaskForm.jsx`. La seule entrée était la syntaxe `~2h` de la
+saisie rapide. Le champ existe maintenant (nombre + unité), entre Récurrence et
+Livrable.
+
+**2. La saisie rapide ne comprenait que l'anglais** — et plantait à
+l'ouverture. `SearchCapture` appelait `t()` dix-sept fois sans `useLocale()` :
+Ctrl+K levait « t is not defined » dans la version publiée. Le contrôle des
+locales, fait pour attraper exactement ça, ne le voyait pas : son motif exigeait
+la parenthèse fermante des paramètres sur la même ligne, et ce composant
+destructure ses props sur deux. Son corps était donc rattaché à la fonction
+précédente, qui a le hook. **Le trou se masquait lui-même et le contrôle
+annonçait « aucun écart ».** Il compte les parenthèses maintenant.
+
+**3. Une des trois issues du biais ne disait jamais rien.** `estimationBias`
+rend `under`, `accurate` ou `over` ; `deriveInsights` traitait les deux
+premières. Quelqu'un qui met de la marge dans ses estimations (ratio ≤ 0,80)
+pouvait chronométrer cinquante tâches et voir un profil vide à jamais — la
+confusion même que `MIN_SAMPLES` existe pour éviter, réintroduite un étage plus
+haut. Les tests avaient le même angle mort, ce qui explique qu’il soit passé
+inaperçu.
+
+**Mesuré de bout en bout**, cinq tâches estimées à 60 min et chronométrées :
+
+```
+timer start → stop        timeTracked = 1 min
+×5                        samples=5, enough=true, bias=over
+constat                   traits | « You finish in about 0.02× the time you
+                          plan » | confiance 0,6 | preuve
+                          observed.estimation.medianRatio
+```
+
+Avant la correction : zéro constat sur les mêmes données.
+
+**Piège de lecture, pour la prochaine session.** `understanding` est structuré
+**par catégorie** — `traits`, `drivers`, `blockers`, `strengths`, `skills`,
+`context`. Il n'y a pas de tableau `insights`. J'ai cru la tuyauterie cassée
+pendant vingt minutes en lisant un champ qui n'existe pas.
+
+---
+
+## 4. Ce qui reste ouvert
+
+**Pas de lanceur de tests côté frontend.** `splitEstimate` / `joinEstimate`
+(`TaskForm.jsx`) sont vérifiées, pas gardées. Les deux contrôles maison
+(`verifier-locales.mjs`, `verifier-saisie.mjs`) couvrent leur domaine, mais rien
+ne teste un composant React. À décider si ça vaut la dépendance.
+
+**`generateJSON` ne diffuse toujours pas.** Les trois appels non diffusés
+(analyse, élicitation, pistes d'un fil) sont bornés à 840, 700 et 300 jetons et
+affichent tous un indicateur. À ~80 jetons/s, ça fait une dizaine de secondes
+muettes. Perception seulement.
+
+**L'installateur n'a jamais été produit.** `npm run build` lance
+`electron-builder` avec une configuration NSIS présente dans `package.json`,
+jamais exécutée. C'est ce qui rendrait Clarity installable sans environnement de
+développement.
+
+**Le biais par domaine ne rapporte que `under`.** `deriveInsights` filtre
+`v.bias !== 'under'` dans sa boucle `byArea`, là où le global couvre désormais
+les trois cas. Volontaire pour l'instant — les blocages par domaine sont les
+actionnables — mais l'asymétrie est à assumer ou à lever.

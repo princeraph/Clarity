@@ -67,6 +67,8 @@ below the taskbar depending on which half of the screen the icon sits in.
 - **SearchCapture** is the command palette, and it both **creates and finds**. `parseInput()` strips `#tag`, a `for 2h` / `~30m` duration and natural-language dates off the title; the same overlay searches existing tasks, navigates views (`onNavigate`) and opens the chat (`onOpenChat`). It replaced the older capture-only `QuickCapture`, which no longer exists.
 - **TrayMenu** renders in the tray popup only, never inside `<App />`. It carries its **own always-dark palette** (a local `C` object, not `T`) because the popup sits against the Windows taskbar whatever the app theme is — it is the one deliberate exception to the "all colours from `T`" rule.
 
+- **`src/lib/saisie.js` — the quick-capture grammar, both languages, always.** `parseInput(text, now)` is pure and takes `now` as an argument, which is what makes it verifiable without waiting for Tuesday. It used to live inline in `SearchCapture.jsx` in English literals (`for`, `today`, `monday`) inside an interface that translates — so a French user typed into a French box that only English understood. French day abbreviations are deliberately absent: `mer` and `dim` are ordinary words, and "aller à la mer" would silently become a Wednesday deadline with the word eaten. `tools/verifier-saisie.mjs` holds 23 cases across both languages, including those traps, and runs in `qualite.json` and CI.
+
 ### Backend (`backend/server.js`)
 
 Single Express file. All routes, business logic, AI calls, and file I/O live here.
@@ -163,6 +165,10 @@ Single Express file. All routes, business logic, AI calls, and file I/O live her
 - **renderMarkdown** (WeeklySummaryView): uses function replacers `(_, g) => \`...\${g}...\`` — never string replacement patterns like `'$1'`, which JS interprets and breaks if AI output contains `$1`/`$&`.
 - **One bundle serves both windows**: anything added to `main.jsx` — a provider, a global listener, an import with side effects — also runs inside the tray popup. Keep window-specific work behind the `isTray` branch, and remember that a heavy import added there is paid twice.
 - **`dist/` is versioned on purpose** and Electron loads it at runtime (`getFrontendPath()`), so the app runs from a bare clone with no build step. After changing anything under `frontend/src/`, run `npm run build` in `frontend/` and commit the rebuilt `dist/` in the same commit — otherwise the app keeps shipping the old code while the source looks correct.
+
+- **Setup must never regenerate a versioned artifact.** `setup.bat` and `npm run setup` install dependencies and nothing else. They used to rebuild `frontend/dist/` and re-render `build/icon.*` — both already in git, both already CI-verified. Regenerating them produced nothing new, and dirtied a tracked directory: the next `git pull` was refused, naming files the user never touched. An install that blocks the next update is worse than the step it claims to save. Rebuilding is for someone who changed sources (`npm run build:frontend`), which is a different act.
+
+- **`dist/index.html` is normalised to LF** (`app/frontend/.gitattributes`). Vite writes it with the platform's line ending — LF on Linux, CRLF on Windows — while the bundle comes out byte-identical either way. Without `text eol=lf`, a Windows build shows every line of that one file as changed. The bundles stay `-text`: a minified `.js` can hold a `\r` inside a string, and normalising it would corrupt what ships. Measured, not assumed: same asset hashes, 14 of 14 lines differing.
 
 ## Calendar integration
 
