@@ -1,14 +1,17 @@
 # Clarity — AI Task Manager
 
-Windows-first Electron + React task manager with a local AI backend. The app lives in `projet-clarity/app/`.
+Windows-first Electron + React task manager with a local AI backend. The app lives in `app/`.
 
-This file documents **Clarity only** — the repo hosts several unrelated projects, one per `projet-*` folder. See the repo-root `README.md` for the map.
+This repo holds **Clarity and nothing else** — it was extracted from a
+multi-project repo, and this file used to say so; `README.md` is the entry point
+for a reader, `CONTRIBUTING.md` the rules for a contributor, `JOURNAL.md` the
+record of what was done and measured.
 
 ## How to run
 
 ```bash
-# From projet-clarity/app/
-npm run setup      # first time only — installs deps, builds frontend, generates icons
+# From app/
+npm run setup      # first time only — installs dependencies, nothing else
 npm start          # launches Electron app
 
 # During development (hot-reload)
@@ -21,7 +24,7 @@ Or on Windows: double-click `start.bat`.
 ## Architecture
 
 ```
-projet-clarity/app/
+app/
   frontend/   React (Vite) — src/main.jsx is the entry, src/App.jsx the main root
   backend/    Express — server.js is the single entry point
   electron/   Electron shell — preload.js + main.js
