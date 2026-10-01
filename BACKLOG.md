@@ -3,6 +3,9 @@
 Deux demandes posées pendant le développement de l'étape 3, notées ici plutôt
 que laissées à la mémoire d'une conversation.
 
+Ce fichier ne garde que **ce qui n'est pas réglé** — § 4. Ce qui a été fait, et
+ce que ça a appris, est dans `JOURNAL.md`.
+
 ---
 
 ## 1. ~~Le modèle local est très lent~~ — fait, et mesuré sur la vraie machine

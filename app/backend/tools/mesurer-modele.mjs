@@ -11,7 +11,7 @@
 //   ÉCRITURE    le temps de produire la réponse. Croît avec sa LONGUEUR, et
 //               c'est presque toujours là que passe le temps.
 //
-// Lancer depuis projet-clarity/app/backend :
+// Lancer depuis app/backend :
 //     node tools/mesurer-modele.mjs
 //     node tools/mesurer-modele.mjs --froid    (décharge d'abord, pour voir le coût réel d'un chargement)
 

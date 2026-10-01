@@ -8,6 +8,9 @@ pensée pour Windows d'abord.
 | `app/` | Le code complet — `frontend/` (React + Vite), `backend/` (Express), `electron/` (shell) |
 | `design-handoff/` | Références de design : 31 maquettes `.jsx`, jetons, spécimen typographique, plus son propre `CLAUDE.md` de conventions visuelles |
 | `CLAUDE.md` | Spec technique : architecture, modèle de données, endpoints, invariants |
+| `CONTRIBUTING.md` | Les règles pour y toucher — dont celle qui casse le plus vite : `dist/` se recommite avec `src/` |
+| `JOURNAL.md` | Ce qui a été fait et mesuré, session par session — le point d'entrée pour une relecture |
+| `BACKLOG.md` | Ce qui reste ouvert, sans rien cacher |
 
 `design-handoff/` était auparavant dans `app/`, où rien ne le référençait :
 `electron-builder` ne l'embarque pas (voir `files` et `extraResources` dans
@@ -62,8 +65,8 @@ Le code vient de la branche aujourd'hui gelée sous
 `archive/project-organization-app-wYkaf`, où il est resté non fusionné.
 `CLAUDE.md` se trouvait à la racine du dépôt, où il décrivait
 ce projet comme s'il documentait le dépôt entier ; il est maintenant à côté du
-code qu'il décrit. Sa section « Git » et ses chemins ont été corrigés depuis :
-elle pointe `main` et `projet-clarity/app/`.
+code qu'il décrit. Sa section « Git » et ses chemins pointent ce dépôt-ci et
+`app/`.
 
 ## Ancêtre abandonné
 

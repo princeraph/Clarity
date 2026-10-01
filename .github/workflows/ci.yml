@@ -1,9 +1,9 @@
 # Portée : ce dépôt.
 #
-# Ce fichier est inerte dans Personal-Work — GitHub ne lit les workflows qu'à la
-# racine d'un dépôt, et ici il est dans projet-clarity/. Il devient actif dans
-# le dépôt extrait, où ce dossier EST la racine. C'est la seule façon de faire
-# voyager la CI avec l'extraction.
+# Il a été écrit dans Personal-Work, sous projet-clarity/, où GitHub ne le lisait
+# pas — les workflows ne sont lus qu'à la racine d'un dépôt. C'était voulu : le
+# seul moyen de faire voyager la CI avec l'extraction. Depuis, ce dossier EST la
+# racine, et le workflow tourne.
 name: qualité
 
 on:

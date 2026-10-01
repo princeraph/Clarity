@@ -119,12 +119,21 @@ comptage, jamais comme une conclusion.
 
 ---
 
-## Remonter les corrections vers Personal-Work
+## Le lien avec Personal-Work est coupé — et doit le rester
 
-Ce dépôt est la source de vérité pour Clarity. Pour ramener son état dans
-Personal-Work :
+Ce dépôt est la source de vérité pour Clarity, et la **seule**. Personal-Work a
+supprimé son dossier `projet-clarity/`, retiré les deux invariants qui le
+citaient et consigné le départ dans son README. Il n'y a plus rien à
+synchroniser.
 
-```bash
-# depuis Personal-Work
-git subtree pull --prefix=projet-clarity <url-de-ce-dépôt> main --squash
-```
+Une version précédente de ce fichier donnait ici une commande
+`git subtree pull --prefix=projet-clarity` pour « remonter les corrections ».
+**Ne pas la relancer.** Elle recréerait le dossier, donc le projet, dans un
+dépôt privé qui contient la logistique d'un mariage et des coordonnées
+bancaires — ce dont l'extraction visait précisément à sortir Clarity, pour
+qu'on puisse l'ouvrir à un relecteur sans ouvrir le reste. Reprendre la
+synchronisation annulerait ça sans rien dire.
+
+L'historique d'avant l'extraction reste lisible des deux côtés : il est complet
+ici, et Personal-Work en garde sa part. Aucun des deux dépôts ne dépend plus de
+l'autre.
