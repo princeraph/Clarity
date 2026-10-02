@@ -220,7 +220,7 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx) and are sorted by `aiData.p
 - **Remote**: `princeraph/clarity` — Clarity is the whole repo, at its root
 - **Production branch**: `main`
 - **Author**: `git config user.email noreply@anthropic.com && git config user.name Claude`
-- Work on a `claude/*` branch, then merge into `main`
+- Work on a `claude/*` branch, then merge into `main` — **only once CI is green on that branch, the `windows` job included.** The user pulls from `main` and is the only other Windows machine; before this job existed, every Windows-only defect (`Update.bat` rebuilding `dist/`, a CRLF line in `dist/index.html`) was found by the user, mid-update. The job replays `Update.bat`'s steps, installs silently, starts the installed backend, and rebuilds `dist/` to check it is byte-identical to the committed one.
 - Every commit must rebuild `app/frontend/dist/` when `app/frontend/src/` changes,
   in the **same** commit — see `CONTRIBUTING.md`, it is the rule that breaks
   fastest and shows least
