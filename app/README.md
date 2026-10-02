@@ -16,54 +16,36 @@ Or on Windows, double-click **start.bat**.
 
 ---
 
-## Mobile Testing via ngrok Tunnel
+## Using an Ollama that runs on another machine
 
-Clarity's backend can be exposed to your phone or other devices through an ngrok tunnel. This lets you use the web UI from a mobile browser without deploying anything.
+**Ollama Endpoint** and **Tunnel Secret** in Settings → AI Assistant, pointed
+at a tunnel, are for one thing: reaching an Ollama that runs somewhere else — a more powerful PC, say.
+The tunnel is **outbound**. Clarity calls it; nothing exposes Clarity itself.
 
-### Prerequisites
+1. On the machine running Ollama, put a tunnel in front of port **11434** (see
+   Ollama's FAQ for ngrok — it needs the Host header rewritten).
+2. Make the tunnel check a secret. Clarity sends
+   `Authorization: Bearer <secret>` on every request to the model, but **sending
+   it protects nothing unless the tunnel refuses requests without it** (an ngrok
+   traffic policy, or a reverse proxy). An unchecked URL is open to anyone who
+   finds it.
+3. In Clarity → Settings, set **Ollama Endpoint** to the tunnel's URL and
+   **Tunnel Secret** to the secret.
 
-1. Install ngrok: https://ngrok.com/download
-2. Sign up for a free ngrok account and copy your authtoken.
-3. Authenticate ngrok once:
-   ```bash
-   ngrok config add-authtoken <YOUR_AUTHTOKEN>
-   ```
+To go back to local use, set **Ollama Endpoint** to `http://localhost:11434`.
 
-### Step 1 — Start the backend
+### Never tunnel port 3001
 
-```bash
-cd backend && node server.js
-```
+Port 3001 is Clarity's own API. It has **no authentication** and serves the
+whole task store, the profile and the journal. It binds to `127.0.0.1` and
+refuses any `Host` header that is not its own (`src/security/host.js`), so a
+tunnel to it answers `403` — by design. Do not work around it.
 
-The backend listens on port **3001**.
-
-### Step 2 — Start the tunnel
-
-```bash
-ngrok http 3001
-```
-
-ngrok prints a public HTTPS URL like `https://abc123.ngrok-free.app`.
-
-### Step 3 — Secure the tunnel with a secret
-
-By default anyone with the URL can reach your Ollama instance. Add a Bearer token:
-
-1. Choose any random secret string, e.g. `openssl rand -hex 16`.
-2. Start ngrok with a request header that validates the token — **or** simply treat the secret as a shared password you pass in Settings (Clarity attaches it as `Authorization: Bearer <secret>` on every request).
-3. In Clarity → **Settings**, set:
-   - **LLM Endpoint URL**: `https://abc123.ngrok-free.app`
-   - **Tunnel Secret**: your chosen secret
-
-> **Security note:** The tunnel secret is stored in `settings.json` inside your app's data directory and is never exposed in the UI (shown as `••••••••`). Only share the URL + secret with devices you trust. Rotate the secret whenever you stop a tunnel session.
-
-### Step 4 — Open the frontend on your phone
-
-Navigate to `http://<your-computer-local-ip>:5173` on your phone's browser (when running with Vite dev server), or serve the built `frontend/dist/` folder with any static file server.
-
-### Stopping the tunnel
-
-Press `Ctrl+C` in the ngrok terminal. The public URL becomes invalid immediately. Reset **LLM Endpoint URL** in Settings back to `http://localhost:11434` for normal local use.
+An earlier version of this page described exactly that: `ngrok http 3001`, then
+opening the interface from a phone. It mixed two flows, would have put the
+API on a public URL, and could not have worked anyway — the interface calls
+`http://localhost:3001`, which on a phone is the phone. Clarity has no mobile
+access today.
 
 ---
 
@@ -83,8 +65,13 @@ npm test   # from root, or: cd backend && npm test
 ## Building for distribution
 
 ```bash
-npm run build       # builds frontend then packages with electron-builder
+npm run build       # builds frontend, stages the backend, packages with electron-builder
 ```
+
+`tools/preparer-backend.mjs` copies the backend into `.backend-pkg/` (git-ignored)
+and installs its **production** dependencies there. The installer takes the
+backend from that folder, and runs it with Electron's own Node
+(`ELECTRON_RUN_AS_NODE`) — the user's PC needs no Node.js.
 
 Output goes to `dist-electron/`. Supported targets:
 - **Windows**: NSIS installer (x64)

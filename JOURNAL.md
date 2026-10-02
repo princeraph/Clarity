@@ -10,11 +10,10 @@ qu'estimés. Trois fichiers se partagent le travail et ne se recouvrent pas :
 
 ---
 
-## État au 1er octobre 2026
+## État au 2 octobre 2026
 
     dépôt            princeraph/clarity (privé) · branche de production : main
-    historique       52 commits, 138 fichiers suivis
-    tests backend    205, en 9 suites — 1,5 s
+    tests backend    218, en 10 suites — 1,5 s
     contrôles        4, déclarés dans app/qualite.json
     intégration      .github/workflows/ci.yml, verte
     build requis     aucun — frontend/dist/ est versionné, l'app tourne d'un clone nu
@@ -22,7 +21,7 @@ qu'estimés. Trois fichiers se partagent le travail et ne se recouvrent pas :
 Les quatre contrôles, reproductibles tels quels :
 
 ```bash
-cd app/backend  && npm install && npm test        # 205 tests
+cd app/backend  && npm install && npm test        # 218 tests
 cd app          && node tools/verifier-paquet.mjs frontend/dist
 cd app/frontend && node tools/verifier-locales.mjs    # 2 langues, 555 clés, 33 fichiers
 cd app/frontend && node tools/verifier-saisie.mjs     # 23 cas, 2 langues
@@ -203,6 +202,47 @@ qu'elles sont exactes : l'extraction dans `BACKLOG.md`, les chemins en dur des
 lanceurs dans `CONTRIBUTING.md`, et la note de `CLAUDE.md` qui explique pourquoi
 l'historique d'avant l'extraction dit `projet-clarity/app/` là où ce dépôt dit
 `app/`.
+
+## 2 octobre 2026 — un audit extérieur, vérifié avant d'être appliqué
+
+Un audit a relu le dépôt et livré un correctif pour trois défauts. Chacun a été
+reproduit **avant** d'être corrigé :
+
+- **N'importe quelle page web pouvait lire les tâches** (rebinding DNS). L'API
+  écoute sur `127.0.0.1` et refuse les origines étrangères — mais un domaine
+  hostile peut se faire pointer vers 127.0.0.1, ses requêtes deviennent alors
+  de même origine, et un GET de même origine n'envoie pas d'`Origin`. Mesuré :
+  `Host: evil.example:3001` → **200**. Corrigé par une liste de `Host` admis,
+  avant toute route : **403**. Garde cassé exprès, un test échoue ; rétabli,
+  13/13.
+- **L'installateur aurait lancé le backend avec le Node de l'utilisateur** —
+  donc, sur un PC normal, avec rien. Il prend maintenant le binaire d'Electron
+  en mode Node.
+- **L'installateur aurait livré le backend sans ses dépendances.** Reproduit
+  avec l'ancienne disposition : `Cannot find package 'express'`. Le backend est
+  désormais préparé à part, dépendances de production seules, et le script
+  échoue si `express` manque ou si `jest` s'y glisse. Vérifié : ce paquet,
+  lancé par le binaire d'Electron, sert `/api/tasks`.
+
+Les deux derniers n'avaient jamais été vus pour une raison simple : aucun
+installateur n'avait jamais été construit. Un emballage jamais essayé cache ses
+défauts.
+
+**Ce que l'audit n'avait pas vu, et qui était pire.** Son correctif gardait une
+porte ouverte — une variable `CLARITY_ALLOWED_HOSTS` « pour le flux ngrok
+documenté ». En remontant à ce flux : `app/README.md` disait de lancer
+**`ngrok http 3001`**, c'est-à-dire de publier sur une URL publique l'API sans
+authentification qui détient les tâches, le profil et le journal. Le même texte
+confondait deux usages — le vrai réglage de tunnel sert à joindre un Ollama
+**distant**, dans l'autre sens — et ne pouvait de toute façon pas marcher :
+l'interface appelle `http://localhost:3001`, qui sur un téléphone est le
+téléphone. La porte est retirée, la section réécrite pour le seul usage réel,
+avec un avertissement : ne jamais tunneler le port 3001.
+
+Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
+qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
+ne protège pas contre un programme du même compte, qui lit les fichiers
+directement.
 
 ---
 

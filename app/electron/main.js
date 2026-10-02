@@ -28,11 +28,17 @@ function getFrontendPath() {
 }
 
 function startBackend() {
-  backendProcess = spawn('node', [getBackendPath()], {
+  // Electron's own binary, run as plain Node. Spawning 'node' used whatever Node
+  // the user had installed — on a normal PC, none, and the packaged app opened
+  // an empty window with no backend behind it. ELECTRON_RUN_AS_NODE makes the
+  // Electron executable behave as the Node runtime it embeds, so the installer
+  // carries everything the backend needs.
+  backendProcess = spawn(process.execPath, [getBackendPath()], {
     windowsHide: true,
     stdio: 'pipe',
     env: {
       ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
       CLARITY_DATA_DIR: path.join(app.getPath('userData'), 'data'),
     },
   });

@@ -186,9 +186,42 @@ muettes. Perception seulement.
 **L'installateur n'a jamais été produit.** `npm run build` lance
 `electron-builder` avec une configuration NSIS présente dans `package.json`,
 jamais exécutée. C'est ce qui rendrait Clarity installable sans environnement de
-développement.
+développement. Le 2 octobre, deux défauts qui l'auraient livré cassé ont été
+corrigés sans lui (backend lancé avec le Node du système, dépendances du backend
+exclues — voir `JOURNAL.md`). Reste à le **construire sous Windows** et à
+l'essayer sur une machine sans Node : c'est le seul test qui confirme le
+lancement empaqueté de bout en bout.
 
 **Le biais par domaine ne rapporte que `under`.** `deriveInsights` filtre
 `v.bias !== 'under'` dans sa boucle `byArea`, là où le global couvre désormais
 les trois cas. Volontaire pour l'instant — les blocages par domaine sont les
 actionnables — mais l'asymétrie est à assumer ou à lever.
+
+### Proposés par l'audit du 2 octobre, pas encore faits
+
+Classés par ce qu'ils protègent réellement, pas par l'étiquette de l'audit.
+
+**Electron 28 n'est plus maintenu** (Chromium sans correctifs). À monter avant
+toute diffusion. Le risque immédiat est réduit — l'app ne charge que ses propres
+fichiers, navigation verrouillée — mais il ne doit pas partir chez quelqu'un
+d'autre. Demande un essai à la main sous Windows (deux fenêtres, plateau,
+instance unique, notifications) : à faire avec la construction de
+l'installateur, pas avant.
+
+**La clé d'API cloud est en clair dans `settings.json`.** Réel, mais à mesurer :
+seuls les fournisseurs cloud en ont une, et l'usage par défaut est Ollama, sans
+clé. La correction (`safeStorage`, la clé tenue par le processus principal) est
+propre et coûte 2–3 h. Avant de vendre, oui ; pas urgent pour l'usage actuel.
+
+**Un jeton d'API par lancement.** L'audit le classe « High » contre « n'importe
+quel processus local ». C'est surévalué : un programme qui tourne sous le même
+compte lit `%APPDATA%\Clarity\data\tasks.json` directement, jeton ou pas. Ce que
+le jeton protège vraiment, c'est l'accès depuis un **autre compte Windows** de
+la même machine — le port 3001 leur est ouvert. Cas réel sur un PC partagé, rare
+sinon. Coût : ~50 appels `fetch` dans 15 fichiers, plus un jeton dans l'URL des
+sauvegardes. À faire si Clarity vise des postes partagés.
+
+**Montrer la progression vers le premier constat.** Un nouvel utilisateur voit
+une vue Motifs vide tant qu'il n'a pas cinq tâches estimées et chronométrées.
+Une carte « 2 sur 5 » coûte une à deux heures et ne touche que le frontend.
+C'est le moins cher des quatre et le seul qui change l'expérience.
