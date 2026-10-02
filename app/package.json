@@ -1,5 +1,6 @@
 {
   "name": "clarity",
+  "productName": "Clarity",
   "version": "1.2.0",
   "description": "AI-powered personal task manager",
   "author": "Clarity",
@@ -10,12 +11,12 @@
     "build": "npm run build:frontend && node tools/preparer-backend.mjs && electron-builder",
     "prepare:backend": "node tools/preparer-backend.mjs",
     "generate-icons": "node scripts/generate-icon.js",
-    "setup": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "setup": "npm install && npx install-electron && cd backend && npm install && cd ../frontend && npm install",
     "test": "cd backend && npm test"
   },
   "devDependencies": {
-    "electron": "^28.1.0",
-    "electron-builder": "^24.9.1"
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3"
   },
   "build": {
     "appId": "com.clarity.app",
@@ -29,8 +30,10 @@
       "electron/**/*",
       "node_modules/**/*"
     ],
+    "afterPack": "tools/verifier-empaquetage.js",
     "extraResources": [
       { "from": ".backend-pkg", "to": "backend", "filter": ["**/*"] },
+      { "from": ".backend-pkg/node_modules", "to": "backend/node_modules" },
       { "from": "frontend/dist", "to": "frontend/dist" },
       { "from": "build", "to": "build" }
     ],

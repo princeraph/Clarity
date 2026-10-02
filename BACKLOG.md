@@ -203,12 +203,12 @@ actionnables — mais l'asymétrie est à assumer ou à lever.
 
 Classés par ce qu'ils protègent réellement, pas par l'étiquette de l'audit.
 
-**Electron 28 n'est plus maintenu** (Chromium sans correctifs). À monter avant
-toute diffusion. Le risque immédiat est réduit — l'app ne charge que ses propres
-fichiers, navigation verrouillée — mais il ne doit pas partir chez quelqu'un
-d'autre. Demande un essai à la main sous Windows (deux fenêtres, plateau,
-instance unique, notifications) : à faire avec la construction de
-l'installateur, pas avant.
+**~~Electron 28 n'est plus maintenu~~ — monté à 44 le 2 octobre** (voir
+`JOURNAL.md`). Vérifié ici, dans la vraie app : écran identique, saisie rapide,
+pont de la fenêtre, 218 tests sur le Node embarqué, paquet complet. **Reste
+l'essai à la main sous Windows** : boutons de fenêtre (agrandir ne se teste pas
+sans gestionnaire de fenêtres), plateau, notifications, instance unique entre
+l'app installée et la version dev.
 
 **La clé d'API cloud est en clair dans `settings.json`.** Réel, mais à mesurer :
 seuls les fournisseurs cloud en ont une, et l'usage par défaut est Ollama, sans
@@ -227,3 +227,20 @@ sauvegardes. À faire si Clarity vise des postes partagés.
 une vue Motifs vide tant qu'il n'a pas cinq tâches estimées et chronométrées.
 Une carte « 2 sur 5 » coûte une à deux heures et ne touche que le frontend.
 C'est le moins cher des quatre et le seul qui change l'expérience.
+
+### Relevés en passant, le 2 octobre
+
+**L'app promet « no cloud, no spying » et contacte Google à chaque lancement.**
+`frontend/index.html` charge ses polices depuis `fonts.googleapis.com` : chaque
+ouverture envoie l'adresse IP de l'utilisateur à Google. Hors ligne, l'app
+retombe sur les polices système, donc rien ne casse — mais la promesse affichée
+sur le premier écran est fausse tant que les polices ne sont pas embarquées dans
+`dist/`. Peu coûteux à corriger ; à faire avant de montrer l'app à quelqu'un.
+
+**`npm audit` signale 3 failles « moderate » dans ce qui est livré.** `uuid` ne
+concerne que les versions v3/v5/v6 appelées avec un tampon — Clarity n'utilise
+que `v4`. `body-parser` et `qs` permettent de faire tomber un serveur ; celui-ci
+n'écoute que la machine et refuse tout `Host` étranger. Aucune n'est exploitable
+aujourd'hui ; un `npm audit fix` (sans `--force`) dans `backend/` les ferait
+probablement taire. Les alertes affichées par `npm run setup` concernent surtout
+les outils de construction, qui ne sont pas livrés.

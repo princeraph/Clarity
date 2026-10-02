@@ -8,6 +8,12 @@ cd /d "%~dp0"
 
 echo  [1/4] Installing Electron...
 call npm install
+REM  Depuis Electron 42, "npm install" ne telecharge plus le moteur d'Electron
+REM  (~110 Mo) : il se telecharge au PREMIER lancement. Or Clarity.vbs lance
+REM  l'app dans une fenetre cachee - ce premier lancement durerait une a deux
+REM  minutes sans rien afficher, et ressemblerait a une app cassee. On le
+REM  telecharge donc ici, ou l'on voit ce qui se passe. Sans effet s'il est la.
+call npx install-electron
 echo.
 
 echo  [2/4] Installing backend...
@@ -50,8 +56,8 @@ echo.
 
 echo  ============================================
 echo   Setup complete!
-echo   A Clarity shortcut has been added to your
-echo   Desktop. Double-click it to launch Clarity.
+echo   A "Clarity (dev)" shortcut has been added to
+echo   your Desktop: it runs Clarity from this folder.
 echo  ============================================
 echo.
 pause

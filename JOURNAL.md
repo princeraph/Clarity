@@ -262,6 +262,47 @@ l'installateur à quelqu'un : un Windows vierge (SmartScreen sur un fichier
 téléchargé, aucune trace de développement), et Electron 28, toujours en
 place.
 
+## 2 octobre, suite — Electron 44, et une seule Clarity à la fois
+
+**Electron 28 → 44, electron-builder 24 → 26.** Seules 42 à 44 reçoivent encore
+des correctifs. La liste officielle des changements cassants de 29 à 44 a été
+croisée avec chaque API qu'utilise Clarity : aucune n'est touchée. Puis vérifié
+plutôt que supposé, en lançant la **vraie** app (Playwright pilote Electron) sur
+les deux versions, mêmes données :
+
+    même écran principal, 8 tâches, 2 fenêtres, pont preload actif
+    Ctrl+K « Tester Electron demain ~30m » → tâche créée, échéance le
+    lendemain, 30 min — identique sur 28 et sur 44
+    218 tests du backend, sur le Node 24 embarqué par Electron 44
+
+Deux pièges, trouvés par la mesure :
+
+- **Depuis Electron 42, `npm install` ne télécharge plus Electron** : le premier
+  lancement s'en charge. `Clarity.vbs` lance en fenêtre cachée — ce premier
+  lancement aurait duré une à deux minutes sans rien montrer. L'installation
+  appelle maintenant `npx install-electron`, là où l'on voit ce qui se passe.
+- **electron-builder 26 a recréé le défaut du matin.** Il jette toujours un
+  `node_modules` placé à la racine d'un `extraResources`, quel que soit le
+  filtre : le paquet n'avait plus `express`. Aucune erreur — le contrôle
+  vérifiait le dossier préparé, qui était complet. Une entrée séparée pour
+  `node_modules` corrige, et un nouveau contrôle `afterPack` inspecte **ce qui
+  sera livré** : retiré exprès, la construction échoue et nomme les trois
+  paquets manquants.
+
+**Une seule Clarity à la fois.** L'app installée et la version dev
+s'appelaient `Clarity` et `clarity`. Le verrou d'instance unique dépend du nom :
+mesuré, les deux tournaient ensemble, et la seconde utilisait en silence le
+backend de la première — jusqu'à ce qu'elle se ferme. Même nom maintenant : la
+seconde s'efface (0 s, contre « toujours en vie après 20 s » avant). Les deux
+raccourcis du bureau portaient aussi le même nom, `Clarity.lnk` : le dernier
+installé remplaçait l'autre. Celui de la version dev s'appelle désormais
+`Clarity (dev)`.
+
+**`Update.bat` met à jour les deux versions** : fermer Clarity, tirer les
+nouveautés, reconstruire, réinstaller en silence. Il se copie d'abord hors du
+dépôt : `git pull` peut le remplacer pendant qu'il tourne, et cmd reprendrait
+alors au milieu du nouveau fichier. **Pas encore essayé sous Windows.**
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers

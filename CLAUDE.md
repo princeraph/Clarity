@@ -11,7 +11,7 @@ record of what was done and measured.
 
 ```bash
 # From app/
-npm run setup      # first time only — installs dependencies, nothing else
+npm run setup      # first time only — installs dependencies and Electron's binary, nothing else
 npm start          # launches Electron app
 
 # During development (hot-reload)
@@ -43,7 +43,15 @@ Electron opens **two** windows off the same Vite build:
 **Single instance** (`electron/main.js`): the whole startup path sits behind
 `app.requestSingleInstanceLock()`. Two copies meant two backends writing the same
 `tasks.json`, each blind to the other's writes; a second launch now focuses the
-first window instead. **Navigation is locked** on both windows via
+first window instead. **The lock is keyed on the app's name, so the dev app and the
+installed app must have the same one.** They did not: `package.json` had
+`name: "clarity"` (used by `npm start`) and only `build.productName: "Clarity"`
+(used by the installer). Measured with both running: the second copy started
+anyway, its backend hit `EADDRINUSE`, and its window silently used the first
+one's backend — until that one quit. A top-level `productName: "Clarity"` gives
+both the same name and the same data folder; the second launch now steps aside.
+(On Windows and macOS the data folder does not move — case-insensitive. On Linux,
+a dev data folder under `~/.config/clarity` is now looked for under `Clarity`.) **Navigation is locked** on both windows via
 `lockNavigation()` — `will-navigate` is refused and `setWindowOpenHandler`
 denies, with `http(s)` URLs handed to the system browser. Either window
 navigating away would run foreign content in a renderer holding the preload bridge.
@@ -168,6 +176,9 @@ Single Express file. All routes, business logic, AI calls, and file I/O live her
 - **FocusMode key**: always render `<FocusMode key={liveTask.id} ...>` so timer state resets when the active task changes.
 - **renderMarkdown** (WeeklySummaryView): uses function replacers `(_, g) => \`...\${g}...\`` — never string replacement patterns like `'$1'`, which JS interprets and breaks if AI output contains `$1`/`$&`.
 - **One bundle serves both windows**: anything added to `main.jsx` — a provider, a global listener, an import with side effects — also runs inside the tray popup. Keep window-specific work behind the `isTray` branch, and remember that a heavy import added there is paid twice.
+- **Electron 44, electron-builder 26, pinned exactly** (no `^`). Two consequences of the jump from 28/24 that are easy to undo by accident:
+  - Since Electron 42, `npm install` no longer downloads Electron's binary; the first `electron` run does. `npm run setup`, `setup.bat` and `Update.bat` call `npx install-electron` so that download happens where it can be seen — `Clarity.vbs` launches hidden, and a silent two-minute first start looks like a broken app.
+  - electron-builder 26 always drops a `node_modules` folder at the root of an `extraResources` `from`, whatever the filter says. The packaged backend lost express, cors and uuid with no error. Hence the separate `{ from: ".backend-pkg/node_modules" }` entry — and `tools/verifier-empaquetage.js` (`afterPack`), which inspects what will actually ship and fails the build otherwise. Checking the staging folder was not enough: it was complete.
 - **The packaged app carries its own Node.** `startBackend()` spawns `process.execPath` with `ELECTRON_RUN_AS_NODE=1`, never `'node'` — that was the user's system Node, absent on a normal PC: empty window, nothing saved. And the installer takes the backend from `.backend-pkg/`, staged by `tools/preparer-backend.mjs` with production dependencies only; the old `extraResources` filter excluded `node_modules`, and the installed backend died on `Cannot find package 'express'`. Both verified by running the staged backend under Electron's binary. Neither had ever been seen, because no installer had ever been built. The first real build then died at its last step on `"publish": { "provider": "github" }` — a release-publishing config with no repository to resolve and no auto-updater to use it. `"publish": null` says what is true: Clarity is not published from the build.
 - **`dist/` is versioned on purpose** and Electron loads it at runtime (`getFrontendPath()`), so the app runs from a bare clone with no build step. After changing anything under `frontend/src/`, run `npm run build` in `frontend/` and commit the rebuilt `dist/` in the same commit — otherwise the app keeps shipping the old code while the source looks correct.
 
