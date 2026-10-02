@@ -20,8 +20,6 @@ REM
 REM  Ne detruit jamais rien. "git pull --ff-only" refuse au lieu d'ecraser quand
 REM  la copie locale a diverge - ce script se lance en double-clic, sans le lire.
 
-call :clarity_ferme || exit /b 1
-
 echo.
 echo  [1/4] Downloading latest updates...
 git pull --ff-only origin main
@@ -38,6 +36,27 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+
+REM  Rien de neuf depuis la derniere installation reussie : on s'arrete la. Sans
+REM  ce test, chaque lancement reconstruisait et reinstallait tout - plusieurs
+REM  minutes - meme quand "git pull" venait de dire "Already up to date".
+REM  Pour forcer quand meme une reinstallation : supprimer .version-installee.
+for /f %%h in ('git rev-parse HEAD') do set "VERSION=%%h"
+set "DEJA="
+if exist ".version-installee" set /p DEJA=<".version-installee"
+if "%DEJA%"=="%VERSION%" (
+  echo.
+  echo  ============================================
+  echo   Nothing new - Clarity is already up to date.
+  echo  ============================================
+  echo.
+  pause
+  exit /b 0
+)
+
+REM  Fermer Clarity seulement maintenant, quand il y a vraiment quelque chose a
+REM  installer : git pull ne touche pas a ce que l'app ouverte verrouille.
+call :clarity_ferme || exit /b 1
 
 echo.
 echo  [2/4] Checking dependencies...
@@ -66,6 +85,7 @@ for %%f in ("dist-electron\Clarity Setup *.exe") do set "INSTALLEUR=%%f"
 if not defined INSTALLEUR goto :echec
 start /wait "" "%INSTALLEUR%" /S
 if errorlevel 1 goto :echec
+>".version-installee" echo %VERSION%
 
 echo.
 echo  ============================================

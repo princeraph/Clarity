@@ -12,3 +12,6 @@ build/_tmp_icon.svg
 
 # Installer output from `npm run build` (electron-builder) — a build product, never versioned
 dist-electron/
+
+# Commit last installed by Update.bat — lets it skip a rebuild when nothing changed
+.version-installee
