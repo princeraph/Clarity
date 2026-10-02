@@ -237,7 +237,7 @@ retombe sur les polices système, donc rien ne casse — mais la promesse affich
 sur le premier écran est fausse tant que les polices ne sont pas embarquées dans
 `dist/`. Peu coûteux à corriger ; à faire avant de montrer l'app à quelqu'un.
 
-**`npm audit` signale 3 failles « moderate » dans ce qui est livré.** `uuid` ne
+**~~`npm audit` signale 3 failles « moderate » dans ce qui est livré~~ — 0 depuis le 2 octobre** (voir `JOURNAL.md`). `uuid` ne
 concerne que les versions v3/v5/v6 appelées avec un tampon — Clarity n'utilise
 que `v4`. `body-parser` et `qs` permettent de faire tomber un serveur ; celui-ci
 n'écoute que la machine et refuse tout `Host` étranger. Aucune n'est exploitable

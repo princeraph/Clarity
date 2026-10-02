@@ -353,6 +353,16 @@ contrôle a d'abord reproduit la ligne en CRLF de l'utilisateur, puis est passé
 au vert avec la correction. Rien n'est plus fusionné dans `main` avant ce
 vert.
 
+**`npm audit` : 3 failles → 0 dans ce qui est livré.** `body-parser` et `qs`
+corrigés par `npm audit fix` et Express 4.22.3 (même version majeure). `uuid`,
+lui, ne se corrigeait qu'en changeant de version majeure — il a été **retiré** :
+Clarity ne s'en servait que pour fabriquer des identifiants, ce que Node fait
+seul (`crypto.randomUUID()`, même format). Une dépendance de moins à surveiller.
+Les deux contrôles d'empaquetage citaient `uuid` dans une liste écrite à la
+main ; ils lisent maintenant celle de `backend/package.json`. Vérifié : 218
+tests, paquet complet sans `uuid`, et une tâche créée dans la vraie app reçoit
+un identifiant au bon format.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers

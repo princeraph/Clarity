@@ -8,7 +8,7 @@
 //
 // Usage: node tools/preparer-backend.mjs   (run by `npm run build`)
 
-import { cpSync, rmSync, mkdirSync, existsSync } from 'node:fs';
+import { cpSync, rmSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -35,7 +35,10 @@ if (existsSync(seed)) {
 execSync('npm ci --omit=dev --no-audit --no-fund', { cwd: OUT, stdio: 'inherit' });
 
 // Fail the build here rather than on a customer's machine.
-for (const dep of ['express', 'cors', 'uuid']) {
+// The list comes from backend/package.json, not from a copy kept here: a
+// hand-written list would keep naming a package after it is dropped.
+const deps = Object.keys(JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).dependencies || {});
+for (const dep of deps) {
   if (!existsSync(join(OUT, 'node_modules', dep))) throw new Error(`staged backend lacks ${dep}`);
 }
 if (existsSync(join(OUT, 'node_modules', 'jest'))) throw new Error('dev dependency jest leaked into the package');

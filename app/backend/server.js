@@ -3,7 +3,7 @@ import cors from 'cors';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID as uuidv4 } from 'node:crypto';
 import { createProvider } from './src/llm/index.js';
 import { writeJSONAtomic } from './src/storage.js';
 import { createProfileStore } from './src/profile/store.js';
