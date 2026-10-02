@@ -188,10 +188,11 @@ muettes. Perception seulement.
 jamais exécutée. C'est ce qui rendrait Clarity installable sans environnement de
 développement. Le 2 octobre, deux défauts qui l'auraient livré cassé ont été
 corrigés sans lui (backend lancé avec le Node du système, dépendances du backend
-exclues — voir `JOURNAL.md`). Le même jour, **construit pour la première fois sous Windows** :
-`Clarity Setup 1.2.0.exe` produit. Reste à l'**essayer sur une machine sans
-Node** — c'est le seul test qui confirme le lancement empaqueté de bout en
-bout.
+exclues — voir `JOURNAL.md`). Le même jour, **construit pour la première fois sous Windows**, installé et
+lancé : le port 3001 est tenu par `Clarity.exe`, pas par `node.exe` — le
+backend tourne sur le Node d'Electron. Reste, **avant de le confier à
+quelqu'un** : l'essayer sur un Windows vierge (machine virtuelle — Windows
+Famille n'a pas Windows Sandbox), et monter Electron d'abord.
 
 **Le biais par domaine ne rapporte que `under`.** `deriveInsights` filtre
 `v.bias !== 'under'` dans sa boucle `byArea`, là où le global couvre désormais
