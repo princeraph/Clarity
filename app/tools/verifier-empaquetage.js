@@ -23,7 +23,10 @@ exports.default = async function verifierEmpaquetage(context) {
   for (const f of ['server.js', 'package.json', 'src']) {
     if (!fs.existsSync(path.join(backend, f))) manques.push(`backend/${f}`);
   }
-  for (const dep of ['express', 'cors', 'uuid']) {
+  // Every runtime dependency the backend declares — read, not copied by hand.
+  const deps = Object.keys(JSON.parse(fs.readFileSync(path.join(backend, 'package.json'), 'utf8')).dependencies || {});
+  if (!deps.length) manques.push('backend/package.json declares no dependencies');
+  for (const dep of deps) {
     if (!fs.existsSync(path.join(backend, 'node_modules', dep, 'package.json'))) manques.push(`backend/node_modules/${dep}`);
   }
   if (!fs.existsSync(path.join(resources, 'frontend', 'dist', 'index.html'))) manques.push('frontend/dist/index.html');
