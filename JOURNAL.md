@@ -250,6 +250,18 @@ binaire du paquet lui-même sert les tâches, refuse un Host étranger, et
 n'embarque pas `jest`. Au passage : le dossier de sortie `dist-electron/` n'était
 pas ignoré par git — cent mégaoctets prêts à être commités par erreur.
 
+**Puis installé et lancé, sous Windows 11 Famille.** Reconstruit sans erreur,
+installé « pour moi seul », ouvert. Windows dit quel programme tient le port
+3001 : **`Clarity.exe`**, pas `node.exe`. La preuve est choisie exprès : ce PC a
+Node installé, et sept `node.exe` d'autres programmes tournaient pendant le
+test. « Aucun `node.exe` » n'aurait rien prouvé ; l'identité du processus qui
+sert l'API, si. Le lancement empaqueté marche donc sans le Node de la machine.
+
+Ce que ce test ne couvre pas, et qu'il faudra voir avant de confier
+l'installateur à quelqu'un : un Windows vierge (SmartScreen sur un fichier
+téléchargé, aucune trace de développement), et Electron 28, toujours en
+place.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers
