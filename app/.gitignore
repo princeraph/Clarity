@@ -6,3 +6,6 @@ backend/data/
 # Scratch file from scripts/generate-icon.js. It is cleaned up in a finally now,
 # but build/ is a committed directory — a stray temp file here blocks `git pull`.
 build/_tmp_icon.svg
+
+# Staged backend for electron-builder (tools/preparer-backend.mjs)
+.backend-pkg/

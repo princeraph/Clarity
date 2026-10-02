@@ -16,6 +16,7 @@ import { createSuggestStore } from './src/suggest/store.js';
 import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
 import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
+import { allowedHosts, hostGuard } from './src/security/host.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -336,6 +337,11 @@ process.on('uncaughtException', (err) => {
 });
 
 const app = express();
+
+// First middleware, before CORS and every route: refuse any Host that is not
+// ours. Closes DNS rebinding — see src/security/host.js for why loopback and the
+// CORS allowlist are not enough on their own.
+app.use(hostGuard(allowedHosts(PORT)));
 
 // The API has no authentication of any kind, and it is about to hold a profile
 // of the person using it. `origin: '*'` let any page in any browser read the
