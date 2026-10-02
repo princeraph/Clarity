@@ -8,7 +8,8 @@
   "scripts": {
     "start": "electron .",
     "build:frontend": "cd frontend && npm run build",
-    "build": "npm run build:frontend && node tools/preparer-backend.mjs && electron-builder",
+    "build": "npm run build:frontend && npm run package",
+    "package": "node tools/preparer-backend.mjs && electron-builder",
     "prepare:backend": "node tools/preparer-backend.mjs",
     "generate-icons": "node scripts/generate-icon.js",
     "setup": "npm install && npx install-electron && cd backend && npm install && cd ../frontend && npm install",
