@@ -75,8 +75,14 @@ if not "%ERR%"=="0" goto :echec
 
 echo.
 echo  [3/4] Building the installer (a few minutes)...
+REM  "npm run package", PAS "npm run build". build reconstruit d'abord
+REM  frontend/dist/ - un dossier VERSIONNE, deja verifie par la CI. Sous Windows,
+REM  la reconstruction ne rend pas exactement les octets commites : le dossier
+REM  devenait "modifie", et le git pull suivant qui touchait dist/ etait refuse
+REM  ("Your local changes ... would be overwritten"). Une mise a jour ne doit
+REM  jamais regenerer un fichier versionne : on empaquette dist/ tel quel.
 if exist dist-electron rmdir /s /q dist-electron
-call npm run build || goto :echec
+call npm run package || goto :echec
 
 echo.
 echo  [4/4] Updating the installed app...
@@ -86,6 +92,18 @@ if not defined INSTALLEUR goto :echec
 start /wait "" "%INSTALLEUR%" /S
 if errorlevel 1 goto :echec
 >".version-installee" echo %VERSION%
+
+REM  Garde-fou : une mise a jour ne doit laisser AUCUN fichier suivi modifie,
+REM  sinon le prochain git pull sera refuse. Si ca arrive, le dire maintenant -
+REM  plutot que de le decouvrir a la prochaine mise a jour.
+set "SALE="
+for /f %%l in ('git status --porcelain --untracked-files=no') do set "SALE=1"
+if defined SALE (
+  echo.
+  echo  Warning: this update left changes in files tracked by git:
+  git status --short --untracked-files=no
+  echo  The next update may refuse to start. Copy these lines and ask for help.
+)
 
 echo.
 echo  ============================================

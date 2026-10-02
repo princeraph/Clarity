@@ -327,6 +327,16 @@ l'app et de son backend. Le contrôle du paquet ignorait jusqu'ici les URL
 externes ; il refuse maintenant toute ressource chargée d'Internet — le lien
 Google remis exprès, il échoue et le nomme.
 
+**Et la mise à jour suivante a été refusée — par ma faute.** `Update.bat`
+lançait `npm run build`, qui reconstruit `frontend/dist/` avant d'empaqueter.
+C'est exactement ce que la règle « une installation ne régénère jamais un
+fichier versionné » interdit, écrite ici le 17 septembre pour `setup.bat`. Sous
+Windows, la reconstruction ne rend pas les octets commités de `index.html` : le
+dossier restait « modifié » sans bruit, jusqu'au premier `git pull` qui touchait
+ce fichier — celui des polices. `Update.bat` empaquette désormais `dist/` tel
+quel (`npm run package`), et prévient si une mise à jour laisse un fichier suivi
+modifié, au lieu de le laisser découvrir à la suivante.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers
