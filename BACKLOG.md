@@ -205,10 +205,9 @@ Classés par ce qu'ils protègent réellement, pas par l'étiquette de l'audit.
 
 **~~Electron 28 n'est plus maintenu~~ — monté à 44 le 2 octobre** (voir
 `JOURNAL.md`). Vérifié ici, dans la vraie app : écran identique, saisie rapide,
-pont de la fenêtre, 218 tests sur le Node embarqué, paquet complet. **Reste
-l'essai à la main sous Windows** : boutons de fenêtre (agrandir ne se teste pas
-sans gestionnaire de fenêtres), plateau, notifications. (Instance unique entre l'app installée et la version
-dev : confirmée sous Windows.)
+pont de la fenêtre, 218 tests sur le Node embarqué, paquet complet. **Confirmé
+sous Windows** : boutons de fenêtre, plateau, instance unique entre l'app
+installée et la version dev. Seules les notifications n'ont pas été essayées.
 
 **La clé d'API cloud est en clair dans `settings.json`.** Réel, mais à mesurer :
 seuls les fournisseurs cloud en ont une, et l'usage par défaut est Ollama, sans

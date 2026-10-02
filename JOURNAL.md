@@ -312,7 +312,11 @@ fermeture de Clarity, construit avec Electron 44.5.1, le contrôle `afterPack`
 passe, réinstalle en silence. Le troisième lancement a montré un défaut :
 « Already up to date », puis tout reconstruit quand même — plusieurs minutes
 pour rien. Il retient maintenant le commit installé et s'arrête s'il n'y a rien
-de neuf, avant même de demander de fermer Clarity.
+de neuf, avant même de demander de fermer Clarity. Confirmé : relancé sans
+nouveauté, il s'arrête en quelques secondes.
+
+**Electron 44 confirmé sous Windows** : boutons de fenêtre (réduire, agrandir,
+fermer vers la zone de notification), fenêtre du plateau, instance unique.
 
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
