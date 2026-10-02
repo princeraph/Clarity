@@ -337,6 +337,22 @@ ce fichier — celui des polices. `Update.bat` empaquette désormais `dist/` tel
 quel (`npm run package`), et prévient si une mise à jour laisse un fichier suivi
 modifié, au lieu de le laisser découvrir à la suivante.
 
+**La cause exacte, puis la règle qui manquait.** Le `git diff` de l'utilisateur
+montrait une seule ligne : `<div id="root"></div>` terminée par un CRLF, au
+milieu d'un fichier en LF. Git sous Windows extrayait la **source**
+`index.html` en CRLF, et vite recopiait cette ligne telle quelle. Source
+désormais extraite en LF partout.
+
+Le constat de fond : chaque défaut propre à Windows de cette journée a été
+trouvé par l'utilisateur, en pleine mise à jour, parce que rien ne tournait
+sous Windows avant lui. La CI a maintenant un job `windows` qui rejoue les
+étapes d'`Update.bat`, vérifie qu'aucun fichier suivi ne bouge, installe en
+silence, lance le backend installé (200, et 403 pour un Host étranger), et
+reconstruit `dist/` pour s'assurer qu'il est identique au versionné. Ce dernier
+contrôle a d'abord reproduit la ligne en CRLF de l'utilisateur, puis est passé
+au vert avec la correction. Rien n'est plus fusionné dans `main` avant ce
+vert.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers

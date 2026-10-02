@@ -8,7 +8,10 @@ name: qualité
 
 on:
   push:
-    branches: [main]
+    # Les branches de travail aussi : rien n'est fusionné dans main — d'où
+    # l'utilisateur tire ses mises à jour — avant d'avoir passé ici, Windows
+    # compris.
+    branches: [main, 'claude/**']
   pull_request:
 
 jobs:
@@ -58,3 +61,77 @@ jobs:
             git diff --stat -- dist/
             exit 1
           fi
+
+  # Windows, la plateforme de l'utilisateur. Les scripts qui le concernent
+  # (Update.bat, setup.bat) ne pouvaient être essayés nulle part avant lui :
+  # c'est lui qui découvrait chaque défaut, au moment de mettre à jour. Ce job
+  # rejoue les étapes d'Update.bat sur une machine Windows neuve, puis installe
+  # l'app en silence et vérifie qu'elle démarre.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: dépendances, comme Update.bat
+        working-directory: app
+        shell: cmd
+        run: |
+          call npm install --no-audit --no-fund || exit /b 1
+          call npx install-electron || exit /b 1
+          cd backend && call npm install --no-audit --no-fund || exit /b 1
+          cd ..\frontend && call npm install --no-audit --no-fund || exit /b 1
+
+      - name: empaqueter, comme Update.bat
+        working-directory: app
+        shell: cmd
+        run: call npm run package
+
+      # La mise à jour suivante est refusée dès qu'un fichier suivi a bougé.
+      - name: aucun fichier suivi modifié par la mise à jour
+        shell: pwsh
+        run: |
+          $sale = git status --porcelain --untracked-files=no
+          if ($sale) { $sale; git diff; exit 1 }
+
+      - name: installer en silence
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem app/dist-electron -Filter 'Clarity Setup *.exe' | Select-Object -First 1
+          Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/S'
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe | Select-Object -First 1
+          if (-not $exe) { Write-Error "Clarity.exe introuvable après installation"; exit 1 }
+          "installé : $($exe.FullName)"
+          "CLARITY_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
+
+      # Le backend installé, lancé par le binaire installé — sans Node du système.
+      - name: l'app installée sert les tâches et refuse un Host étranger
+        shell: pwsh
+        run: |
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $env:CLARITY_DATA_DIR = Join-Path $env:RUNNER_TEMP 'clarity-data'
+          $backend = Join-Path (Split-Path $env:CLARITY_EXE) 'resources\backend\server.js'
+          $p = Start-Process -PassThru -NoNewWindow -FilePath $env:CLARITY_EXE -ArgumentList "`"$backend`""
+          $ok = $false
+          for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
+            try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3001/api/tasks; $ok = $r.StatusCode -eq 200 } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { Write-Error "le backend installé ne répond pas"; exit 1 }
+          "Host légitime : 200"
+          try { Invoke-WebRequest -UseBasicParsing -Headers @{ Host = 'evil.example:3001' } http://127.0.0.1:3001/api/tasks | Out-Null; Write-Error "Host étranger accepté"; exit 1 }
+          catch { if ($_.Exception.Response.StatusCode.value__ -ne 403) { throw } ; "Host étranger : 403" }
+          Stop-Process -Id $p.Id -Force
+
+      # Qui modifie frontend/src/ sous Windows reconstruit dist/ et le commite.
+      # Ce build doit rendre les octets déjà versionnés : il en rendait un de
+      # trop (un CRLF sur `<div id="root"></div>`), ce qui bloquait le pull.
+      - name: dist/ reconstruit sous Windows est identique au versionné
+        working-directory: app/frontend
+        shell: pwsh
+        run: |
+          npm run build
+          $sale = git status --porcelain -- dist/
+          if ($sale) { $sale; git diff -- dist/; exit 1 }

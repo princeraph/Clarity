@@ -34,3 +34,13 @@ dist/** -text
 # réécrit en CRLF par vite ne ressort donc plus comme modifié. Cette ligne est
 # APRÈS la précédente : la dernière règle qui correspond l'emporte.
 dist/index.html text eol=lf
+
+# La SOURCE de index.html aussi, et c'est elle qui manquait. Mesuré sous
+# Windows (chez l'utilisateur, puis sur la CI Windows) : un build rendait UNE
+# ligne en CRLF — `<div id="root"></div>` — au milieu d'un fichier en LF. Git,
+# réglé sous Windows pour extraire les fichiers texte en CRLF, extrayait
+# index.html source en CRLF ; vite recopie cette ligne telle quelle et écrit les
+# siennes en LF. Un fichier aux fins de ligne mêlées : la règle eol=lf de
+# dist/index.html ne l'absorbait pas, et le pull suivant était refusé. Extraite
+# en LF partout, la source ne peut plus rien injecter.
+index.html text eol=lf
