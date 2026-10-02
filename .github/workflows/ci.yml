@@ -125,12 +125,13 @@ jobs:
           catch { if ($_.Exception.Response.StatusCode.value__ -ne 403) { throw } ; "Host étranger : 403" }
           Stop-Process -Id $p.Id -Force
 
-      # Diagnostic, pas encore un contrôle : ce que la reconstruction de dist/
-      # change sous Windows (une ligne de index.html chez l'utilisateur).
-      - name: diagnostic — dist/ reconstruit sous Windows
+      # Qui modifie frontend/src/ sous Windows reconstruit dist/ et le commite.
+      # Ce build doit rendre les octets déjà versionnés : il en rendait un de
+      # trop (un CRLF sur `<div id="root"></div>`), ce qui bloquait le pull.
+      - name: dist/ reconstruit sous Windows est identique au versionné
         working-directory: app/frontend
         shell: pwsh
         run: |
           npm run build
-          git diff -- dist/
-          git checkout -- dist/
+          $sale = git status --porcelain -- dist/
+          if ($sale) { $sale; git diff -- dist/; exit 1 }
