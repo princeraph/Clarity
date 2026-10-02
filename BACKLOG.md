@@ -229,7 +229,8 @@ C'est le moins cher des quatre et le seul qui change l'expérience.
 
 ### Relevés en passant, le 2 octobre
 
-**L'app promet « no cloud, no spying » et contacte Google à chaque lancement.**
+**~~L'app promet « no cloud, no spying » et contacte Google à chaque lancement~~ — corrigé le 2 octobre :
+polices embarquées, et le contrôle du paquet refuse toute ressource chargée depuis Internet.**
 `frontend/index.html` charge ses polices depuis `fonts.googleapis.com` : chaque
 ouverture envoie l'adresse IP de l'utilisateur à Google. Hors ligne, l'app
 retombe sur les polices système, donc rien ne casse — mais la promesse affichée

@@ -15,9 +15,16 @@
  * blanche au démarrage, sans message, et rien d'autre ne le voit : ni le build,
  * ni les tests, qui ne regardent pas le paquet.
  *
- * CE QU'IL NE FAIT PAS. Il ne sort jamais sur le réseau : une URL externe n'est
- * pas de son ressort, et un contrôle qui dépend d'un tiers échoue le jour où ce
- * tiers est lent.
+ * CE QU'IL NE FAIT PAS. Il ne sort jamais sur le réseau : un contrôle qui dépend
+ * d'un tiers échoue le jour où ce tiers est lent.
+ *
+ * CE QU'IL REFUSE AUSSI. Une ressource que la page CHARGE d'elle-même depuis
+ * Internet — feuille de style, police, script, image. Clarity a longtemps tiré
+ * ses polices de fonts.googleapis.com : chaque lancement envoyait l'adresse IP
+ * de l'utilisateur à Google, sous un premier écran qui promet « no cloud, no
+ * spying ». Rien ne le voyait, parce que ce contrôle ignorait les URL externes.
+ * Il les compte maintenant comme des écarts. Un lien CLIQUABLE (<a href>) reste
+ * permis : il ne part que si l'utilisateur le décide.
  *
  * PORTÉE : dépôt (appelé nommément par le qualite.json de chaque projet).
  */
@@ -52,6 +59,11 @@ const ATTRIBUTS = /\b(?:href|src|poster|data-src)\s*=\s*(["'])([^"']*)\1/gi;
 const SRCSET = /\bsrcset\s*=\s*(["'])([^"']*)\1/gi;
 const CSS_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/gi;
 
+/* Ce que le navigateur va chercher tout seul : les url() d'une feuille de
+   style, et src/href des balises qui chargent. <a> n'y est pas. */
+const CHARGE = /<(?:link|script|img|source|iframe|video|audio|embed|object|track)\b[^>]*?\b(?:href|src|data)\s*=\s*(["'])([^"']*)\1/gi;
+const internet = (u) => /^(?:https?:)?\/\//i.test(u.trim());
+
 const externe = (u) =>
   !u || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(u) || u.startsWith('#') || u.startsWith('?');
 
@@ -72,6 +84,7 @@ const pagesDe = (cible) => {
 };
 
 const ecarts = [];
+const sorties = [];
 let pages = 0, liens = 0, toleresVus = 0;
 
 for (const cible of cibles) {
@@ -98,6 +111,9 @@ for (const cible of cibles) {
     const texte = fs.readFileSync(page, 'utf8')
       .replace(/<!--[\s\S]*?-->/g, '')
       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    for (const m of texte.matchAll(CHARGE)) if (internet(m[2])) sorties.push({ page, lien: m[2] });
+    for (const m of texte.matchAll(CSS_URL)) if (internet(m[2])) sorties.push({ page, lien: m[2] });
+    for (const m of texte.matchAll(/@import\s+(?:url\()?\s*["']?((?:https?:)?\/\/[^"')\s]+)/gi)) sorties.push({ page, lien: m[1] });
     const base = path.dirname(page);
     const refs = [];
     for (const m of texte.matchAll(ATTRIBUTS)) refs.push(m[2]);
@@ -128,7 +144,12 @@ for (const cible of cibles) {
 
 console.log(`liens locaux — ${pages} page(s) lue(s) · ${liens} référence(s) locale(s)` +
             (toleresVus ? ` · ${toleresVus} absence(s) tolérée(s)` : ''));
-if (!ecarts.length) { console.log('Aucune cible manquante.'); process.exit(0); }
+if (sorties.length) {
+  console.error(`\n${sorties.length} ressource(s) chargée(s) depuis Internet — le paquet doit tout porter :`);
+  for (const e of sorties) console.error(`  ${e.page}\n      « ${e.lien} »`);
+}
+if (!ecarts.length && !sorties.length) { console.log('Aucune cible manquante, aucune ressource externe.'); process.exit(0); }
+if (!ecarts.length) process.exit(1);
 console.error(`\n${ecarts.length} cible(s) manquante(s) :`);
 for (const e of ecarts)
   console.error(`  ${e.page}\n      « ${e.lien} » → ${e.attendu} (absent)`);
