@@ -303,6 +303,10 @@ nouveautés, reconstruire, réinstaller en silence. Il se copie d'abord hors du
 dépôt : `git pull` peut le remplacer pendant qu'il tourne, et cmd reprendrait
 alors au milieu du nouveau fichier. **Pas encore essayé sous Windows.**
 
+**Confirmé sous Windows 11 Famille** : Clarity installée ouverte, `start.bat`
+lancé — aucune seconde fenêtre. Le verrou d'instance unique couvre désormais
+les deux versions.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers

@@ -207,8 +207,8 @@ Classés par ce qu'ils protègent réellement, pas par l'étiquette de l'audit.
 `JOURNAL.md`). Vérifié ici, dans la vraie app : écran identique, saisie rapide,
 pont de la fenêtre, 218 tests sur le Node embarqué, paquet complet. **Reste
 l'essai à la main sous Windows** : boutons de fenêtre (agrandir ne se teste pas
-sans gestionnaire de fenêtres), plateau, notifications, instance unique entre
-l'app installée et la version dev.
+sans gestionnaire de fenêtres), plateau, notifications. (Instance unique entre l'app installée et la version
+dev : confirmée sous Windows.)
 
 **La clé d'API cloud est en clair dans `settings.json`.** Réel, mais à mesurer :
 seuls les fournisseurs cloud en ont une, et l'usage par défaut est Ollama, sans
