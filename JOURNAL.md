@@ -239,6 +239,17 @@ l'interface appelle `http://localhost:3001`, qui sur un téléphone est le
 téléphone. La porte est retirée, la section réécrite pour le seul usage réel,
 avec un avertissement : ne jamais tunneler le port 3001.
 
+**Première construction réelle, sous Windows.** L'installateur a été produit —
+`Clarity Setup 1.2.0.exe` — puis la commande a échoué à sa dernière étape :
+`Cannot read properties of null (reading 'provider')`. La configuration
+déclarait une publication des versions sur GitHub, sans dépôt que
+`electron-builder` puisse retrouver depuis `app/`, et sans mise à jour
+automatique pour s'en servir. Reproduit ici, corrigé par `"publish": null`, et
+reconstruit jusqu'au bout. Dans le paquet obtenu, le backend lancé par le
+binaire du paquet lui-même sert les tâches, refuse un Host étranger, et
+n'embarque pas `jest`. Au passage : le dossier de sortie `dist-electron/` n'était
+pas ignoré par git — cent mégaoctets prêts à être commités par erreur.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers

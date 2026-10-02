@@ -9,3 +9,6 @@ build/_tmp_icon.svg
 
 # Staged backend for electron-builder (tools/preparer-backend.mjs)
 .backend-pkg/
+
+# Installer output from `npm run build` (electron-builder) — a build product, never versioned
+dist-electron/

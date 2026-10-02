@@ -56,9 +56,6 @@
       "icon": "build/icon.png",
       "category": "Utility"
     },
-    "publish": {
-      "provider": "github",
-      "releaseType": "draft"
-    }
+    "publish": null
   }
 }
