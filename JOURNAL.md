@@ -307,6 +307,13 @@ alors au milieu du nouveau fichier. **Pas encore essayé sous Windows.**
 lancé — aucune seconde fenêtre. Le verrou d'instance unique couvre désormais
 les deux versions.
 
+**`Update.bat` essayé sous Windows, trois fois.** Il va au bout : attend la
+fermeture de Clarity, construit avec Electron 44.5.1, le contrôle `afterPack`
+passe, réinstalle en silence. Le troisième lancement a montré un défaut :
+« Already up to date », puis tout reconstruit quand même — plusieurs minutes
+pour rien. Il retient maintenant le commit installé et s'arrête s'il n'y a rien
+de neuf, avant même de demander de fermer Clarity.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers
