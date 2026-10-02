@@ -183,16 +183,18 @@ ne teste un composant React. À décider si ça vaut la dépendance.
 affichent tous un indicateur. À ~80 jetons/s, ça fait une dizaine de secondes
 muettes. Perception seulement.
 
-**L'installateur n'a jamais été produit.** `npm run build` lance
+**~~L'installateur n'a jamais été produit~~ — produit, et essayé sur un Windows
+sans outils de développement le 2 octobre** (voir `JOURNAL.md`). `npm run build` lance
 `electron-builder` avec une configuration NSIS présente dans `package.json`,
 jamais exécutée. C'est ce qui rendrait Clarity installable sans environnement de
 développement. Le 2 octobre, deux défauts qui l'auraient livré cassé ont été
 corrigés sans lui (backend lancé avec le Node du système, dépendances du backend
 exclues — voir `JOURNAL.md`). Le même jour, **construit pour la première fois sous Windows**, installé et
 lancé : le port 3001 est tenu par `Clarity.exe`, pas par `node.exe` — le
-backend tourne sur le Node d'Electron. Reste, **avant de le confier à
-quelqu'un** : l'essayer sur un Windows vierge (machine virtuelle — Windows
-Famille n'a pas Windows Sandbox), et monter Electron d'abord.
+backend tourne sur le Node d'Electron. Electron monté à 44, puis
+essai sur un Windows sans Node, sans Ollama ni outils de développement : passé.
+Seule limite restante avant diffusion : l'installateur n'est pas signé —
+SmartScreen avertit, et il faut cliquer « Exécuter quand même ».
 
 **Le biais par domaine ne rapporte que `under`.** `deriveInsights` filtre
 `v.bias !== 'under'` dans sa boucle `byArea`, là où le global couvre désormais

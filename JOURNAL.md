@@ -353,6 +353,16 @@ contrôle a d'abord reproduit la ligne en CRLF de l'utilisateur, puis est passé
 au vert avec la correction. Rien n'est plus fusionné dans `main` avant ce
 vert.
 
+**Essayé sur un Windows sans outils de développement.** Installateur
+téléchargé par un lien — comme un vrai utilisateur le recevrait, donc avec
+l'avertissement SmartScreen d'une app non signée —, sur une machine sans Node,
+sans Ollama, sans Git. Les six points de la liste passés : avertissement
+contourné par « Exécuter quand même », installation « pour moi seul », premier
+écran d'accueil (pas de fenêtre blanche), IA affichée hors ligne sans plantage,
+tâche conservée après « Quitter » et réouverture, puis conservée après
+désinstallation et réinstallation. C'était le dernier essai prévu avant de
+confier l'installateur à quelqu'un ; la seule réserve est la signature.
+
 **`npm audit` : 3 failles → 0 dans ce qui est livré.** `body-parser` et `qs`
 corrigés par `npm audit fix` et Express 4.22.3 (même version majeure). `uuid`,
 lui, ne se corrigeait qu'en changeant de version majeure — il a été **retiré** :
