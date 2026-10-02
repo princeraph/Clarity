@@ -53,6 +53,20 @@ cd app/backend  && node server.js  # API Express sur :3001
 
 Sous Windows, `app/start.bat` fait la même chose en double-cliquant.
 
+### Deux façons de lancer Clarity — un seul jeu de tâches
+
+| | **Clarity** (installée) | **Clarity (dev)** |
+|---|---|---|
+| Ce que c'est | L'app produite par `npm run build`, installée par `Clarity Setup x.y.z.exe` | L'app lancée depuis ce dossier (`start.bat`, `Clarity.vbs`) |
+| Pour quoi | L'usage de tous les jours | Essayer une modification du code |
+| Se met à jour | `app/Update.bat` — met à jour les deux | `git pull` suffit |
+
+Les deux lisent **les mêmes tâches** (`%APPDATA%\Clarity\data`) et **ne tournent
+jamais en même temps** : lancer l'une pendant que l'autre est ouverte ramène
+simplement la fenêtre déjà ouverte. `Update.bat` demande de fermer Clarity, tire
+les nouveautés, reconstruit l'installateur et réinstalle en silence — vos tâches
+ne sont pas touchées, elles vivent hors du dossier d'installation.
+
 **Pas d'étape de build à l'installation, et c'est voulu.** `frontend/dist/` est
 versionné : l'app tourne depuis un clone nu. Le reconstruire à l'installation ne
 produirait rien de neuf, mais salirait un dossier suivi par git — et le prochain

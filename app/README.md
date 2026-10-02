@@ -5,7 +5,7 @@ AI-powered personal task manager. Runs locally with Ollama as the AI backend.
 ## Quick Start
 
 ```bash
-# First-time setup (install all dependencies, generate icons, build frontend)
+# First-time setup (install all dependencies and Electron's binary — nothing is built)
 npm run setup
 
 # Start the Electron app

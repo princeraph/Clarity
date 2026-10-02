@@ -1,5 +1,11 @@
-# Creates a Clarity desktop shortcut with the Aperture mark icon.
+# Creates a "Clarity (dev)" desktop shortcut with the Aperture mark icon.
 # Run once after cloning: right-click -> Run with PowerShell
+#
+# "(dev)" because this shortcut runs Clarity from the source folder. The
+# installer creates its own "Clarity.lnk" for the installed app, and both used
+# to have that exact name: whichever ran last silently replaced the other, so
+# the desktop icon launched one version or the other depending on what had been
+# run most recently.
 
 $clarityDir = $PSScriptRoot
 $iconPath   = "$clarityDir\build\icon.ico"
@@ -7,7 +13,7 @@ $vbsPath    = "$clarityDir\Clarity.vbs"
 
 # Use Shell special folder so OneDrive-redirected Desktops work
 $desktop  = [Environment]::GetFolderPath('Desktop')
-$linkPath = Join-Path $desktop "Clarity.lnk"
+$linkPath = Join-Path $desktop "Clarity (dev).lnk"
 
 # Generate icon if missing
 if (-not (Test-Path $iconPath)) {
@@ -32,7 +38,7 @@ $shortcut.TargetPath       = "wscript.exe"
 $shortcut.Arguments        = "`"$vbsPath`""
 $shortcut.WorkingDirectory = $clarityDir
 $shortcut.IconLocation     = $iconLocation
-$shortcut.Description      = "Clarity - on-device AI task manager"
+$shortcut.Description      = "Clarity - run from the source folder (development)"
 
 $shortcut.Save()
 
