@@ -318,6 +318,15 @@ nouveauté, il s'arrête en quelques secondes.
 **Electron 44 confirmé sous Windows** : boutons de fenêtre (réduire, agrandir,
 fermer vers la zone de notification), fenêtre du plateau, instance unique.
 
+**Polices embarquées — la promesse du premier écran devient vraie.** « No
+accounts, no cloud, no spying », disait-il, pendant que `index.html` chargeait
+ses polices depuis Google à chaque lancement. Remplacées par les mêmes familles,
+graisses et sous-ensembles, livrés dans l'app (+~390 Ko dans `dist/`). Mesuré
+dans la vraie app : Geist et Geist Mono chargées, **zéro requête** hors de
+l'app et de son backend. Le contrôle du paquet ignorait jusqu'ici les URL
+externes ; il refuse maintenant toute ressource chargée d'Internet — le lien
+Google remis exprès, il échoue et le nomme.
+
 Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers

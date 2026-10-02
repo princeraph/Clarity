@@ -19,7 +19,7 @@
       "commande": "cd backend && npm test"
     },
     {
-      "nom": "le paquet chargé par Electron est complet",
+      "nom": "le paquet chargé par Electron est complet, et ne charge rien d'Internet",
       "commande": "node tools/verifier-paquet.mjs frontend/dist"
     },
     {
