@@ -402,6 +402,15 @@ invalider les profils en cache), avec trois tests ; le filtre « ouverte » reti
 exprès, un test échoue. Vérifié dans la vraie app, en anglais et en français :
 2 sur 5, les deux tâches à un chronomètre près, aucune erreur.
 
+**Deux phrases fausses, vues par l'utilisateur sur sa propre machine** — dans le
+cas que je n'avais pas essayé : rien d'estimé, rien de chronométré. « Pour les
+autres : … » s'affichait sans aucune liste au-dessus, et l'encadré voisin
+annonçait « quatre sur cinq attendent des données » en n'en listant plus que
+trois, puisque l'estimation était passée dans la carte. La première phrase a
+désormais une variante sans liste ; la seconde ne contient plus de nombre écrit
+en toutes lettres, il est calculé à partir des lignes affichées. Vérifié dans ce
+cas précis : trois tâches, rien de mesuré, en français.
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

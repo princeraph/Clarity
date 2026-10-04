@@ -304,7 +304,10 @@ function EstimationProgress({ est, T }) {
           )}
         </div>
       )}
-      <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.55 }}>{t('patterns.progress.how')}</div>
+      {/* "For the rest" only reads right under a list; without one it pointed at nothing. */}
+      <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.55 }}>
+        {t(p.notTimedCount > 0 ? 'patterns.progress.how' : 'patterns.progress.howFirst')}
+      </div>
       {p.notEstimatedCount > 0 && (
         <div style={{ fontSize: 11.5, color: T.ink40, lineHeight: 1.55 }}>
           {t('patterns.progress.timedOnly', { n: p.notEstimatedCount })}
@@ -324,8 +327,11 @@ function NothingYet({ o, T }) {
     { on: o.latency.samples > 0,     what: t('patterns.nothing.latency'),  needs: t('patterns.nothing.latencyHow') },
     { on: o.slippage.totalSlips > 0, what: t('patterns.nothing.slippage'), needs: t('patterns.nothing.slippageHow') },
   ];
+  // The count is computed, never written into the sentence: it said "four of
+  // five" in words, and went on saying it after one of the four moved out.
+  const waiting = rows.filter(r => !r.on);
   return (
-    <Section title={t('patterns.notMeasurable')} note={t('patterns.notMeasurableNote')} T={T}>
+    <Section title={t('patterns.notMeasurable')} note={t('patterns.notMeasurableNote', { n: waiting.length })} T={T}>
       <div style={{
         padding: '14px 16px', background: T.paperSubtle,
         border: `1px solid ${T.hairline}`, borderRadius: T.r6,
@@ -335,7 +341,7 @@ function NothingYet({ o, T }) {
           {t('patterns.nothing.body')}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {rows.filter(r => !r.on).map(r => (
+          {waiting.map(r => (
             <div key={r.what} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 12, alignItems: 'baseline' }}>
               <span style={{ fontSize: 12.5, color: T.ink80 }}>{r.what}</span>
               <span style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.5 }}>{r.needs}</span>
