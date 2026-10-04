@@ -211,7 +211,7 @@ pont de la fenêtre, 218 tests sur le Node embarqué, paquet complet. **Confirm�
 sous Windows** : boutons de fenêtre, plateau, instance unique entre l'app
 installée et la version dev. Seules les notifications n'ont pas été essayées.
 
-**La clé d'API cloud est en clair dans `settings.json`.** Réel, mais à mesurer :
+**~~La clé d'API cloud est en clair dans `settings.json`~~ — chiffrée le 4 octobre, avec le secret du tunnel** (voir `JOURNAL.md`). Réel, mais à mesurer :
 seuls les fournisseurs cloud en ont une, et l'usage par défaut est Ollama, sans
 clé. La correction (`safeStorage`, la clé tenue par le processus principal) est
 propre et coûte 2–3 h. Avant de vendre, oui ; pas urgent pour l'usage actuel.
