@@ -442,6 +442,22 @@ est prouvé par la CI Windows, avec la vraie app installée : une ancienne clé 
 clair migrée, une clé neuve enregistrée sans aucune trace en clair dans le
 fichier, puis un redémarrage qui la relit. Douze tests nouveaux (233).
 
+Et la CI Windows l'a fait échouer, à juste titre. Migration : bonne. Clé
+neuve : aucune trace en clair. Mais après redémarrage, la clé revenait
+**vide**. L'hypothèse, prouvée avant de toucher au code : `safeStorage` ne
+chiffre pas avec DPAPI à chaque fois ; il chiffre avec une clé que Chromium
+crée au premier lancement, protège par DPAPI, et n'écrit dans `Local State`
+qu'une dizaine de secondes plus tard. Le test arrêtait l'app une seconde après
+l'enregistrement, sur une installation jamais lancée : la clé n'existait que
+dans la mémoire du processus tué. Avec 15 secondes d'attente, tout passait.
+Chez l'utilisateur, Clarity a déjà tourné cent fois — la clé est sur disque.
+Le test reproduit donc maintenant cette situation (un premier lancement
+complet, Local State vérifié), puis arrête l'app **sans aucun délai** après
+l'enregistrement : vert. La seule fenêtre restante — une installation neuve
+tuée dans ses premières secondes pendant qu'on y enregistre une clé — est
+nommée dans `CLAUDE.md` ; la clé reviendrait vide et serait simplement
+ressaisie.
+
 Au passage : le backend s'arrête désormais si le processus principal
 disparaît. Un backend orphelin gardait le port 3001, et le lancement suivant
 lui parlait sans le savoir.
