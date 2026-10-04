@@ -374,7 +374,7 @@ export default function SearchCapture({
           <>
             {searchResults.length > 0 && (
               <>
-                <SectionLabel label={`Tasks matching "${query}"`} T={T} />
+                <SectionLabel label={t('capture.matching', { query })} T={T} />
                 {searchResults.map((task, i) => (
                   <TaskRow
                     key={task.id} task={task}
@@ -399,7 +399,12 @@ export default function SearchCapture({
             >
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.accent, flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: T.accentInk, flex: 1 }}>
-                Capture "<strong>{query}</strong>" as a new task
+                {(() => {
+                  // The query is bold, so the sentence is split on its placeholder:
+                  // each language keeps its own word order around it.
+                  const [avant, apres] = t('capture.asNewTask').split('{query}');
+                  return <>{avant}<strong>{query}</strong>{apres}</>;
+                })()}
               </span>
               <span style={{
                 fontFamily: T.fontMono, fontSize: 10, color: T.accentInk,

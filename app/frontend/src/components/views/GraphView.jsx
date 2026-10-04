@@ -568,8 +568,8 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
       {/* ── Bottom-left legend ── */}
       <div style={{ position: 'absolute', bottom: 20, left: 16, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 10, pointerEvents: 'none' }}>
         <div style={{ display: 'flex', gap: 16, fontSize: 10.5, color: T.ink40, fontFamily: T.fontMono, marginBottom: 2 }}>
-          <span>—— Dependency</span>
-          <span>··· Same topic</span>
+          <span>—— {t('graph.legend.dependency')}</span>
+          <span>··· {t('graph.legend.sameTopic')}</span>
         </div>
         <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
           {[

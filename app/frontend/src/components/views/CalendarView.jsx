@@ -67,7 +67,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
             <button onClick={() => onAddTask({})} style={{
               ...navBtn, width: 'auto', padding: '0 14px', fontSize: 12.5, fontFamily: T.fontUI,
               background: T.ink, color: T.paper, border: 'none', fontWeight: 500,
-            }}>+ Add Task</button>
+            }}>{t('tasks.addButton')}</button>
           )}
           <button onClick={prevMonth} style={navBtn}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>

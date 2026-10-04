@@ -17,6 +17,7 @@ import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
 import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 import { allowedHosts, hostGuard } from './src/security/host.js';
+import { createSecretStore, probeBox } from './src/security/secrets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -45,13 +46,34 @@ const DEFAULT_SETTINGS = {
   onboardingComplete: false,
 };
 
-function readSettings() {
+// settings.json as stored: the API key and the tunnel secret are encrypted
+// there (src/security/secrets.js). Nothing outside this block reads it raw.
+function readRawSettings() {
   if (!existsSync(SETTINGS_FILE)) return { ...DEFAULT_SETTINGS };
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(readFileSync(SETTINGS_FILE, 'utf8')) }; }
   catch { return { ...DEFAULT_SETTINGS }; }
 }
 
-function saveSettings(s) { writeJSONAtomic(SETTINGS_FILE, s); }
+// Asks Electron's main process whether it can encrypt; null under plain `node`.
+const secrets = createSecretStore(await probeBox(), { log: m => console.warn(m) });
+console.log(`[secrets] ${secrets.encrypting ? 'API key and tunnel secret encrypted by the OS store' : 'no OS encryption available — secrets stored as plain text'}`);
+{
+  const raw = readRawSettings();
+  const { needsMigration } = await secrets.load(raw);
+  // A key saved in plain text by an older version is encrypted on first start.
+  if (needsMigration && existsSync(SETTINGS_FILE)) {
+    writeJSONAtomic(SETTINGS_FILE, await secrets.toFile(secrets.view(raw), raw));
+    console.log('[secrets] plain-text secrets in settings.json are now encrypted');
+  }
+}
+
+// The backend cannot outlive the shell that started it: an orphan would keep
+// port 3001, and the next launch would quietly talk to it instead of its own.
+process.on('disconnect', () => process.exit(0));
+
+function readSettings() { return secrets.view(readRawSettings()); }
+
+async function saveSettings(s) { writeJSONAtomic(SETTINGS_FILE, await secrets.toFile(s, readRawSettings())); }
 function getProvider()   { return createProvider(readSettings()); }
 
 // ─── Task store ───────────────────────────────────────────────────────────────
@@ -403,7 +425,7 @@ app.get('/api/settings', (req, res) => {
   });
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', async (req, res) => {
   const current = readSettings();
   const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete } = req.body;
   if (llmEndpoint && providerType === 'ollama') {
@@ -420,7 +442,12 @@ app.post('/api/settings', (req, res) => {
     ...(apiKey              !== undefined && apiKey       !== '••••••••' && { apiKey }),
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
   };
-  saveSettings(next);
+  try { await saveSettings(next); }
+  catch (err) {
+    // Never fall back to writing the key in clear because encryption failed.
+    console.error('[secrets] could not store settings:', err.message);
+    return res.status(500).json({ error: 'Could not store the settings securely' });
+  }
   res.json({ ok: true });
 });
 
@@ -752,6 +779,7 @@ app.post('/api/reset', (req, res) => {
     catch (err) { console.error(`[Clarity] reset could not remove ${file}: ${err.message}`); }
   }
   console.log(`[Clarity] factory reset — removed ${removed.join(', ') || 'nothing'}; backups kept`);
+  secrets.clear();
   res.json({ ok: true, removed, backupsKept: true });
 });
 

@@ -131,7 +131,7 @@ export default function ChatPanel({ onClose, taskCount }) {
               </svg>
             </div>
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 500, color: T.ink }}>AI Assistant</div>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t('chat.title')}</div>
               <div style={{ fontSize: 11, color: T.ink60, fontFamily: T.fontMono }}>{t('chat.poweredBy')}</div>
             </div>
           </div>

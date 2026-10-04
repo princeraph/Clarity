@@ -182,7 +182,7 @@ export default function OnboardingView({ onComplete }) {
               }}>
                 <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 14 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.accent, boxShadow: `0 0 0 4px ${T.accentSoft}` }} />
-                  <span style={{ fontSize: 18, color: T.ink, letterSpacing: '-0.01em', flex: 1 }}>call the dentist tomorrow morning</span>
+                  <span style={{ fontSize: 18, color: T.ink, letterSpacing: '-0.01em', flex: 1 }}>{t('onboarding.sample.input')}</span>
                 </div>
                 <div style={{
                   padding: '12px 22px', borderTop: `1px solid ${T.hairlineSoft}`,
@@ -190,8 +190,8 @@ export default function OnboardingView({ onComplete }) {
                   display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
                 }}>
                   <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
-                  <Pill label={t('onboarding.when')} value="Tomorrow · 09:00" T={T} />
-                  <Pill label={t('onboarding.task')} value="Call the dentist" T={T} />
+                  <Pill label={t('onboarding.when')} value={t('onboarding.sample.when')} T={T} />
+                  <Pill label={t('onboarding.task')} value={t('onboarding.sample.task')} T={T} />
                   <Pill label={t('onboarding.duration')} value="≈ 10 min" subtle T={T} />
                 </div>
               </div>

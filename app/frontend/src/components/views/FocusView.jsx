@@ -106,7 +106,7 @@ function AnalysisBanner({ state, time, onReanalyze, T }) {
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.warn, flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 12.5, color: T.ink60 }}>
-        Analysis updated{' '}
+        {t('focus.analysisUpdated')}{' '}
         <span style={{ color: T.ink80, fontWeight: 500 }}>{time}</span>
       </span>
       {onReanalyze && (

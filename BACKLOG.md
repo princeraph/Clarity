@@ -211,7 +211,7 @@ pont de la fenêtre, 218 tests sur le Node embarqué, paquet complet. **Confirm�
 sous Windows** : boutons de fenêtre, plateau, instance unique entre l'app
 installée et la version dev. Seules les notifications n'ont pas été essayées.
 
-**La clé d'API cloud est en clair dans `settings.json`.** Réel, mais à mesurer :
+**~~La clé d'API cloud est en clair dans `settings.json`~~ — chiffrée le 4 octobre, avec le secret du tunnel** (voir `JOURNAL.md`). Réel, mais à mesurer :
 seuls les fournisseurs cloud en ont une, et l'usage par défaut est Ollama, sans
 clé. La correction (`safeStorage`, la clé tenue par le processus principal) est
 propre et coûte 2–3 h. Avant de vendre, oui ; pas urgent pour l'usage actuel.
@@ -247,7 +247,7 @@ aujourd'hui ; un `npm audit fix` (sans `--force`) dans `backend/` les ferait
 probablement taire. Les alertes affichées par `npm run setup` concernent surtout
 les outils de construction, qui ne sont pas livrés.
 
-**Un paragraphe de la vue Tendances n'est pas traduit.** Quand la fenêtre de 90
+**~~Un paragraphe de la vue Tendances n'est pas traduit~~ — corrigé le 4 octobre, avec treize autres chaînes du même genre, et le vérificateur de locales les attrape désormais.** Quand la fenêtre de 90
 jours est vide et que la vue se rabat sur tout l'historique, elle affiche
 « Nothing you worked on falls inside the last … days » en anglais, même en
 français : le texte est écrit en dur dans `PatternsView.jsx`, hors de `t()`, et

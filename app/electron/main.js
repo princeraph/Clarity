@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen, safeStorage } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -35,7 +35,9 @@ function startBackend() {
   // carries everything the backend needs.
   backendProcess = spawn(process.execPath, [getBackendPath()], {
     windowsHide: true,
-    stdio: 'pipe',
+    // The fourth channel is IPC: the backend asks this process to encrypt and
+    // decrypt its secrets (backend/src/security/secrets.js).
+    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
@@ -45,6 +47,33 @@ function startBackend() {
   backendProcess.stdout?.on('data', (d) => process.stdout.write('[Backend] ' + d));
   backendProcess.stderr?.on('data', (d) => process.stderr.write('[Backend] ' + d));
   backendProcess.on('error', (err) => console.error('[Backend] Failed to start:', err.message));
+  backendProcess.on('message', answerSecretRequest);
+}
+
+// Encryption that only this process can do: safeStorage uses the OS store
+// (DPAPI on Windows, Keychain on macOS), tied to the user's account.
+function canEncrypt() {
+  if (!safeStorage.isEncryptionAvailable()) return false;
+  // On Linux without a keyring Electron falls back to a fixed, publicly known
+  // key ("basic_text"). That is obfuscation, not encryption: say so, rather
+  // than let the backend believe a secret is protected when it is not.
+  if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend?.() === 'basic_text') return false;
+  return true;
+}
+
+function answerSecretRequest(m) {
+  if (m?.type !== 'secret') return;
+  let reply;
+  try {
+    if (m.op === 'available') reply = { ok: true, data: canEncrypt() };
+    else if (!canEncrypt()) reply = { ok: false, error: 'encryption unavailable' };
+    else if (m.op === 'encrypt') reply = { ok: true, data: safeStorage.encryptString(String(m.data)).toString('base64') };
+    else if (m.op === 'decrypt') reply = { ok: true, data: safeStorage.decryptString(Buffer.from(String(m.data), 'base64')) };
+    else reply = { ok: false, error: `unknown op ${m.op}` };
+  } catch (err) {
+    reply = { ok: false, error: err.message };
+  }
+  try { backendProcess?.send({ type: 'secret:reply', id: m.id, ...reply }); } catch {}
 }
 
 // Clarity only ever loads its own bundled files. Anything that tries to navigate

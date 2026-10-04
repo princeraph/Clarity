@@ -856,7 +856,7 @@ export default function SettingsView({ onSaved }) {
                         borderRadius: T.r6, fontSize: 13, color: T.success,
                         fontFamily: T.fontUI,
                       }}>
-                        ✓ API key is saved
+                        ✓ {t('settings.apiKeySaved')}
                       </div>
                       <button
                         type="button"
@@ -1177,7 +1177,7 @@ export default function SettingsView({ onSaved }) {
                 />
                 {userName && (
                   <div style={{ marginTop: 8, fontSize: 12, color: T.ink60, fontFamily: T.fontMono }}>
-                    Preview: <span style={{ color: T.ink }}>Good morning, {userName}.</span>
+                    {t('settings.namePreview')} <span style={{ color: T.ink }}>{t('focus.greeting.morning')}, {userName}.</span>
                   </div>
                 )}
               </div>

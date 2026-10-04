@@ -13,7 +13,7 @@ qu'estimés. Trois fichiers se partagent le travail et ne se recouvrent pas :
 ## État au 4 octobre 2026
 
     dépôt            princeraph/clarity (privé) · branche de production : main
-    tests backend    221, en 10 suites — 1,5 s
+    tests backend    233, en 11 suites — 1,5 s
     contrôles        4, déclarés dans app/qualite.json
     intégration      .github/workflows/ci.yml, verte
     build requis     aucun — frontend/dist/ est versionné, l'app tourne d'un clone nu
@@ -21,7 +21,7 @@ qu'estimés. Trois fichiers se partagent le travail et ne se recouvrent pas :
 Les quatre contrôles, reproductibles tels quels :
 
 ```bash
-cd app/backend  && npm install && npm test        # 221 tests
+cd app/backend  && npm install && npm test        # 233 tests
 cd app          && node tools/verifier-paquet.mjs frontend/dist
 cd app/frontend && node tools/verifier-locales.mjs    # 2 langues, 555 clés, 33 fichiers
 cd app/frontend && node tools/verifier-saisie.mjs     # 23 cas, 2 langues
@@ -410,6 +410,57 @@ trois, puisque l'estimation était passée dans la carte. La première phrase a
 désormais une variante sans liste ; la seconde ne contient plus de nombre écrit
 en toutes lettres, il est calculé à partir des lignes affichées. Vérifié dans ce
 cas précis : trois tâches, rien de mesuré, en français.
+
+**Quatorze chaînes restaient en anglais en français.** En corrigeant le
+paragraphe de Tendances signalé, une recherche du même défaut en a trouvé
+treize autres : le bandeau « No connection… », « + Add Task » (deux vues),
+« AI Assistant », « Analysis updated », « ✓ API key is saved », la légende du
+graphe, la phrase de saisie rapide « Capture “…” as a new task », l'exemple de
+l'accueil, un « or »… Toutes écrites directement dans le JSX, donc invisibles
+pour le vérificateur de locales, qui ne regarde que ce qui passe par `t()`.
+Toutes traduites, et le vérificateur cherche maintenant ce texte-là aussi —
+une phrase remise en dur exprès, il la nomme avec sa ligne. Vérifié dans la
+vraie app en français : plus aucune des chaînes anglaises à l'écran.
+
+(Un faux pas en route : un test de mutation remis en place avec `git checkout`
+a effacé les traductions non encore commitées d'un fichier. Refaites aussitôt ;
+les tests de mutation passent désormais uniquement par une copie de sauvegarde.)
+
+**La clé d'API et le secret du tunnel sont chiffrés.** Ils étaient écrits en
+clair dans `settings.json` : quiconque copiait ce fichier, ou une sauvegarde,
+les lisait. Ils sont maintenant chiffrés par Windows (DPAPI), liés au compte de
+l'utilisateur. Le backend ne peut pas le faire lui-même — il tourne comme un
+processus enfant, en mode Node — alors il le demande au processus principal
+d'Electron par le canal IPC de l'enfant. Une clé en clair laissée par une
+ancienne version est chiffrée au premier démarrage. Rien ne change dans les
+réglages.
+
+Ce qui ne pouvait se vérifier qu'à moitié ici : cette machine n'a pas de
+trousseau, et Electron y refuse de chiffrer — vérifié, le canal répond, et
+l'app retombe proprement sur l'ancien comportement. Le chemin chiffré, lui,
+est prouvé par la CI Windows, avec la vraie app installée : une ancienne clé en
+clair migrée, une clé neuve enregistrée sans aucune trace en clair dans le
+fichier, puis un redémarrage qui la relit. Douze tests nouveaux (233).
+
+Et la CI Windows l'a fait échouer, à juste titre. Migration : bonne. Clé
+neuve : aucune trace en clair. Mais après redémarrage, la clé revenait
+**vide**. L'hypothèse, prouvée avant de toucher au code : `safeStorage` ne
+chiffre pas avec DPAPI à chaque fois ; il chiffre avec une clé que Chromium
+crée au premier lancement, protège par DPAPI, et n'écrit dans `Local State`
+qu'une dizaine de secondes plus tard. Le test arrêtait l'app une seconde après
+l'enregistrement, sur une installation jamais lancée : la clé n'existait que
+dans la mémoire du processus tué. Avec 15 secondes d'attente, tout passait.
+Chez l'utilisateur, Clarity a déjà tourné cent fois — la clé est sur disque.
+Le test reproduit donc maintenant cette situation (un premier lancement
+complet, Local State vérifié), puis arrête l'app **sans aucun délai** après
+l'enregistrement : vert. La seule fenêtre restante — une installation neuve
+tuée dans ses premières secondes pendant qu'on y enregistre une clé — est
+nommée dans `CLAUDE.md` ; la clé reviendrait vide et serait simplement
+ressaisie.
+
+Au passage : le backend s'arrête désormais si le processus principal
+disparaît. Un backend orphelin gardait le port 3001, et le lancement suivant
+lui parlait sans le savoir.
 
 ---
 
