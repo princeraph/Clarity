@@ -18,7 +18,8 @@ export const MIN_SAMPLES = 5;
 // waiting fixes. Callers compare it and recompute on a mismatch.
 //   1 — first version
 //   2 — the window falls back to all history when it would hold almost nothing
-export const OBSERVED_VERSION = 2;
+//   3 — estimation.pending: what is one step away from counting
+export const OBSERVED_VERSION = 3;
 
 // Estimate/actual ratios cluster near 1. These bounds are deliberately wide:
 // being 10% out is noise, being 2× out is a pattern worth naming.
@@ -125,6 +126,28 @@ export function computeEstimation(tasks) {
     // Worst offenders, so the UI can cite specific tasks rather than assert a number.
     worst: [...points].sort((a, b) => b.value - a.value).slice(0, 5)
       .map(p => ({ taskId: p.taskId, title: p.title, ratio: round(p.value) })),
+    pending: estimationPending(tasks),
+  };
+}
+
+// What stands between someone and their first estimation finding. A new user
+// sees "0 of 5" for days, and the tasks that are ONE step away are invisible:
+// estimated but never timed. Those are listed — starting their timer is all it
+// takes, and only open work can still be timed honestly.
+//
+// The other half-way case — timed, never estimated — is only COUNTED, never
+// offered as a to-do. An estimate written after the time is already on the
+// clock is not an estimate; it would pull every ratio toward 1 and teach the
+// user that they estimate well. So the UI says these don't count, and why.
+export function estimationPending(tasks) {
+  const isNum = v => typeof v === 'number' && v > 0;
+  const notTimed = tasks.filter(t =>
+    isNum(t.estimatedDuration) && !isNum(t.timeTracked) && !t.archived && t.status !== 'done');
+  const notEstimated = tasks.filter(t => !isNum(t.estimatedDuration) && isNum(t.timeTracked));
+  return {
+    notTimedCount: notTimed.length,
+    notTimed: notTimed.slice(0, 3).map(t => ({ taskId: t.id, title: t.title })),
+    notEstimatedCount: notEstimated.length,
   };
 }
 

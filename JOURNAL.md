@@ -10,10 +10,10 @@ qu'estimés. Trois fichiers se partagent le travail et ne se recouvrent pas :
 
 ---
 
-## État au 2 octobre 2026
+## État au 4 octobre 2026
 
     dépôt            princeraph/clarity (privé) · branche de production : main
-    tests backend    218, en 10 suites — 1,5 s
+    tests backend    221, en 10 suites — 1,5 s
     contrôles        4, déclarés dans app/qualite.json
     intégration      .github/workflows/ci.yml, verte
     build requis     aucun — frontend/dist/ est versionné, l'app tourne d'un clone nu
@@ -21,7 +21,7 @@ qu'estimés. Trois fichiers se partagent le travail et ne se recouvrent pas :
 Les quatre contrôles, reproductibles tels quels :
 
 ```bash
-cd app/backend  && npm install && npm test        # 218 tests
+cd app/backend  && npm install && npm test        # 221 tests
 cd app          && node tools/verifier-paquet.mjs frontend/dist
 cd app/frontend && node tools/verifier-locales.mjs    # 2 langues, 555 clés, 33 fichiers
 cd app/frontend && node tools/verifier-saisie.mjs     # 23 cas, 2 langues
@@ -377,6 +377,30 @@ Les autres propositions de l'audit sont dans `BACKLOG.md` § 4, avec ce
 qu'elles protègent réellement — l'une d'elles y est rétrogradée : un jeton d'API
 ne protège pas contre un programme du même compte, qui lit les fichiers
 directement.
+
+## 4 octobre — « 2 sur 5 » : le chemin vers le premier constat
+
+Le constat phare du profil exige cinq tâches à la fois estimées et
+chronométrées. Un nouvel utilisateur voyait « 0 sur 5 nécessaires » noyé en bas
+de page, sans savoir lesquelles de ses tâches en approchaient.
+
+En regardant les vraies données, un cas sautait aux yeux : les 8 tâches de
+démonstration ont du temps chronométré mais **aucune estimation** — elles
+comptent pour zéro, et rien ne le disait. C'est sans doute le cas le plus
+courant chez un vrai utilisateur aussi.
+
+La vue Tendances s'ouvre maintenant, tant qu'il n'y a pas de constat, sur une
+carte : « 2 sur 5 », une barre, pourquoi cinq, puis **les tâches ouvertes
+estimées mais jamais chronométrées** — lancer leur chronomètre suffit. Les
+tâches chronométrées sans estimation sont **comptées, jamais proposées** : une
+estimation écrite après coup, le temps déjà au compteur, n'en est pas une ; elle
+tirerait chaque rapport vers 1 et apprendrait à l'utilisateur qu'il estime
+bien. La carte le dit, et dit pourquoi Clarity ne la demande pas.
+
+Le calcul est au backend (`estimationPending`, `OBSERVED_VERSION` 3 pour
+invalider les profils en cache), avec trois tests ; le filtre « ouverte » retiré
+exprès, un test échoue. Vérifié dans la vraie app, en anglais et en français :
+2 sur 5, les deux tâches à un chronomètre près, aucune erreur.
 
 ---
 

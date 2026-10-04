@@ -224,7 +224,7 @@ la même machine — le port 3001 leur est ouvert. Cas réel sur un PC partagé,
 sinon. Coût : ~50 appels `fetch` dans 15 fichiers, plus un jeton dans l'URL des
 sauvegardes. À faire si Clarity vise des postes partagés.
 
-**Montrer la progression vers le premier constat.** Un nouvel utilisateur voit
+**~~Montrer la progression vers le premier constat~~ — fait le 4 octobre** (voir `JOURNAL.md`). Un nouvel utilisateur voit
 une vue Motifs vide tant qu'il n'a pas cinq tâches estimées et chronométrées.
 Une carte « 2 sur 5 » coûte une à deux heures et ne touche que le frontend.
 C'est le moins cher des quatre et le seul qui change l'expérience.
@@ -246,3 +246,10 @@ n'écoute que la machine et refuse tout `Host` étranger. Aucune n'est exploitab
 aujourd'hui ; un `npm audit fix` (sans `--force`) dans `backend/` les ferait
 probablement taire. Les alertes affichées par `npm run setup` concernent surtout
 les outils de construction, qui ne sont pas livrés.
+
+**Un paragraphe de la vue Tendances n'est pas traduit.** Quand la fenêtre de 90
+jours est vide et que la vue se rabat sur tout l'historique, elle affiche
+« Nothing you worked on falls inside the last … days » en anglais, même en
+français : le texte est écrit en dur dans `PatternsView.jsx`, hors de `t()`, et
+le vérificateur de locales ne voit que ce qui passe par `t()`. Relevé le 4
+octobre, pas corrigé.
