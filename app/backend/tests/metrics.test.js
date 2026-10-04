@@ -48,6 +48,34 @@ describe('computeEstimation', () => {
     expect(r.bias).toBeNull(); // still below MIN_SAMPLES
   });
 
+  test('pending: lists open tasks estimated but never timed — the one-step-away ones', () => {
+    const r = computeEstimation([
+      task({ title: 'A', estimatedDuration: 30, timeTracked: 0 }),
+      task({ title: 'B', estimatedDuration: 30, timeTracked: 0, status: 'done' }),   // done: too late to time
+      task({ title: 'C', estimatedDuration: 30, timeTracked: 0, archived: true }),   // archived
+      task({ title: 'D', estimatedDuration: 30, timeTracked: 25 }),                  // already counts
+    ]);
+    expect(r.pending.notTimedCount).toBe(1);
+    expect(r.pending.notTimed.map(p => p.title)).toEqual(['A']);
+  });
+
+  test('pending: timed-but-never-estimated is counted, never listed as a to-do', () => {
+    // An estimate added after the time is logged would bias every ratio toward 1.
+    const r = computeEstimation([
+      task({ estimatedDuration: null, timeTracked: 90 }),
+      task({ estimatedDuration: 0, timeTracked: 40 }),
+      task({ estimatedDuration: null, timeTracked: 0 }),   // neither: not half-way
+    ]);
+    expect(r.pending.notEstimatedCount).toBe(2);
+    expect(r.pending).not.toHaveProperty('notEstimated');
+  });
+
+  test('pending: lists at most three, counts them all', () => {
+    const r = computeEstimation(Array.from({ length: 7 }, () => task({ estimatedDuration: 15 })));
+    expect(r.pending.notTimedCount).toBe(7);
+    expect(r.pending.notTimed).toHaveLength(3);
+  });
+
   test('flags consistent under-estimation once there is enough data', () => {
     const tasks = Array.from({ length: MIN_SAMPLES }, () =>
       task({ estimatedDuration: 60, timeTracked: 120, tags: ['admin'] }));

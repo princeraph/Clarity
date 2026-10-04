@@ -258,13 +258,68 @@ function ProposalCard({ proposal, onAccept, onDecline, busy, T }) {
   );
 }
 
+// The way to a first finding, shown until there is one. Estimation is the
+// metric the profile leads with, and a new user used to see a bare "0 of 5"
+// with no idea which of their tasks were close. Now: how far along, which open
+// tasks need only a timer to count, and — counted, never offered as a to-do —
+// how many timed tasks lack an estimate, since one added afterwards would bias
+// the result toward "you estimate well".
+function EstimationProgress({ est, T }) {
+  const { t } = useLocale();
+  const n = Math.min(est.samples, MIN_SAMPLES);
+  const p = est.pending || { notTimedCount: 0, notTimed: [], notEstimatedCount: 0 };
+  return (
+    <div style={{
+      padding: '15px 16px', background: T.paperSubtle,
+      border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+      display: 'flex', flexDirection: 'column', gap: 12,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+        <span style={{ fontFamily: T.fontMono, fontSize: 24, fontWeight: 500, color: T.ink, lineHeight: 1 }}>
+          {t('patterns.progress.count', { n, needed: MIN_SAMPLES })}
+        </span>
+        <span style={{ fontSize: 12.5, color: T.ink60 }}>{t('patterns.progress.unit')}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${MIN_SAMPLES}, 1fr)`, gap: 4 }}
+           role="img" aria-label={t('patterns.progress.count', { n, needed: MIN_SAMPLES })}>
+        {Array.from({ length: MIN_SAMPLES }, (_, i) => (
+          <div key={i} style={{ height: 6, borderRadius: 3, background: i < n ? T.accent : T.hairline }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.55 }}>
+        {t('patterns.progress.why', { needed: MIN_SAMPLES })}
+      </div>
+      {p.notTimedCount > 0 && (
+        <div>
+          <div style={{ fontSize: 12.5, color: T.ink80, marginBottom: 6 }}>{t('patterns.progress.closest')}</div>
+          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {p.notTimed.map(x => (
+              <li key={x.taskId} style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.45 }}>{x.title}</li>
+            ))}
+          </ul>
+          {p.notTimedCount > p.notTimed.length && (
+            <div style={{ fontSize: 11.5, color: T.ink40, marginTop: 4 }}>
+              {t('patterns.progress.andMore', { n: p.notTimedCount - p.notTimed.length })}
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.55 }}>{t('patterns.progress.how')}</div>
+      {p.notEstimatedCount > 0 && (
+        <div style={{ fontSize: 11.5, color: T.ink40, lineHeight: 1.55 }}>
+          {t('patterns.progress.timedOnly', { n: p.notEstimatedCount })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // When nothing is measurable yet, five identical "not enough" boxes read as a
 // broken page. Say it once, and say what would change it — the metrics depend
 // on things the app records as you use it, not on waiting.
 function NothingYet({ o, T }) {
   const { t } = useLocale();
   const rows = [
-    { on: o.estimation.samples > 0,  what: t('patterns.nothing.duration'), needs: t('patterns.nothing.durationHow') },
     { on: o.rhythm.samples > 0,      what: t('patterns.nothing.rhythm'),   needs: t('patterns.nothing.rhythmHow') },
     { on: o.latency.samples > 0,     what: t('patterns.nothing.latency'),  needs: t('patterns.nothing.latencyHow') },
     { on: o.slippage.totalSlips > 0, what: t('patterns.nothing.slippage'), needs: t('patterns.nothing.slippageHow') },
@@ -459,6 +514,14 @@ export default function PatternsView() {
         )}
       </div>
 
+      {/* ── The way to a first finding, until there is one. First on the page:
+             for a new user it is the only thing here they can act on today. ── */}
+      {!o.estimation.enough && (
+        <Section title={t('patterns.progress.title')} T={T}>
+          <EstimationProgress est={o.estimation} T={T} />
+        </Section>
+      )}
+
       <Section
         title={t('patterns.askSection')}
         note={proposals.length ? t('patterns.nWaiting', { n: proposals.length }) : t('patterns.askingNotTelling')}
@@ -546,10 +609,8 @@ export default function PatternsView() {
 
       {nothingRecorded ? <NothingYet o={o} T={T} /> : (<>
       {/* ── Estimation ── */}
+      {o.estimation.enough && (
       <Section title={t('patterns.estimation')} note={t('patterns.estimationNote', { n: o.estimation.samples })} T={T}>
-        {!o.estimation.enough ? (
-          <NotEnough samples={o.estimation.samples} what={t('patterns.what.estimating')} T={T} />
-        ) : (
           <>
             <Finding tone={o.estimation.bias === 'under' ? 'warn' : 'good'} samples={o.estimation.samples} T={T}>
               {o.estimation.bias === 'under' && t('patterns.biasUnder', { ratio: o.estimation.medianRatio })}
@@ -569,8 +630,8 @@ export default function PatternsView() {
               ))}
             </div>
           </>
-        )}
       </Section>
+      )}
 
       {/* ── Slippage ── */}
       <Section title={t('patterns.slippage')} note={o.slippage.totalSlips ? t('patterns.slippageNote', { slips: o.slippage.totalSlips, tasks: o.slippage.tasksSlipped }) : null} T={T}>
