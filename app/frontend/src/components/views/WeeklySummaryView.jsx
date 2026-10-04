@@ -109,8 +109,8 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
           {health.providerType === 'ollama' || !health.providerType ? (
             <p style={{ margin: '4px 0 0', fontSize: 12, color: T.ink60 }}>
               {t('weekly.startOllama')} <code style={{ fontFamily: T.fontMono, background: T.paperMuted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>ollama serve</code>
-              {' '}or{' '}
-              <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>switch to a cloud provider →</button>
+              {' '}{t('common.or')}{' '}
+              <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>{t('focus.switchProvider')}</button>
             </p>
           ) : (
             <p style={{ margin: '4px 0 0', fontSize: 12, color: T.ink60 }}>

@@ -138,7 +138,37 @@ for (const f of files) {
   });
 }
 
-const problems = [...scopeProblems];
+// Text written straight into the JSX never reaches a dictionary, so none of the
+// checks above can see it: it simply stays English in every language. That is
+// how fourteen strings — the offline banner, "+ Add Task", a whole paragraph of
+// the Patterns view — shipped untranslated while this script said "Aucun
+// écart". Two shapes are caught: a text node of two words or more between tags,
+// and a quoted attribute meant for people (placeholder, title, label, value…).
+// Text inside <code> is a command to type, not prose, and is left alone.
+const hardcoded = [];
+for (const f of files.filter(f => f.endsWith('.jsx'))) {
+  const src = readFileSync(f, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
+    // A `//` after a colon is a URL (placeholder="http://…"), not a comment.
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const lineOf = i => src.slice(0, i).split('\n').length;
+  const TEXT_NODE = />([^<>{}`;=()]*)(?=[<{])/g;
+  for (const m of src.matchAll(TEXT_NODE)) {
+    const txt = m[1].replace(/\s+/g, ' ').trim();
+    if (!/[A-Za-zÀ-ÿ]{2,}[ ,.'’][^]*[A-Za-zÀ-ÿ]{2,}/.test(txt)) continue;
+    const tag = src.slice(src.lastIndexOf('<', m.index), m.index);
+    if (/^<code\b/.test(tag)) continue;
+    hardcoded.push(`${relative(SRC, f)}:${lineOf(m.index)} text written in the JSX, not through t(): « ${txt.slice(0, 60)} »`);
+  }
+  const ATTR = /\b(placeholder|title|aria-label|label|value|alt)=(?:"([^"]*)"|\{`([^`]*)`\})/g;
+  for (const m of src.matchAll(ATTR)) {
+    const txt = (m[2] ?? m[3]).replace(/\$\{[^}]*\}/g, ' ');
+    if (!/[A-Za-zÀ-ÿ]{2,}\s+[A-Za-zÀ-ÿ]{2,}/.test(txt)) continue;
+    hardcoded.push(`${relative(SRC, f)}:${lineOf(m.index)} ${m[1]}= written in the JSX, not through t(): « ${(m[2] ?? m[3]).slice(0, 60)} »`);
+  }
+}
+
+const problems = [...scopeProblems, ...hardcoded];
 const base = 'en';
 if (!dicts[base]) problems.push('no en.js — English is the fallback every other language leans on');
 

@@ -411,6 +411,21 @@ désormais une variante sans liste ; la seconde ne contient plus de nombre écri
 en toutes lettres, il est calculé à partir des lignes affichées. Vérifié dans ce
 cas précis : trois tâches, rien de mesuré, en français.
 
+**Quatorze chaînes restaient en anglais en français.** En corrigeant le
+paragraphe de Tendances signalé, une recherche du même défaut en a trouvé
+treize autres : le bandeau « No connection… », « + Add Task » (deux vues),
+« AI Assistant », « Analysis updated », « ✓ API key is saved », la légende du
+graphe, la phrase de saisie rapide « Capture “…” as a new task », l'exemple de
+l'accueil, un « or »… Toutes écrites directement dans le JSX, donc invisibles
+pour le vérificateur de locales, qui ne regarde que ce qui passe par `t()`.
+Toutes traduites, et le vérificateur cherche maintenant ce texte-là aussi —
+une phrase remise en dur exprès, il la nomme avec sa ligne. Vérifié dans la
+vraie app en français : plus aucune des chaînes anglaises à l'écran.
+
+(Un faux pas en route : un test de mutation remis en place avec `git checkout`
+a effacé les traductions non encore commitées d'un fichier. Refaites aussitôt ;
+les tests de mutation passent désormais uniquement par une copie de sauvegarde.)
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

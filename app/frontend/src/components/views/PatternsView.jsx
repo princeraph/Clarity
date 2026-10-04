@@ -514,8 +514,7 @@ export default function PatternsView() {
             padding: '10px 13px', background: T.paperSubtle,
             border: `1px solid ${T.hairline}`, borderRadius: T.r6, maxWidth: '62ch',
           }}>
-            Nothing you worked on falls inside the last {o.windowDaysRequested} days, so this covers
-            everything instead. Recent work would normally be weighted on its own.
+            {t('patterns.windowFellBack', { n: o.windowDaysRequested })}
           </p>
         )}
       </div>
@@ -630,7 +629,7 @@ export default function PatternsView() {
                   <Bar value={a.medianRatio ?? 0} max={Math.max(2, ...estimationAreas.map(x => x.medianRatio ?? 0))}
                     color={a.bias === 'under' ? T.warn : a.bias === 'accurate' ? T.done : T.accent} T={T} />
                   <div style={{ fontFamily: T.fontMono, fontSize: 11.5, color: a.enough ? T.ink60 : T.ink40, textAlign: 'right' }}>
-                    {a.medianRatio}× {!a.enough && <span title={`only ${a.samples} tasks`}>·{a.samples}</span>}
+                    {a.medianRatio}× {!a.enough && <span title={t('patterns.onlyNTasks', { n: a.samples })}>·{a.samples}</span>}
                   </div>
                 </div>
               ))}

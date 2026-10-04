@@ -77,7 +77,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
           padding: '9px 18px', background: T.ink, border: 'none',
           borderRadius: T.r6, fontSize: 13.5, fontWeight: 500,
           color: T.paper, cursor: 'pointer', fontFamily: T.fontUI,
-        }}>+ Add Task</button>
+        }}>{t('tasks.addButton')}</button>
       </div>
 
       {/* Search */}

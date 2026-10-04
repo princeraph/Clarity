@@ -247,7 +247,7 @@ aujourd'hui ; un `npm audit fix` (sans `--force`) dans `backend/` les ferait
 probablement taire. Les alertes affichées par `npm run setup` concernent surtout
 les outils de construction, qui ne sont pas livrés.
 
-**Un paragraphe de la vue Tendances n'est pas traduit.** Quand la fenêtre de 90
+**~~Un paragraphe de la vue Tendances n'est pas traduit~~ — corrigé le 4 octobre, avec treize autres chaînes du même genre, et le vérificateur de locales les attrape désormais.** Quand la fenêtre de 90
 jours est vide et que la vue se rabat sur tout l'historique, elle affiche
 « Nothing you worked on falls inside the last … days » en anglais, même en
 français : le texte est écrit en dur dans `PatternsView.jsx`, hors de `t()`, et
