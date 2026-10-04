@@ -156,6 +156,10 @@ jobs:
           if ($c -match [regex]::Escape($temoin)) { Write-Error "la clé neuve est écrite en clair"; exit 1 }
           if ($c -notmatch '"enc"') { Write-Error "la clé neuve n'est pas chiffrée"; exit 1 }
           "enregistrement : aucune trace de la clé en clair dans settings.json"
+          # DIAGNOSTIC (temporaire) : laisser Chromium écrire « Local State », qui
+          # porte la clé protégée par DPAPI, avant d'arrêter l'app.
+          Start-Sleep -Seconds 15
+          "Local State : $((Get-Item (Join-Path $env:APPDATA 'Clarity\Local State') -ErrorAction SilentlyContinue).LastWriteTime)"
 
           # 3. Redémarrage : la clé doit être déchiffrée, pas perdue.
           Arreter; Start-Process -FilePath $env:CLARITY_EXE; Attendre
