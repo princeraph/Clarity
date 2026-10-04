@@ -139,6 +139,18 @@ jobs:
           function Arreter { Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 3 }
           Arreter
 
+          # 0. Comme chez l'utilisateur : Clarity a déjà tourné. safeStorage ne
+          #    chiffre pas avec DPAPI directement — il chiffre avec une clé que
+          #    Chromium génère au premier lancement, protège par DPAPI, et écrit
+          #    dans « Local State » une dizaine de secondes plus tard. Mesuré :
+          #    tué avant cette écriture, l'app perdait la clé, et tout secret
+          #    chiffré avec. On reproduit donc la vraie situation — un premier
+          #    lancement complet — puis on vérifie que la clé est bien sur disque.
+          Start-Process -FilePath $env:CLARITY_EXE; Attendre; Start-Sleep -Seconds 15; Arreter
+          $ls = Get-Content (Join-Path $env:APPDATA 'Clarity\Local State') -Raw
+          if ($ls -notmatch '"encrypted_key"') { Write-Error "Local State ne porte pas la clé de chiffrement après un premier lancement"; exit 1 }
+          "premier lancement : la clé de chiffrement est écrite dans Local State"
+
           # 1. Une ancienne version avait écrit la clé en clair.
           New-Item -ItemType Directory -Force -Path $data | Out-Null
           $ancienne = "sk-ANCIENNE-$([guid]::NewGuid())"
@@ -156,12 +168,9 @@ jobs:
           if ($c -match [regex]::Escape($temoin)) { Write-Error "la clé neuve est écrite en clair"; exit 1 }
           if ($c -notmatch '"enc"') { Write-Error "la clé neuve n'est pas chiffrée"; exit 1 }
           "enregistrement : aucune trace de la clé en clair dans settings.json"
-          # DIAGNOSTIC (temporaire) : laisser Chromium écrire « Local State », qui
-          # porte la clé protégée par DPAPI, avant d'arrêter l'app.
-          Start-Sleep -Seconds 15
-          "Local State : $((Get-Item (Join-Path $env:APPDATA 'Clarity\Local State') -ErrorAction SilentlyContinue).LastWriteTime)"
 
-          # 3. Redémarrage : la clé doit être déchiffrée, pas perdue.
+          # 3. Redémarrage IMMÉDIAT après l'enregistrement — le cas dur : aucun
+          #    délai ne doit plus être nécessaire, la clé de chiffrement existait.
           Arreter; Start-Process -FilePath $env:CLARITY_EXE; Attendre
           $relu = (Invoke-RestMethod http://127.0.0.1:3001/api/settings).apiKey
           if ($relu -ne $masque) { Write-Error "après redémarrage, la clé est perdue (lu : '$relu')"; exit 1 }
