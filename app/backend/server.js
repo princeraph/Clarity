@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID as uuidv4 } from 'node:crypto';
 import { createProvider } from './src/llm/index.js';
@@ -17,7 +17,12 @@ import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
 import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 import { allowedHosts, hostGuard } from './src/security/host.js';
+import { buildAnalysisPrompt, restoreIds } from './src/llm/analysisPrompt.js';
 import { createSecretStore, probeBox } from './src/security/secrets.js';
+import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads.js';
+import { unloadAll } from './src/llm/LocalProvider.js';
+import { createOllamaInstaller, recommendedOllamaModel, ENDPOINT as OLLAMA_ENDPOINT } from './src/ollama/install.js';
+import { totalmem } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -27,6 +32,9 @@ const DATA_DIR      = process.env.CLARITY_DATA_DIR || join(__dirname, 'data');
 const DATA_FILE     = join(DATA_DIR, 'tasks.json');
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json');
 const BACKUPS_DIR   = join(DATA_DIR, 'backups');
+// The built-in assistant's models sit beside the data folder, not in it: backups
+// copy the data folder, and a 3 GB model has no business being copied daily.
+const MODELS_DIR    = process.env.CLARITY_MODELS_DIR || join(dirname(DATA_DIR), 'models');
 
 if (!existsSync(DATA_DIR))    mkdirSync(DATA_DIR,    { recursive: true });
 if (!existsSync(BACKUPS_DIR)) mkdirSync(BACKUPS_DIR, { recursive: true });
@@ -41,6 +49,9 @@ const DEFAULT_SETTINGS = {
   // in bursts, so the default 5 minutes meant most requests paid a full reload
   // before their first token. '0' hands the RAM back at once instead.
   keepAlive:          '30m',
+  // The built-in assistant's model, by file name in MODELS_DIR. Empty means
+  // whichever one is there.
+  localModel:         '',
   tunnelSecret:       '',
   apiKey:             '',
   onboardingComplete: false,
@@ -74,7 +85,7 @@ process.on('disconnect', () => process.exit(0));
 function readSettings() { return secrets.view(readRawSettings()); }
 
 async function saveSettings(s) { writeJSONAtomic(SETTINGS_FILE, await secrets.toFile(s, readRawSettings())); }
-function getProvider()   { return createProvider(readSettings()); }
+function getProvider()   { return createProvider({ ...readSettings(), modelsDir: MODELS_DIR }); }
 
 // ─── Task store ───────────────────────────────────────────────────────────────
 
@@ -181,10 +192,10 @@ const profileStore = createProfileStore({ dataDir: DATA_DIR });
 const threadStore  = createThreadStore({ dataDir: DATA_DIR });
 const suggestStore = createSuggestStore({ dataDir: DATA_DIR });
 
-// Ollama runs on this machine, so a prompt sent to it never crosses the device
-// boundary and the brief's redactions do not apply. Every other provider is
-// network-bound and gets the bounded summary instead.
-const providerIsLocal = (settings) => settings.providerType === 'ollama';
+// Ollama and the built-in assistant run on this machine, so a prompt sent to
+// them never crosses the device boundary and the brief's redactions do not
+// apply. Every other provider is network-bound and gets the bounded summary.
+const providerIsLocal = (settings) => settings.providerType === 'ollama' || settings.providerType === 'local';
 
 // Read the profile, computing the observed layer if it has never been built.
 // Without this a fresh install sends an empty brief even though the history to
@@ -287,44 +298,15 @@ async function runAnalysis(allTasks) {
   analysisError = null;
   console.log(`[AI] Analyzing ${tasks.length} of ${allTasks.length} task(s)...`);
 
-  const taskList = tasks.map((t, i) =>
-    `Task ${i + 1}:\nID: ${t.id}\nTitle: ${t.title}\nDescription: ${(t.description || 'N/A').slice(0, 300)}\n` +
-    `Deadline: ${t.deadline || 'None'}\nDeliverable: ${(t.deliverable || 'N/A').slice(0, 160)}\nStatus: ${t.status}\n` +
-    `Tags: ${t.tags?.join(', ') || 'None'}\nRecurring: ${t.recurring || 'none'}\n` +
-    `Subtasks: ${t.subtasks?.length ? t.subtasks.map(s => `${s.done ? '[done]' : '[todo]'} ${s.title}`).join(', ') : 'None'}\n` +
-    `Notes: ${(t.notes || 'N/A').slice(0, 300)}`
-  ).join('\n\n');
-
-  const prompt = `You are a productivity assistant. Analyze these ${tasks.length} task(s) and return JSON.
-
-TASKS:
-${taskList}
-
-Return ONLY this JSON:
-{
-  "whatToDoNext": "One specific action to take right now and why (ONE sentence)",
-  "overallInsight": "One observation about this workload (ONE sentence)",
-  "taskAnalysis": [
-    {
-      "id": "exact task id",
-      "priority": 1,
-      "priorityLevel": "high",
-      "reasoning": "Why this priority (ONE short sentence)",
-      "actionPlan": ["Step 1", "Step 2"],
-      "dependencies": ["ids of tasks that must be done before this"],
-      "relatedTasks": ["ids of related tasks"],
-      "relationshipNote": "How tasks connect, or empty string"
-    }
-  ]
-}
-
-Rules: priority 1 = do first. priorityLevel = high/medium/low. Include all ${tasks.length} tasks.`;
+  const prompt = buildAnalysisPrompt(tasks);
 
   try {
     const provider = getProvider();
     // Sized to the reply actually asked for. The old blanket 3072 let the model
     // keep writing long after the JSON closed, and that tail is pure waiting.
-    const analysis = await provider.generateJSON(prompt, { maxTokens: 180 + tasks.length * 55 });
+    const analysis = restoreIds(
+      await provider.generateJSON(prompt.text, { maxTokens: prompt.maxTokens, schema: prompt.schema }),
+      tasks);
     if (analysis?.taskAnalysis) {
       const data = readData();
       data.analysis = { ...analysis, analyzedAt: new Date().toISOString() };
@@ -402,7 +384,7 @@ app.get('/api/health', asyncRoute(async (req, res) => {
     const models = connected ? await provider.listModels() : [];
     res.json({
       ollama: connected,           // kept for compatibility (means "AI connected")
-      model: settings.ollamaModel,
+      model: settings.providerType === 'local' ? provider.model : settings.ollamaModel,
       providerType: settings.providerType,
       endpoint: settings.llmEndpoint,
       analyzing: isAnalyzing,
@@ -416,6 +398,89 @@ app.get('/api/health', asyncRoute(async (req, res) => {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+// ── Built-in assistant ───────────────────────────────────────────────────────
+// For someone without Ollama: one click downloads a model into MODELS_DIR, and
+// Clarity switches to it when the file is complete and verified — even if the
+// window was closed in between, which is why the switch happens here and not
+// in the interface.
+
+const downloader = createDownloader({
+  modelsDir: MODELS_DIR,
+  onComplete: async (m) => {
+    try {
+      await saveSettings({ ...readSettings(), providerType: 'local', localModel: m.file });
+      console.log(`[assistant] ${m.file} ready — the built-in assistant is on`);
+      warmModel();
+    } catch (err) {
+      console.error('[assistant] model ready, but settings could not be saved:', err.message);
+    }
+  },
+});
+
+app.get('/api/assistant', (req, res) => {
+  const s = readSettings();
+  res.json({
+    ...downloader.status(),
+    recommended: recommend(),
+    ramBytes: totalmem(),
+    freeBytes: freeBytes(existsSync(MODELS_DIR) ? MODELS_DIR : dirname(MODELS_DIR)),
+    active: s.providerType === 'local',
+    localModel: s.localModel,
+  });
+});
+
+app.post('/api/assistant/download', (req, res) => {
+  const r = downloader.start(String(req.body?.id || ''));
+  if (r.error) return res.status(r.code).json(r);
+  res.json(r);
+});
+
+app.post('/api/assistant/cancel', (req, res) => {
+  res.json({ cancelled: downloader.cancel() });
+});
+
+app.delete('/api/assistant/models/:id', asyncRoute(async (req, res) => {
+  // A loaded model is an open file, and Windows will not delete an open file.
+  await unloadAll();
+  if (!downloader.remove(req.params.id)) return res.status(409).json({ error: 'Model in use or unknown' });
+  const s = readSettings();
+  const gone = downloader.status().models.find(m => m.id === req.params.id);
+  if (s.localModel === gone?.file) await saveSettings({ ...s, localModel: '' });
+  res.json({ removed: true });
+}));
+
+// ── Ollama, installed by Clarity (Windows) ───────────────────────────────────
+// The other way to a local AI, for someone who wants Ollama itself — bigger
+// models later, shared with other apps. Same rule as the built-in download:
+// the switch happens here once the model is pulled, window open or not.
+
+const ollamaInstaller = createOllamaInstaller({
+  onComplete: async (model) => {
+    try {
+      await saveSettings({ ...readSettings(), providerType: 'ollama', llmEndpoint: OLLAMA_ENDPOINT, ollamaModel: model });
+      console.log(`[ollama] installed with ${model} — Clarity now uses it`);
+      warmModel();
+    } catch (err) {
+      console.error('[ollama] ready, but settings could not be saved:', err.message);
+    }
+  },
+});
+
+app.get('/api/ollama/install', asyncRoute(async (req, res) => {
+  res.json({ ...ollamaInstaller.status(), running: await ollamaInstaller.running(), recommended: recommendedOllamaModel() });
+}));
+
+app.post('/api/ollama/install', (req, res) => {
+  const model = typeof req.body?.model === 'string' && req.body.model ? req.body.model : recommendedOllamaModel();
+  const r = ollamaInstaller.start(model);
+  if (r.error) return res.status(r.code).json(r);
+  res.json(r);
+});
+
+app.post('/api/ollama/install/cancel', (req, res) => {
+  res.json({ cancelled: ollamaInstaller.cancel() });
+});
+
 app.get('/api/settings', (req, res) => {
   const s = readSettings();
   res.json({
@@ -427,11 +492,17 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel } = req.body;
   if (llmEndpoint && providerType === 'ollama') {
     try { new URL(llmEndpoint); } catch {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
+  }
+  // A bare file name: the setting must not be able to point the engine at a
+  // file outside the models folder.
+  if (localModel !== undefined && (typeof localModel !== 'string' || basename(localModel) !== localModel
+      || (localModel && !localModel.endsWith('.gguf')))) {
+    return res.status(400).json({ error: 'Invalid model name' });
   }
   const next = {
     ...current,
@@ -441,6 +512,7 @@ app.post('/api/settings', async (req, res) => {
     ...(tunnelSecret        !== undefined && tunnelSecret !== '••••••••' && { tunnelSecret }),
     ...(apiKey              !== undefined && apiKey       !== '••••••••' && { apiKey }),
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
+    ...(localModel          !== undefined && { localModel }),
   };
   try { await saveSettings(next); }
   catch (err) {
@@ -664,7 +736,12 @@ app.post('/api/tasks/:id/thread/suggest', asyncRoute(async (req, res) => {
     providerIsLocal: providerIsLocal(settings),
   });
 
-  const options = parseOptions(await getProvider().generateJSON(prompt.text, { maxTokens: 300 }));  // 4 one-line moves
+  // The schema binds the built-in assistant to the shape parseOptions reads;
+  // providers that cannot take one ignore it.
+  const options = parseOptions(await getProvider().generateJSON(prompt.text, {
+    maxTokens: 300,   // 4 one-line moves
+    schema: { type: 'array', items: { type: 'string', maxLength: 160 }, minItems: 1, maxItems: 4 },
+  }));
   if (!options.length) return res.json({ thread: existing, added: 0 });
 
   const now = new Date();
@@ -1285,11 +1362,11 @@ const BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1';
 // run is not a reason to refuse to start.
 function warmModel() {
   const s = readSettings();
-  if (s.providerType !== 'ollama') return;
-  const provider = createProvider(s);
+  if (!providerIsLocal(s)) return;
+  const provider = createProvider({ ...s, modelsDir: MODELS_DIR });
   if (typeof provider.warm !== 'function') return;
   provider.warm().then(r => {
-    if (r.ok) console.log(`[Clarity] model warm in ${r.ms} ms — kept for ${s.keepAlive}`);
+    if (r.ok) console.log(`[Clarity] model warm in ${r.ms} ms — kept for ${s.keepAlive}${r.gpu ? ` — on ${r.gpu}` : ''}`);
     else console.log(`[Clarity] could not warm the model (${r.error || 'not reachable'}) — it will load on first use`);
   }).catch(() => {});
 }

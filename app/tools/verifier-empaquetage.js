@@ -30,6 +30,18 @@ exports.default = async function verifierEmpaquetage(context) {
     if (!fs.existsSync(path.join(backend, 'node_modules', dep, 'package.json'))) manques.push(`backend/node_modules/${dep}`);
   }
   if (!fs.existsSync(path.join(resources, 'frontend', 'dist', 'index.html'))) manques.push('frontend/dist/index.html');
+  if (!fs.existsSync(path.join(backend, 'src', 'llm', 'engineWorker.js'))) manques.push('backend/src/llm/engineWorker.js');
+
+  // The built-in assistant: an engine for the platform being packaged, and no
+  // CUDA build — 540 MB that preparer-backend removes on purpose.
+  const enginesDir = path.join(backend, 'node_modules', '@node-llama-cpp');
+  const engines = fs.existsSync(enginesDir) ? fs.readdirSync(enginesDir) : [];
+  const prefix = { win32: 'win-', darwin: 'mac-', linux: 'linux-' }[context.electronPlatformName];
+  if (!engines.some(n => n.startsWith(prefix))) manques.push(`backend/node_modules/@node-llama-cpp/${prefix}* (built-in assistant engine)`);
+  const cuda = engines.filter(n => n.includes('cuda'));
+  if (cuda.length) {
+    throw new Error(`[verifier-empaquetage] CUDA engines were packaged (${cuda.join(', ')}) — hundreds of MB nobody needs`);
+  }
 
   if (manques.length) {
     throw new Error(`[verifier-empaquetage] the packaged app is incomplete — it would not start:\n  ${manques.join('\n  ')}`);
@@ -37,5 +49,5 @@ exports.default = async function verifierEmpaquetage(context) {
   if (fs.existsSync(path.join(backend, 'node_modules', 'jest'))) {
     throw new Error('[verifier-empaquetage] dev dependency jest was packaged with the backend');
   }
-  console.log(`  • [verifier-empaquetage] backend complete in ${path.relative(process.cwd(), backend)}`);
+  console.log(`  • [verifier-empaquetage] backend complete in ${path.relative(process.cwd(), backend)} — engines: ${engines.join(', ')}`);
 };

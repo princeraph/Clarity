@@ -210,7 +210,7 @@ function getUserName() {
 
 export default function Sidebar({
   view, setView, health, analyzing, onAddTask, onChat, onExport, onReanalyze,
-  taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings,
+  taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings, onOpenAiSettings,
 }) {
   const { T } = useTheme();
   const { t } = useLocale();
@@ -320,7 +320,7 @@ export default function Sidebar({
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div
             title={health.ollama ? `AI · ${health.model || 'connected'}` : t('sidebar.aiOfflineLong')}
-            onClick={() => !health.ollama && setView('settings')}
+            onClick={() => !health.ollama && (onOpenAiSettings ? onOpenAiSettings() : setView('settings'))}
             style={{ cursor: health.ollama ? 'default' : 'pointer' }}
           >
             <span style={{
@@ -466,7 +466,7 @@ export default function Sidebar({
             border: `1px solid ${T.hairline}`,
             cursor: health.ollama ? 'default' : 'pointer',
           }}
-          onClick={() => !health.ollama && setView('settings')}
+          onClick={() => !health.ollama && (onOpenAiSettings ? onOpenAiSettings() : setView('settings'))}
         >
           <span style={{ position: 'relative', width: 7, height: 7, borderRadius: '50%', background: health.ollama ? T.done : T.ink40, flexShrink: 0 }}>
             {health.ollama && (

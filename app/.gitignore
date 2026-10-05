@@ -1,6 +1,7 @@
 node_modules/
 # Local runtime data — tasks, settings, and rolling backups
 backend/data/
+backend/models/
 .env
 
 # Scratch file from scripts/generate-icon.js. It is cleaned up in a finally now,

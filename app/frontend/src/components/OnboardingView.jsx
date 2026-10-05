@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { useAssistant, AssistantModels, formatSize } from './AssistantSetup.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -76,10 +77,21 @@ function Cta({ label, onClick, disabled, T }) {
 }
 
 export default function OnboardingView({ onComplete }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { T } = useTheme();
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
+  // This screen used to announce "llama-3 8b · 4.2 GB" on every machine,
+  // installed or not. It now says what is there, and offers the download when
+  // nothing is — which can run while the person carries on.
+  const [health, setHealth] = useState(null);
+  const refreshHealth = () => fetch(`${API}/health`).then(r => r.json()).then(setHealth).catch(() => {});
+  useEffect(() => { refreshHealth(); }, []);
+  const assistant = useAssistant({ onReady: refreshHealth });
+  const ready = !!health?.ollama;
+  const recommended = assistant.info?.models.find(m => m.id === assistant.info.recommended);
+  const installed = assistant.info?.models.filter(m => m.installed).at(-1);
+  const shownModel = installed || recommended;
 
   async function finish() {
     setCompleting(true);
@@ -158,14 +170,20 @@ export default function OnboardingView({ onComplete }) {
                   textTransform: 'uppercase', color: T.ink60,
                 }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.done }} />
-                  {t('onboarding.onDeviceModel')}
+                  {t('onboarding.onDeviceModel', { model: ready ? health.model : t('onboarding.modelPending') })}
                 </div>
                 <div style={{ display: 'grid', gap: 10 }}>
                   <SpecRow label={t('onboarding.storage')}       value="%APPDATA%\Clarity" T={T} />
-                  <SpecRow label={t('onboarding.modelSize')}    value="4.2 GB" T={T} />
+                  {shownModel && <SpecRow label={t('onboarding.modelSize')} value={formatSize(shownModel.size, locale)} T={T} />}
                   <SpecRow label={t('onboarding.networkCalls')} value="0" done T={T} />
-                  <SpecRow label={t('onboarding.cloudSync')}    value="Off" T={T} />
+                  <SpecRow label={t('onboarding.cloudSync')}    value={t('onboarding.off')} T={T} />
                 </div>
+                {health && !ready && recommended && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: T.ink80, lineHeight: 1.5 }}>{t('onboarding.assistantOffer')}</p>
+                    <AssistantModels assistant={assistant} only={recommended.id} />
+                  </div>
+                )}
               </div>
             </div>
           )}

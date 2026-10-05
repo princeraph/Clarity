@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
+import AiOfflineNotice from '../AiOfflineNotice.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -101,24 +102,7 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
       </div>
 
       {!health.ollama && (
-        <div style={{
-          padding: '14px 18px', marginBottom: 24, borderRadius: T.r10,
-          background: T.paperSubtle, border: `1px solid ${T.hairline}`,
-        }}>
-          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t('focus.aiOffline')}</p>
-          {health.providerType === 'ollama' || !health.providerType ? (
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: T.ink60 }}>
-              {t('weekly.startOllama')} <code style={{ fontFamily: T.fontMono, background: T.paperMuted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>ollama serve</code>
-              {' '}{t('common.or')}{' '}
-              <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>{t('focus.switchProvider')}</button>
-            </p>
-          ) : (
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: T.ink60 }}>
-              {health.providerType === 'anthropic' ? 'Anthropic' : health.providerType === 'openai' ? 'OpenAI' : 'OpenRouter'} can't be reached.{' '}
-              <button onClick={onOpenSettings} style={{ fontSize: 12, color: T.accent, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI }}>{t('weekly.checkKey')}</button>
-            </p>
-          )}
-        </div>
+        <AiOfflineNotice health={health} onOpenSettings={onOpenSettings} style={{ marginBottom: 24 }} />
       )}
 
       {displayText ? (

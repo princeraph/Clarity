@@ -253,3 +253,76 @@ jours est vide et que la vue se rabat sur tout l'historique, elle affiche
 français : le texte est écrit en dur dans `PatternsView.jsx`, hors de `t()`, et
 le vérificateur de locales ne voit que ce qui passe par `t()`. Relevé le 4
 octobre, pas corrigé.
+
+---
+
+## 5. L'assistant IA pour quelqu'un qui n'a pas Ollama — décidé le 5 octobre, voies 2 et 3 faites le même jour (voir JOURNAL)
+
+Le cœur de Clarity, pour son auteur, c'est l'IA : relier les tâches entre
+elles, aider quand on bloque, faire plus qu'une liste. Or un utilisateur non
+technique n'a pas Ollama, et lui demander de l'installer en ligne de commande
+puis de télécharger un modèle, c'est le perdre. Cinq voies ont été pesées.
+
+**Retenues maintenant :**
+
+- **Voie 3 — le moteur intégré.** Le modèle tourne dans Clarity même
+  (llama.cpp), téléchargé au premier lancement. Rien d'autre à installer, rien
+  ne quitte la machine. Qualité selon le PC.
+- **Voie 2 — Clarity installe Ollama.** Un bouton « Installer l'assistant » :
+  Clarity télécharge Ollama et un modèle adapté à la mémoire du PC. Pour qui
+  préfère Ollama, ou l'a déjà.
+
+**Gardées pour plus tard — pistes de monétisation, à reprendre lors d'un audit
+ou d'une réflexion sur le modèle économique :**
+
+- **Voie 4 — « Clarity Cloud ».** Un serveur tenu par l'auteur, avec sa propre
+  clé d'API (Anthropic, OpenAI…). Marche sur n'importe quel PC, sans rien
+  installer, avec les meilleurs modèles. Mais chaque utilisateur actif coûte de
+  l'argent à l'auteur : ça n'a de sens que **payant**, par abonnement. Conditions
+  avant de l'ouvrir : une politique de confidentialité (les tâches transitent par
+  ce serveur, puis par le fournisseur), une limite d'usage par compte contre les
+  abus, et un choix explicite de l'utilisateur — jamais par défaut, puisque la
+  promesse de Clarity est « rien ne quitte votre ordinateur ». Modèle plausible :
+  local gratuit par défaut, Cloud en option payante pour les PC trop faibles ou
+  pour qui veut les meilleures réponses. Les revenus pourraient aussi financer
+  la signature de l'installateur.
+- **Voie 5 — l'IA du système.** Microsoft et Apple ouvrent aux applications un
+  modèle intégré à Windows et à macOS, sur les machines récentes. Gratuit pour
+  l'auteur comme pour l'utilisateur, privé. Pas mûr aujourd'hui ; quand il le
+  sera, ce sera un fournisseur de plus dans `src/llm/`. Intérêt commercial
+  indirect : rendre la version gratuite meilleure sans coût, et réserver la
+  voie 4 à ce que le local ne sait pas faire.
+
+**Écartée comme solution par défaut :** la clé d'API de l'utilisateur lui-même
+(déjà possible dans les réglages) — compte, carte bancaire et données envoyées
+à un tiers : trop pour un utilisateur non technique.
+
+### Mesuré le 5 octobre — le moteur intégré tient la route
+
+Banc d'essai sur les **vraies** requêtes de Clarity (analyse des liens entre
+tâches, pistes pour débloquer, discussion en français), moteur `node-llama-cpp`
+3.22, processeur 4 cœurs sans carte graphique — un portable ordinaire :
+
+|                                    | Gemma 4 E2B (2,8 Go) | Gemma 4 E4B (4,6 Go) |
+|------------------------------------|----------------------|----------------------|
+| Chargement                         | 5 s                  | 8 s                  |
+| Discussion en français             | 4 s, juste           | 7 s, juste           |
+| Pistes pour débloquer (4)          | 7 s, en français     | 8 s, en français     |
+| Liens entre 6 tâches               | 38 s, quelques liens à l'envers | 58 s, **exacts** |
+
+Licence Apache 2.0 pour les deux : redistribution et usage commercial permis.
+Même famille que le `gemma4` d'Ollama, pour lequel les invites sont déjà
+réglées.
+
+Trois réglages ont fait la différence, mesurés un par un :
+1. **La « réflexion » de Gemma 4 est active par défaut** dans le moteur, et
+   écrite en clair dans la réponse. Coupée à la source (`reasoning: false`).
+2. **Le format imposé par un schéma JSON** — compact, une entrée par tâche,
+   longueurs bornées. Sans lui : JSON tronqué, ou liste vide.
+3. **Les tâches appelées T1, T2…** au lieu de leurs identifiants de 36
+   caractères, retraduits ensuite. Moitié moins de texte à écrire — gain valable
+   aussi pour Ollama.
+
+Ollama, lui, s'installe sans droits d'administrateur (documentation officielle),
+mais pèse **environ 4 Go** avant le moindre modèle : le moteur intégré
+(≈ 30 Mo processeur + 70 Mo carte graphique) est nettement plus léger.
