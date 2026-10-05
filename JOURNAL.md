@@ -514,6 +514,33 @@ Le moteur prend désormais au plus autant de fils que de cœurs logiques.
 
 ---
 
+## 5 octobre — Clarity parle à Claude
+
+Un connecteur MCP : Claude Desktop (ou toute appli d'IA qui parle MCP) lit et
+met à jour les tâches — « par quoi je commence ? », ajouter, cocher, proposer
+une piste. Réglages → Assistant IA → « Connecter à Claude Desktop » télécharge
+une extension `.mcpb` ; un double-clic l'installe dans Claude.
+
+- **Éteint par défaut, révocable.** Le jeton n'existe en clair que dans le
+  fichier remis ; Clarity n'en garde que l'empreinte SHA-256. Reconnecter ou
+  déconnecter rend l'ancienne extension inutilisable — vérifié.
+- **Ce qui sort est borné côté Clarity**, pas par l'appelant : titres,
+  statuts, dates, étiquettes, descriptions coupées à 300 caractères, pistes.
+  Jamais les notes, le journal, les réponses aux points d'étape ni le profil.
+- **Pas besoin que Clarity soit ouvert** : fermé, le connecteur le lance en
+  arrière-plan (`--background` : icône près de l'horloge, aucune fenêtre).
+  Nouvelle option « Lancer Clarity au démarrage de Windows », éteinte par défaut.
+- Serveur MCP sans dépendance (un fichier), manifeste validé par l'outil
+  officiel `mcpb`, zip vérifié par `unzip -t`. CI Windows : conversation MCP
+  complète avec l'app installée, puis Clarity fermé et réveillé par le
+  connecteur.
+
+Ce que ça ne fait pas : claude.ai, ChatGPT ou le téléphone, qui tournent dans
+le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
+(« Clarity Cloud ») du BACKLOG.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

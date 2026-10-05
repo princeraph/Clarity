@@ -13,5 +13,10 @@ contextBridge.exposeInMainWorld('clarity', {
     ipcRenderer.on('tray-command', handler);
     return () => ipcRenderer.removeListener('tray-command', handler);
   },
+  // Start with Windows (Settings): { supported, enabled }
+  loginItem: {
+    get: () => ipcRenderer.invoke('login-item:get'),
+    set: (enabled) => ipcRenderer.invoke('login-item:set', !!enabled),
+  },
   isElectron: true,
 });
