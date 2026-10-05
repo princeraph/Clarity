@@ -18,5 +18,10 @@ contextBridge.exposeInMainWorld('clarity', {
     get: () => ipcRenderer.invoke('login-item:get'),
     set: (enabled) => ipcRenderer.invoke('login-item:set', !!enabled),
   },
+  // AI connector: install into Claude Desktop in one click
+  connector: {
+    install: () => ipcRenderer.invoke('connector:install'),
+    getClaude: () => ipcRenderer.invoke('connector:get-claude'),
+  },
   isElectron: true,
 });

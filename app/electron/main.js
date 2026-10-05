@@ -307,6 +307,35 @@ ipcMain.handle('login-item:set', (_event, enabled) => {
   return { supported: true, enabled: app.getLoginItemSettings(loginQuery).openAtLogin };
 });
 
+// ─── AI connector: one click ─────────────────────────────────────────────────
+// Downloading a file, finding it, double-clicking it: three steps a new user
+// got lost in. Here Clarity writes Clarity.mcpb to Downloads and opens it
+// itself, so Claude Desktop's own "Install?" dialog is the only thing left.
+// When nothing on Windows opens .mcpb files, Claude Desktop is missing (or too
+// old for extensions): say so before turning anything on.
+function mcpbHandled() {
+  if (process.platform !== 'win32') return Promise.resolve(process.platform === 'darwin' ? null : false);
+  return new Promise((resolve) => {
+    require('child_process').execFile('reg', ['query', 'HKCR\\.mcpb'], { windowsHide: true }, (err) => resolve(!err));
+  });
+}
+
+ipcMain.handle('connector:install', async () => {
+  const handled = await mcpbHandled();
+  if (handled === false) return { claudeFound: false };
+  const resp = await fetch('http://127.0.0.1:3001/api/connector/bundle', { method: 'POST' });
+  if (!resp.ok) return { error: `HTTP ${resp.status}` };
+  const file = path.join(app.getPath('downloads'), 'Clarity.mcpb');
+  fs.writeFileSync(file, Buffer.from(await resp.arrayBuffer()));
+  const { shell } = require('electron');
+  const failure = await shell.openPath(file);
+  return { claudeFound: handled !== false, opened: !failure, file };
+});
+
+ipcMain.handle('connector:get-claude', () => {
+  require('electron').shell.openExternal('https://claude.ai/download');
+});
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 ipcMain.on('show-notification', (event, { title, body }) => {
   if (Notification.isSupported()) new Notification({ title, body }).show();

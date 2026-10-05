@@ -78,14 +78,20 @@ const STATUS = { type: 'string', enum: ['not_started', 'in_progress', 'done'] };
 export const TOOLS = [
   {
     name: 'clarity_overview',
-    description: 'Start here. What Clarity suggests doing next, how many tasks are active or overdue, and the top tasks in priority order.',
+    // Written for how people actually ask. "What do I start with" did not
+    // reach this tool when its description only said "start here": the model
+    // answered from its chat memory instead (5 October, Claude Desktop).
+    description: 'The person’s to-do list and priorities, from Clarity, their task manager on this computer. '
+      + 'Use it whenever they ask what to do, what to start with, what is next, what is on their plate, about their day, '
+      + 'their tasks, deadlines or priorities, or say they are overwhelmed or stuck — in any language, even if they do not '
+      + 'mention Clarity. Returns what Clarity suggests doing next, active and overdue counts, and the top tasks in priority order.',
     inputSchema: { type: 'object', properties: {} },
     annotations: { readOnlyHint: true },
     run: () => call('GET', '/overview'),
   },
   {
     name: 'clarity_list_tasks',
-    description: 'List the person’s tasks (active ones by default). Each has a ref to use with the other tools.',
+    description: 'All of the person’s tasks in Clarity (active ones by default), e.g. “show my tasks”, “what is due this week”. Each has a ref to use with the other tools.',
     inputSchema: { type: 'object', properties: { status: { ...STATUS, description: 'Only tasks with this status. "done" lists finished ones.' } } },
     annotations: { readOnlyHint: true },
     run: (a) => call('GET', `/tasks${a.status ? `?status=${encodeURIComponent(a.status)}` : ''}`),
@@ -99,7 +105,7 @@ export const TOOLS = [
   },
   {
     name: 'clarity_add_task',
-    description: 'Add a task to Clarity. Use the person’s own words for the title.',
+    description: 'Add a task to the person’s Clarity task list — whenever they say they need to, must, should or want to do something, or ask to be reminded. Use their own words for the title.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -114,7 +120,7 @@ export const TOOLS = [
   },
   {
     name: 'clarity_set_status',
-    description: 'Mark a task not started, in progress or done.',
+    description: 'Mark a Clarity task done, in progress or not started — e.g. when the person says they finished or started something.',
     inputSchema: { type: 'object', properties: { ref: REF, status: STATUS }, required: ['ref', 'status'] },
     run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/status`, { status: a.status }),
   },
@@ -128,8 +134,10 @@ export const TOOLS = [
 
 // ─── MCP over stdio ──────────────────────────────────────────────────────────
 
-const INSTRUCTIONS = 'Clarity is the person’s task manager, running on their computer. Call clarity_overview first. '
-  + 'Refer to tasks by title when talking to the person; use refs only in tool calls.';
+const INSTRUCTIONS = 'Clarity is the person’s task manager, running on their computer, and the source of truth for what '
+  + 'they have to do. For any question about what to do, start, prioritise or finish — even a vague one like “what do I '
+  + 'start with?” — call clarity_overview before answering, rather than relying on earlier conversations. '
+  + 'Refer to tasks by title when talking to the person; use refs only in tool calls. Answer in the person’s language.';
 
 export async function handle(msg) {
   const { id, method, params } = msg;

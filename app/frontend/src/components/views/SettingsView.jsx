@@ -522,6 +522,10 @@ function ConnectorSettings({ T }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  // One click in the app: Clarity opens Claude Desktop's install dialog itself.
+  // 'opened' | 'noClaude' | null
+  const [outcome, setOutcome] = useState(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [confirmReconnect, setConfirmReconnect] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [manual, setManual] = useState(null);
@@ -544,8 +548,23 @@ function ConnectorSettings({ T }) {
     return () => clearInterval(id);
   }, [enabled, refresh]);
 
+  // Saved but not opened (no handler found by Windows): the manual steps show.
+  const INSTALL_OUTCOME = (r) => (r?.claudeFound === false ? 'noClaude' : r?.opened ? 'opened' : null);
+
+  async function installInClaude() {
+    try {
+      const r = await window.clarity.connector.install();
+      if (r?.error) setError(true);
+      else if (INSTALL_OUTCOME(r)) setOutcome(INSTALL_OUTCOME(r));
+      else setDownloaded(true);
+    } catch { setError(true); }
+    await refresh();
+    setBusy(false);
+  }
+
   async function download() {
-    setBusy(true); setError(false); setConfirmReconnect(false); setManual(null);
+    setBusy(true); setError(false); setConfirmReconnect(false); setManual(null); setOutcome(null);
+    if (window.clarity?.connector) return installInClaude();
     try {
       const r = await fetch(`${API}/connector/bundle`, { method: 'POST' });
       if (!r.ok) throw new Error();
@@ -683,6 +702,37 @@ function ConnectorSettings({ T }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {outcome === 'noClaude' && (
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: T.ink }}>{t('settings.connector.noClaudeTitle')}</div>
+          <div style={{ fontSize: 12.5, color: T.ink80, lineHeight: 1.5 }}>{t('settings.connector.noClaudeBody')}</div>
+          <div>
+            <button type="button" onClick={() => window.clarity?.connector?.getClaude()} style={btn(true)}>{t('settings.connector.getClaude')}</button>
+          </div>
+        </div>
+      )}
+
+      {outcome === 'opened' && (
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: T.ink }}>{t('settings.connector.openedTitle')}</div>
+          <div style={{ fontSize: 12.5, color: T.ink80, lineHeight: 1.5 }}>{t('settings.connector.openedInstall')}</div>
+          <div style={{ fontSize: 12.5, color: T.ink80, lineHeight: 1.5 }}>{t('settings.connector.openedAsk')}</div>
+          <div>
+            <button type="button" onClick={() => setHelpOpen(o => !o)} style={{
+              padding: 0, background: 'transparent', border: 'none', cursor: 'pointer',
+              fontSize: 12.5, color: T.ink60, fontFamily: T.fontUI,
+            }}>{helpOpen ? '▾' : '▸'} {t('settings.connector.helpTitle')}</button>
+          </div>
+          {helpOpen && (
+            <ul style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: T.ink80, lineHeight: 1.5 }}>
+              <li>{t('settings.connector.help1')}</li>
+              <li>{t('settings.connector.help2')}</li>
+              <li>{t('settings.connector.help3')}</li>
+            </ul>
+          )}
         </div>
       )}
 
