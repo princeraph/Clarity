@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
 import ApertureMark from '../ApertureMark.jsx';
 import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
+import OllamaSetup from '../OllamaSetup.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -910,6 +911,20 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                   )}
                 </FieldRow>
               </Section>
+            )}
+
+            {isOllama && (
+              <OllamaSetup onReady={async () => {
+                try {
+                  const s = await (await fetch(`${API}/settings`)).json();
+                  setForm(f => ({ ...f, providerType: s.providerType, ollamaModel: s.ollamaModel, llmEndpoint: s.llmEndpoint }));
+                  const h = await (await fetch(`${API}/health`)).json();
+                  setHealth(h);
+                  if (h.availableModels?.length) setOllamaModels(h.availableModels);
+                } catch {}
+                setStatus({ type: 'success', message: t('ollama.install.done') });
+                onSaved?.();
+              }} />
             )}
 
             {isOllama && (
