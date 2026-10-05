@@ -17,6 +17,7 @@ import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
 import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 import { allowedHosts, hostGuard } from './src/security/host.js';
+import { buildAnalysisPrompt, restoreIds } from './src/llm/analysisPrompt.js';
 import { createSecretStore, probeBox } from './src/security/secrets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -287,44 +288,15 @@ async function runAnalysis(allTasks) {
   analysisError = null;
   console.log(`[AI] Analyzing ${tasks.length} of ${allTasks.length} task(s)...`);
 
-  const taskList = tasks.map((t, i) =>
-    `Task ${i + 1}:\nID: ${t.id}\nTitle: ${t.title}\nDescription: ${(t.description || 'N/A').slice(0, 300)}\n` +
-    `Deadline: ${t.deadline || 'None'}\nDeliverable: ${(t.deliverable || 'N/A').slice(0, 160)}\nStatus: ${t.status}\n` +
-    `Tags: ${t.tags?.join(', ') || 'None'}\nRecurring: ${t.recurring || 'none'}\n` +
-    `Subtasks: ${t.subtasks?.length ? t.subtasks.map(s => `${s.done ? '[done]' : '[todo]'} ${s.title}`).join(', ') : 'None'}\n` +
-    `Notes: ${(t.notes || 'N/A').slice(0, 300)}`
-  ).join('\n\n');
-
-  const prompt = `You are a productivity assistant. Analyze these ${tasks.length} task(s) and return JSON.
-
-TASKS:
-${taskList}
-
-Return ONLY this JSON:
-{
-  "whatToDoNext": "One specific action to take right now and why (ONE sentence)",
-  "overallInsight": "One observation about this workload (ONE sentence)",
-  "taskAnalysis": [
-    {
-      "id": "exact task id",
-      "priority": 1,
-      "priorityLevel": "high",
-      "reasoning": "Why this priority (ONE short sentence)",
-      "actionPlan": ["Step 1", "Step 2"],
-      "dependencies": ["ids of tasks that must be done before this"],
-      "relatedTasks": ["ids of related tasks"],
-      "relationshipNote": "How tasks connect, or empty string"
-    }
-  ]
-}
-
-Rules: priority 1 = do first. priorityLevel = high/medium/low. Include all ${tasks.length} tasks.`;
+  const prompt = buildAnalysisPrompt(tasks);
 
   try {
     const provider = getProvider();
     // Sized to the reply actually asked for. The old blanket 3072 let the model
     // keep writing long after the JSON closed, and that tail is pure waiting.
-    const analysis = await provider.generateJSON(prompt, { maxTokens: 180 + tasks.length * 55 });
+    const analysis = restoreIds(
+      await provider.generateJSON(prompt.text, { maxTokens: prompt.maxTokens, schema: prompt.schema }),
+      tasks);
     if (analysis?.taskAnalysis) {
       const data = readData();
       data.analysis = { ...analysis, analyzedAt: new Date().toISOString() };
