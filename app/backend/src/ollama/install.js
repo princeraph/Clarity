@@ -33,16 +33,24 @@ export function ollamaExePath(env = process.env) {
   return join(env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe');
 }
 
+function withoutPsModulePath(env) {
+  return Object.fromEntries(Object.entries(env).filter(([k]) => k.toLowerCase() !== 'psmodulepath'));
+}
+
 /** Windows' own verdict on the file's signature. */
 export function verifySignature(file) {
   // -EncodedCommand, not -Command: Windows PowerShell 5.1 re-parses the quotes
   // Node puts around a -Command argument, and the script came back empty —
   // a valid installer reported as unsigned (seen in CI on 5 October).
-  const script = '$s = Get-AuthenticodeSignature -LiteralPath $env:CLARITY_FILE; Write-Output ([string]$s.Status + "|" + [string]$s.SignerCertificate.Subject)';
+  const script = 'try { $s = Get-AuthenticodeSignature -LiteralPath $env:CLARITY_FILE -ErrorAction Stop; '
+    + 'Write-Output ([string]$s.Status + "|" + [string]$s.SignerCertificate.Subject) } '
+    + 'catch { Write-Output ("Error|" + $_.Exception.Message) }';
   const encoded = Buffer.from(script, 'utf16le').toString('base64');
   return new Promise((resolve) => {
     execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-      { env: { ...process.env, CLARITY_FILE: file }, windowsHide: true, timeout: 60000 },
+      // PSModulePath is dropped: inherited from PowerShell 7, it points 5.1 at
+      // modules it cannot load, and Get-AuthenticodeSignature returned nothing.
+      { env: { ...withoutPsModulePath(process.env), CLARITY_FILE: file }, windowsHide: true, timeout: 60000 },
       (err, stdout, stderr) => {
         if (err) return resolve({ ok: false, detail: err.message });
         const out = String(stdout).trim();
