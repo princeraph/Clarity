@@ -21,6 +21,7 @@ import { buildAnalysisPrompt, restoreIds } from './src/llm/analysisPrompt.js';
 import { createSecretStore, probeBox } from './src/security/secrets.js';
 import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads.js';
 import { unloadAll } from './src/llm/LocalProvider.js';
+import { createOllamaInstaller, recommendedOllamaModel, ENDPOINT as OLLAMA_ENDPOINT } from './src/ollama/install.js';
 import { totalmem } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -447,6 +448,38 @@ app.delete('/api/assistant/models/:id', asyncRoute(async (req, res) => {
   if (s.localModel === gone?.file) await saveSettings({ ...s, localModel: '' });
   res.json({ removed: true });
 }));
+
+// ── Ollama, installed by Clarity (Windows) ───────────────────────────────────
+// The other way to a local AI, for someone who wants Ollama itself — bigger
+// models later, shared with other apps. Same rule as the built-in download:
+// the switch happens here once the model is pulled, window open or not.
+
+const ollamaInstaller = createOllamaInstaller({
+  onComplete: async (model) => {
+    try {
+      await saveSettings({ ...readSettings(), providerType: 'ollama', llmEndpoint: OLLAMA_ENDPOINT, ollamaModel: model });
+      console.log(`[ollama] installed with ${model} — Clarity now uses it`);
+      warmModel();
+    } catch (err) {
+      console.error('[ollama] ready, but settings could not be saved:', err.message);
+    }
+  },
+});
+
+app.get('/api/ollama/install', asyncRoute(async (req, res) => {
+  res.json({ ...ollamaInstaller.status(), running: await ollamaInstaller.running(), recommended: recommendedOllamaModel() });
+}));
+
+app.post('/api/ollama/install', (req, res) => {
+  const model = typeof req.body?.model === 'string' && req.body.model ? req.body.model : recommendedOllamaModel();
+  const r = ollamaInstaller.start(model);
+  if (r.error) return res.status(r.code).json(r);
+  res.json(r);
+});
+
+app.post('/api/ollama/install/cancel', (req, res) => {
+  res.json({ cancelled: ollamaInstaller.cancel() });
+});
 
 app.get('/api/settings', (req, res) => {
   const s = readSettings();

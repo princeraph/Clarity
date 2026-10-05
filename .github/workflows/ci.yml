@@ -229,6 +229,51 @@ jobs:
           "redémarrage : la clé est relue et déchiffrée"
           Arreter
 
+      # L'option « installer Ollama pour moi », pour de vrai : l'app installée
+      # télécharge l'installateur officiel, vérifie sa signature Authenticode,
+      # l'installe sans droits d'admin, le démarre, tire un petit modèle, puis
+      # bascule dessus. La discussion doit ensuite répondre PAR Ollama.
+      - name: l'app installée installe Ollama et s'y branche
+        shell: pwsh
+        timeout-minutes: 20
+        run: |
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $env:CLARITY_DATA_DIR = Join-Path $env:RUNNER_TEMP 'clarity-ollama'
+          New-Item -ItemType Directory -Force -Path $env:CLARITY_DATA_DIR | Out-Null
+          @{ providerType = 'ollama'; onboardingComplete = $true } | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $env:CLARITY_DATA_DIR 'settings.json')
+          $backend = Join-Path (Split-Path $env:CLARITY_EXE) 'resources\backend\server.js'
+          $log = Join-Path $env:RUNNER_TEMP 'backend-ollama.log'
+          $p = Start-Process -PassThru -NoNewWindow -FilePath $env:CLARITY_EXE -ArgumentList "`"$backend`"" -RedirectStandardOutput $log
+          $ok = $false
+          for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
+            try { $ok = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3001/api/health).StatusCode -eq 200 } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { Write-Error "le backend installé ne répond pas"; exit 1 }
+
+          $avant = Invoke-RestMethod http://127.0.0.1:3001/api/ollama/install
+          "avant : prise en charge=$($avant.supported) installé=$($avant.installed) en marche=$($avant.running)"
+          Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3001/api/ollama/install -ContentType 'application/json' -Body '{"model":"smollm2:135m"}' | Out-Null
+          $etat = ''
+          for ($i = 0; $i -lt 900; $i++) {
+            $s = (Invoke-RestMethod http://127.0.0.1:3001/api/ollama/install).install
+            if ($s.state -ne $etat) { "$([int]($i))s : $($s.state) $($s.received)/$($s.total) $($s.error)"; $etat = $s.state }
+            if ($s.state -in 'done', 'error', 'cancelled') { break }
+            Start-Sleep -Seconds 1
+          }
+          Get-Content $log | Select-String 'ollama'
+          if ($etat -ne 'done') { Write-Error "installation d'Ollama : $etat"; exit 1 }
+
+          $reglages = Invoke-RestMethod http://127.0.0.1:3001/api/settings
+          if ($reglages.providerType -ne 'ollama' -or $reglages.ollamaModel -ne 'smollm2:135m') { Write-Error "Clarity n'a pas basculé sur Ollama"; exit 1 }
+          $sante = Invoke-RestMethod http://127.0.0.1:3001/api/health
+          if (-not $sante.ollama) { Write-Error "Ollama installé mais injoignable"; exit 1 }
+          "modèles d'Ollama : $($sante.availableModels -join ', ')"
+          $chat = Invoke-WebRequest -UseBasicParsing -TimeoutSec 180 -Method Post -Uri http://127.0.0.1:3001/api/chat -ContentType 'application/json' -Body '{"message":"Hello","history":[]}'
+          if ($chat.Content -notmatch '"token"') { Write-Error "Ollama n'a pas répondu : $($chat.Content)"; exit 1 }
+          "discussion par Ollama : $(([regex]::Matches($chat.Content, '"token"')).Count) morceaux reçus"
+          Stop-Process -Id $p.Id -Force
+
       # Qui modifie frontend/src/ sous Windows reconstruit dist/ et le commite.
       # Ce build doit rendre les octets déjà versionnés : il en rendait un de
       # trop (un CRLF sur `<div id="root"></div>`), ce qui bloquait le pull.
