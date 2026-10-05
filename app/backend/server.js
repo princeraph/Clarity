@@ -19,6 +19,9 @@ import { OBSERVED_VERSION } from './src/profile/metrics.js';
 import { allowedHosts, hostGuard } from './src/security/host.js';
 import { buildAnalysisPrompt, restoreIds } from './src/llm/analysisPrompt.js';
 import { createSecretStore, probeBox } from './src/security/secrets.js';
+import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads.js';
+import { unloadAll } from './src/llm/LocalProvider.js';
+import { totalmem } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -393,6 +396,57 @@ app.get('/api/health', asyncRoute(async (req, res) => {
 }));
 
 // ── Settings ──────────────────────────────────────────────────────────────────
+
+// ── Built-in assistant ───────────────────────────────────────────────────────
+// For someone without Ollama: one click downloads a model into MODELS_DIR, and
+// Clarity switches to it when the file is complete and verified — even if the
+// window was closed in between, which is why the switch happens here and not
+// in the interface.
+
+const downloader = createDownloader({
+  modelsDir: MODELS_DIR,
+  onComplete: async (m) => {
+    try {
+      await saveSettings({ ...readSettings(), providerType: 'local', localModel: m.file });
+      console.log(`[assistant] ${m.file} ready — the built-in assistant is on`);
+      warmModel();
+    } catch (err) {
+      console.error('[assistant] model ready, but settings could not be saved:', err.message);
+    }
+  },
+});
+
+app.get('/api/assistant', (req, res) => {
+  const s = readSettings();
+  res.json({
+    ...downloader.status(),
+    recommended: recommend(),
+    ramBytes: totalmem(),
+    freeBytes: freeBytes(existsSync(MODELS_DIR) ? MODELS_DIR : dirname(MODELS_DIR)),
+    active: s.providerType === 'local',
+    localModel: s.localModel,
+  });
+});
+
+app.post('/api/assistant/download', (req, res) => {
+  const r = downloader.start(String(req.body?.id || ''));
+  if (r.error) return res.status(r.code).json(r);
+  res.json(r);
+});
+
+app.post('/api/assistant/cancel', (req, res) => {
+  res.json({ cancelled: downloader.cancel() });
+});
+
+app.delete('/api/assistant/models/:id', asyncRoute(async (req, res) => {
+  // A loaded model is an open file, and Windows will not delete an open file.
+  await unloadAll();
+  if (!downloader.remove(req.params.id)) return res.status(409).json({ error: 'Model in use or unknown' });
+  const s = readSettings();
+  const gone = downloader.status().models.find(m => m.id === req.params.id);
+  if (s.localModel === gone?.file) await saveSettings({ ...s, localModel: '' });
+  res.json({ removed: true });
+}));
 
 app.get('/api/settings', (req, res) => {
   const s = readSettings();
