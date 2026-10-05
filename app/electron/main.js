@@ -119,7 +119,9 @@ function createWindow() {
     // mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  // Started in the background — at Windows login, or woken by the AI connector —
+  // Clarity stays in the tray until someone opens it.
+  mainWindow.once('ready-to-show', () => { if (!START_HIDDEN) mainWindow.show(); });
   // With a tray present, the close button hides the window (Win11 tray app
   // convention) so app state is preserved. Real quit happens from the tray.
   mainWindow.on('close', (e) => {
@@ -236,6 +238,12 @@ async function waitForBackend(retries = 20, delayMs = 250) {
 
 let quittingForReal = false;
 
+// `--background`: start in the tray, no window. Used by the start-with-Windows
+// option and by the AI connector, which wakes Clarity when an assistant needs
+// it and the person has not opened it.
+const BACKGROUND_ARG = '--background';
+const START_HIDDEN = process.argv.includes(BACKGROUND_ARG);
+
 // Two copies of Clarity meant two backends writing the same tasks.json, each
 // unaware of the other's writes. The second launch now surfaces the first
 // instance instead of starting a rival.
@@ -243,7 +251,9 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    // The connector waking a Clarity that is already running: nothing to show.
+    if (argv.includes(BACKGROUND_ARG)) return;
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
@@ -280,6 +290,22 @@ ipcMain.on('window-maximize', () => {
   else mainWindow?.maximize();
 });
 ipcMain.on('window-close', () => mainWindow?.close());
+
+// ─── Start with Windows ──────────────────────────────────────────────────────
+// Off unless the person turns it on in Settings. The entry carries
+// `--background`, so a login starts Clarity in the tray rather than opening a
+// window over whatever the person is doing.
+const loginItemSupported = process.platform === 'win32' || process.platform === 'darwin';
+const loginQuery = { args: [BACKGROUND_ARG] };
+ipcMain.handle('login-item:get', () => ({
+  supported: loginItemSupported,
+  enabled: loginItemSupported ? app.getLoginItemSettings(loginQuery).openAtLogin : false,
+}));
+ipcMain.handle('login-item:set', (_event, enabled) => {
+  if (!loginItemSupported) return { supported: false, enabled: false };
+  app.setLoginItemSettings({ openAtLogin: !!enabled, args: [BACKGROUND_ARG] });
+  return { supported: true, enabled: app.getLoginItemSettings(loginQuery).openAtLogin };
+});
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 ipcMain.on('show-notification', (event, { title, body }) => {

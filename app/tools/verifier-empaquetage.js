@@ -31,6 +31,8 @@ exports.default = async function verifierEmpaquetage(context) {
   }
   if (!fs.existsSync(path.join(resources, 'frontend', 'dist', 'index.html'))) manques.push('frontend/dist/index.html');
   if (!fs.existsSync(path.join(backend, 'src', 'llm', 'engineWorker.js'))) manques.push('backend/src/llm/engineWorker.js');
+  // The AI connector's server is copied out of the app into the Claude extension.
+  if (!fs.existsSync(path.join(backend, 'src', 'connector', 'mcp-server.mjs'))) manques.push('backend/src/connector/mcp-server.mjs');
 
   // The built-in assistant: an engine for the platform being packaged, and no
   // CUDA build — 540 MB that preparer-backend removes on purpose.

@@ -502,6 +502,270 @@ function SuggestionSettings({ T }) {
   );
 }
 
+// What an assistant asked for, in words. An action this build does not know
+// still gets a line, so the list never hides a call.
+const CONNECTOR_ACTION_KEY = {
+  overview:   'settings.connector.action.overview',
+  list:       'settings.connector.action.list',
+  read:       'settings.connector.action.read',
+  add:        'settings.connector.action.add',
+  status:     'settings.connector.action.status',
+  wayForward: 'settings.connector.action.wayForward',
+};
+
+// Lets Claude Desktop (or any app that speaks MCP) see and update the tasks.
+// Off until the person downloads the file: the token lives only inside it, so
+// downloading IS turning it on, and every new download replaces the last one.
+function ConnectorSettings({ T }) {
+  const { t, fmtDate } = useLocale();
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const [confirmReconnect, setConfirmReconnect] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [manual, setManual] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetch(`${API}/connector`);
+      if (r.ok) setInfo(await r.json());
+    } catch {}
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Only while connected, and only while this page is mounted: the list of
+  // calls is the one thing here that changes on its own.
+  const enabled = !!info?.enabled;
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(refresh, 5000);
+    return () => clearInterval(id);
+  }, [enabled, refresh]);
+
+  async function download() {
+    setBusy(true); setError(false); setConfirmReconnect(false); setManual(null);
+    try {
+      const r = await fetch(`${API}/connector/bundle`, { method: 'POST' });
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Clarity.mcpb';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setDownloaded(true);
+    } catch { setError(true); }
+    await refresh();
+    setBusy(false);
+  }
+
+  async function disable() {
+    setBusy(true); setError(false); setConfirmReconnect(false);
+    try {
+      const r = await fetch(`${API}/connector/disable`, { method: 'POST' });
+      if (!r.ok) throw new Error();
+      setDownloaded(false); setManual(null);
+    } catch { setError(true); }
+    await refresh();
+    setBusy(false);
+  }
+
+  async function showManual() {
+    setBusy(true); setError(false); setCopied(false);
+    try {
+      const r = await fetch(`${API}/connector/manual`, { method: 'POST' });
+      if (!r.ok) throw new Error();
+      setManual(await r.json());
+    } catch { setError(true); }
+    await refresh();
+    setBusy(false);
+  }
+
+  async function copyManual() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(manual, null, 2));
+      setCopied(true);
+    } catch { setError(true); }
+  }
+
+  function when(at) {
+    const mins = Math.floor((Date.now() - new Date(at).getTime()) / 60000);
+    if (!Number.isFinite(mins)) return '';
+    if (mins < 1) return t('time.justNow');
+    if (mins < 60) return t('time.minutesAgo', { n: mins });
+    if (mins < 24 * 60) return t('time.hoursAgo', { n: Math.floor(mins / 60) });
+    return fmtDate(at);
+  }
+
+  const btn = (primary) => ({
+    padding: '7px 14px', borderRadius: T.r6, fontSize: 12.5, fontWeight: 500,
+    fontFamily: T.fontUI, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1,
+    background: primary ? T.ink : T.paperSubtle, color: primary ? T.paper : T.ink80,
+    border: primary ? 'none' : `1px solid ${T.hairline}`,
+  });
+  const card = {
+    padding: '12px 14px', borderRadius: T.r6, background: T.paperSubtle,
+    border: `1px solid ${T.hairlineSoft}`, display: 'flex', flexDirection: 'column', gap: 10,
+  };
+
+  if (!info) return <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.checking')}</div>;
+
+  const activity = (info.activity || []).slice(0, 8);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* What leaves, said before the button that makes it leave. */}
+      <div style={{
+        padding: '13px 15px', borderRadius: T.r6, background: T.paperSubtle,
+        border: `1px solid ${T.warn}`, display: 'flex', alignItems: 'flex-start', gap: 10,
+      }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 5, background: T.warn }} />
+        <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.55 }}>
+          <strong>{t('settings.connector.privacyTitle')}</strong> {t('settings.connector.privacyShared')} {t('settings.connector.privacyKept')} {t('settings.connector.privacyOff')}
+        </div>
+      </div>
+
+      {!enabled ? (
+        <div style={card}>
+          <div>
+            <button type="button" disabled={busy} onClick={download} style={btn(true)}>
+              {busy ? t('settings.connector.preparing') : t('settings.connector.connect')}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: T.ink60, lineHeight: 1.5 }}>{t('settings.connector.needsDesktop')}</div>
+        </div>
+      ) : (
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{
+              fontSize: 12, color: T.success, padding: '3px 9px', borderRadius: T.r6,
+              background: T.successSoft, border: `1px solid ${T.successBorder}`,
+            }}>✓ {info.issuedAt ? t('settings.connector.connectedSince', { date: fmtDate(info.issuedAt) }) : t('settings.connector.connected')}</span>
+            <span style={{ flex: 1 }} />
+            <button type="button" disabled={busy} onClick={() => setConfirmReconnect(true)} style={btn(false)}>{t('settings.connector.reconnect')}</button>
+            <button type="button" disabled={busy} onClick={disable} style={{ ...btn(false), color: T.danger }}>{t('settings.connector.disconnect')}</button>
+          </div>
+          {confirmReconnect && (
+            <div style={{
+              padding: '10px 12px', borderRadius: T.r6, background: T.paper,
+              border: `1px solid ${T.warn}`, display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              <div style={{ fontSize: 12.5, color: T.ink, lineHeight: 1.5 }}>{t('settings.connector.reconnectWarn')}</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" disabled={busy} onClick={download} style={btn(true)}>{t('settings.connector.reconnectConfirm')}</button>
+                <button type="button" onClick={() => setConfirmReconnect(false)} style={btn(false)}>{t('common.cancel')}</button>
+              </div>
+            </div>
+          )}
+          {info.canWake && (
+            <div style={{ fontSize: 12, color: T.ink60, lineHeight: 1.5 }}>{t('settings.connector.canWake')}</div>
+          )}
+          <div>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
+              {t('settings.connector.activity')}
+            </div>
+            {activity.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.connector.noActivity')}</div>
+            ) : activity.map((a, i) => (
+              <div key={`${a.at}-${i}`} style={{
+                display: 'flex', alignItems: 'baseline', gap: 8, padding: '5px 0',
+                borderBottom: i < activity.length - 1 ? `1px solid ${T.hairlineSoft}` : 'none',
+              }}>
+                <span style={{ fontSize: 12.5, color: T.ink }}>
+                  {CONNECTOR_ACTION_KEY[a.action] ? t(CONNECTOR_ACTION_KEY[a.action]) : t('settings.connector.action.other')}
+                </span>
+                <span style={{ fontSize: 12, color: T.ink40 }}>· {when(a.at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {downloaded && (
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: T.ink }}>{t('settings.connector.stepsTitle')}</div>
+          <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: T.ink80, lineHeight: 1.5 }}>
+            <li>{t('settings.connector.step1')}</li>
+            <li>{t('settings.connector.step2')}</li>
+            <li>{t('settings.connector.step3')}</li>
+          </ol>
+          <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.5 }}>{t('settings.connector.thenAsk')}</div>
+        </div>
+      )}
+
+      {error && <div style={{ fontSize: 12.5, color: T.danger }}>⚠ {t('settings.connector.error')}</div>}
+
+      <div>
+        <button type="button" onClick={() => setAdvancedOpen(o => !o)} style={{
+          padding: 0, background: 'transparent', border: 'none', cursor: 'pointer',
+          fontSize: 12.5, color: T.ink60, fontFamily: T.fontUI,
+        }}>{advancedOpen ? '▾' : '▸'} {t('settings.connector.advanced')}</button>
+      </div>
+      {advancedOpen && (
+        <div style={card}>
+          <div style={{ fontSize: 12, color: T.ink60, lineHeight: 1.5 }}>{t('settings.connector.advancedHint')}</div>
+          {!manual ? (
+            <div>
+              <button type="button" disabled={busy} onClick={showManual} style={btn(false)}>{t('settings.connector.showManual')}</button>
+            </div>
+          ) : (
+            <>
+              <pre style={{
+                margin: 0, padding: '12px 14px', maxHeight: 260, overflow: 'auto',
+                background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+                fontFamily: T.fontMono, fontSize: 11.5, lineHeight: 1.6, color: T.ink80,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-all', userSelect: 'text',
+              }}><code>{JSON.stringify(manual, null, 2)}</code></pre>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button type="button" onClick={copyManual} style={btn(false)}>{t('settings.connector.copy')}</button>
+                {copied && <span style={{ fontSize: 12, color: T.success }}>✓ {t('settings.connector.copied')}</span>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// "Start Clarity with Windows": only where Electron says it can do it. Shows
+// what the system reports back after each change, never what was asked for.
+function StartWithSystem({ T }) {
+  const { t } = useLocale();
+  const [state, setState] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const li = window.clarity?.loginItem;
+    if (!li) return;
+    li.get().then(s => { if (!cancelled) setState(s); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!state?.supported) return null;
+
+  async function change(v) {
+    if (busy) return;
+    setBusy(true);
+    try { setState(await window.clarity.loginItem.set(v)); } catch {}
+    setBusy(false);
+  }
+
+  return (
+    <Section title={t('settings.startup.title')} T={T}>
+      <SettingRow label={t('settings.startup.label')} hint={t('settings.startup.hint')} T={T}>
+        <Toggle on={!!state.enabled} onChange={change} T={T} />
+      </SettingRow>
+    </Section>
+  );
+}
+
 function PageHeader({ section: sLabel, title, T }) {
   const { t } = useLocale();
   return (
@@ -1029,6 +1293,12 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                 </FieldRow>
               </Section>
             )}
+
+            <Section title={t('settings.connector.title')} subtitle={t('settings.connector.hint')} T={T}>
+              <ConnectorSettings T={T} />
+            </Section>
+
+            <StartWithSystem T={T} />
 
             <Section title={t('settings.ai.features')} subtitle={t('settings.ai.featuresHint')} T={T}>
               <SettingRow label={t('settings.dailyPlanStrip')} hint={t('settings.showAiGeneratedDailyPlan')} T={T}>

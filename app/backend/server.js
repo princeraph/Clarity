@@ -23,6 +23,8 @@ import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads
 import { unloadAll } from './src/llm/LocalProvider.js';
 import { createOllamaInstaller, recommendedOllamaModel, ENDPOINT as OLLAMA_ENDPOINT } from './src/ollama/install.js';
 import { totalmem } from 'os';
+import { createConnector, findByRef, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES } from './src/connector/connector.js';
+import { buildBundle, manualConfig } from './src/connector/bundle.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -481,8 +483,97 @@ app.post('/api/ollama/install/cancel', (req, res) => {
   res.json({ cancelled: ollamaInstaller.cancel() });
 });
 
+// ── AI connector (Claude Desktop and other MCP clients) ──────────────────────
+// See src/connector/connector.js for what may leave and why it is off by default.
+
+const connector = createConnector({ readSettings, saveSettings });
+// The wake-up needs Clarity.exe; in development the binary is plain Electron,
+// which cannot start the app on its own, so no path is given there.
+const CLARITY_APP = /^clarity(\.exe)?$/i.test(basename(process.execPath)) ? process.execPath : null;
+
+app.get('/api/connector', (req, res) => res.json({ ...connector.status(), canWake: !!CLARITY_APP }));
+
+// Turning the connector on IS downloading it: the token exists only inside the
+// file handed over, so there is nothing to copy by hand and nothing in clear on disk.
+app.post('/api/connector/bundle', asyncRoute(async (req, res) => {
+  const token = await connector.issue();
+  const file = buildBundle({ token, appPath: CLARITY_APP, version: VERSION });
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="Clarity.mcpb"');
+  res.end(file);
+}));
+
+app.post('/api/connector/manual', asyncRoute(async (req, res) => {
+  const token = await connector.issue();
+  res.json(manualConfig({ token, appPath: CLARITY_APP, nodePath: process.execPath }));
+}));
+
+app.post('/api/connector/disable', asyncRoute(async (req, res) => {
+  await connector.disable();
+  res.json(connector.status());
+}));
+
+const cv1 = express.Router();
+cv1.use(connector.guard());
+const knownTask = (req, res) => {
+  const data = readData();
+  const task = findByRef(data.tasks.filter(t => !t.archived), req.params.ref);
+  if (!task) { res.status(404).json({ error: `No task with ref "${req.params.ref}". Call clarity_list_tasks for the refs.` }); return null; }
+  return { data, task };
+};
+
+cv1.get('/overview', (req, res) => {
+  connector.record('overview');
+  const data = readData();
+  res.json(overviewView(data.tasks, data.analysis));
+});
+cv1.get('/tasks', (req, res) => {
+  const status = CONNECTOR_STATUSES.includes(req.query.status) ? req.query.status : undefined;
+  connector.record('list');
+  const data = readData();
+  res.json({ tasks: listView(data.tasks, data.analysis, { status }) });
+});
+cv1.get('/tasks/:ref', (req, res) => {
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('read');
+  res.json(taskDetail(found.task, found.data.analysis, threadStore.get(found.task.id)));
+});
+cv1.post('/tasks', (req, res) => {
+  const b = req.body || {};
+  const body = {
+    title: typeof b.title === 'string' ? b.title.slice(0, 200) : '',
+    ...(typeof b.description === 'string' ? { description: b.description.slice(0, 2000) } : {}),
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(b.deadline || '') ? { deadline: b.deadline } : {}),
+    ...(Array.isArray(b.tags) ? { tags: b.tags.filter(t => typeof t === 'string').slice(0, 5).map(t => t.slice(0, 40)) } : {}),
+  };
+  const probe = { status(c) { this.code = c; return this; }, json(x) { this.body = x; return this; } };
+  if (validateCreate(body, probe)) return res.status(probe.code || 400).json(probe.body);
+  connector.record('add');
+  const task = createTask(body);
+  res.json({ added: taskDetail(task, null, null) });
+});
+cv1.post('/tasks/:ref/status', (req, res) => {
+  if (!CONNECTOR_STATUSES.includes(req.body?.status)) return res.status(400).json({ error: `status must be one of ${CONNECTOR_STATUSES.join(', ')}` });
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('status');
+  const task = updateTask(found.task.id, { status: req.body.status });
+  res.json({ updated: taskDetail(task, found.data.analysis, null) });
+});
+cv1.post('/tasks/:ref/ways-forward', (req, res) => {
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('wayForward');
+  if (!threadStore.get(found.task.id)) threadStore.open(found.task.id);
+  // Written as "suggested": it came from a model, and stays distinguishable
+  // from what the person wrote — exactly like Clarity's own suggestions.
+  const thread = threadStore.update(found.task.id, t => THREAD_ACTIONS.addOption(t, { text, source: 'suggested' }, new Date()));
+  res.json({ waysForward: (thread?.options || []).map(o => ({ text: o.text, status: o.status })) });
+});
+app.use('/api/connector/v1', cv1);
+
 app.get('/api/settings', (req, res) => {
-  const s = readSettings();
+  const { connectorTokenHash, ...s } = readSettings();   // not even the hash leaves
   res.json({
     ...s,
     tunnelSecret: s.tunnelSecret ? '••••••••' : '',
@@ -951,23 +1042,24 @@ app.get('/api/tasks', (req, res) => {
   });
 });
 
-app.post('/api/tasks', (req, res) => {
-  if (validateCreate(req.body, res)) return;
+// Shared by the route below and the AI connector, so a task made from Claude
+// is the same as one made in the window — history, analysis, profile included.
+function createTask(body) {
   const data = readData();
   const now = new Date().toISOString();
   const task = {
     id:                uuidv4(),
-    title:             req.body.title?.trim()       || 'Untitled',
-    description:       req.body.description?.trim() || '',
-    deadline:          req.body.deadline            || null,
-    time:              req.body.time                || null,
-    estimatedDuration: req.body.estimatedDuration   || null,
-    deliverable:       req.body.deliverable?.trim() || '',
-    status:            req.body.status              || 'not_started',
-    notes:             req.body.notes?.trim()       || '',
-    tags:              Array.isArray(req.body.tags)     ? req.body.tags     : [],
-    subtasks:          Array.isArray(req.body.subtasks) ? req.body.subtasks : [],
-    recurring:         req.body.recurring           || 'none',
+    title:             body.title?.trim()       || 'Untitled',
+    description:       body.description?.trim() || '',
+    deadline:          body.deadline            || null,
+    time:              body.time                || null,
+    estimatedDuration: body.estimatedDuration   || null,
+    deliverable:       body.deliverable?.trim() || '',
+    status:            body.status              || 'not_started',
+    notes:             body.notes?.trim()       || '',
+    tags:              Array.isArray(body.tags)     ? body.tags     : [],
+    subtasks:          Array.isArray(body.subtasks) ? body.subtasks : [],
+    recurring:         body.recurring           || 'none',
     timeTracked:       0,
     timerStarted:      null,
     archived:          false,
@@ -980,19 +1072,24 @@ app.post('/api/tasks', (req, res) => {
   saveData(data);
   scheduleAnalysis(data.tasks);
   scheduleProfileRecompute(data.tasks);
-  res.json({ task, analyzing: true });
+  return task;
+}
+
+app.post('/api/tasks', (req, res) => {
+  if (validateCreate(req.body, res)) return;
+  res.json({ task: createTask(req.body), analyzing: true });
 });
 
-app.put('/api/tasks/:id', (req, res) => {
-  if (validateUpdate(req.body, res)) return;
+// Shared by the route below and the AI connector. null: no such task.
+function updateTask(id, body) {
   const data = readData();
-  const idx = data.tasks.findIndex(t => t.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Task not found' });
+  const idx = data.tasks.findIndex(t => t.id === id);
+  if (idx === -1) return null;
 
   const prev = data.tasks[idx];
   // Spreading the raw body let a client overwrite anything on the task, including
   // the fields the timer and archive endpoints own. Only the whitelist gets in.
-  const patch = pickMutable(req.body);
+  const patch = pickMutable(body);
   const at = new Date().toISOString();
   const newEntries = [];
   if (patch.status !== undefined && patch.status !== prev.status)
@@ -1006,7 +1103,7 @@ app.put('/api/tasks/:id', (req, res) => {
       newEntries.push({ at, type: 'area', from: sortedPrev[0] || null, to: sortedNext[0] || null });
   }
   const history = [...(prev.history || []), ...newEntries].slice(-200);
-  const updated = { ...prev, ...patch, id: req.params.id, updatedAt: at, history };
+  const updated = { ...prev, ...patch, id: id, updatedAt: at, history };
   data.tasks[idx] = updated;
 
   // Spawn next occurrence when recurring task is marked done — guard against double-click
@@ -1021,7 +1118,14 @@ app.put('/api/tasks/:id', (req, res) => {
   saveData(data);
   scheduleAnalysis(data.tasks);
   scheduleProfileRecompute(data.tasks);
-  res.json({ task: data.tasks[idx], analyzing: true });
+  return data.tasks[idx];
+}
+
+app.put('/api/tasks/:id', (req, res) => {
+  if (validateUpdate(req.body, res)) return;
+  const task = updateTask(req.params.id, req.body);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  res.json({ task, analyzing: true });
 });
 
 app.delete('/api/tasks/all', (req, res) => {

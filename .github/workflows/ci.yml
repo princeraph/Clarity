@@ -229,6 +229,33 @@ jobs:
           "redémarrage : la clé est relue et déchiffrée"
           Arreter
 
+      # Le connecteur IA, comme Claude Desktop s'en sert : Clarity lancé en
+      # arrière-plan (barre des tâches, sans fenêtre), l'extension récupérée,
+      # son serveur lancé par Clarity.exe en guise de Node, et une conversation
+      # MCP complète. Puis Clarity fermé : le premier appel doit le réveiller.
+      - name: le connecteur IA répond, et réveille Clarity fermé
+        shell: pwsh
+        timeout-minutes: 8
+        run: |
+          function Arreter { Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 3 }
+          Arreter
+          Start-Process -FilePath $env:CLARITY_EXE -ArgumentList '--background'
+          $ok = $false
+          for ($i = 0; $i -lt 90 -and -not $ok; $i++) { try { $ok = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3001/api/health).StatusCode -eq 200 } catch { Start-Sleep -Milliseconds 500 } }
+          if (-not $ok) { Write-Error "Clarity --background ne répond pas"; exit 1 }
+          $fenetres = Get-Process Clarity | Where-Object { $_.MainWindowTitle }
+          if ($fenetres) { Write-Error "--background a ouvert une fenêtre : $($fenetres.MainWindowTitle)"; exit 1 }
+          "arrière-plan : Clarity répond, aucune fenêtre ouverte"
+
+          node app/backend/tools/essai-connecteur.mjs --node $env:CLARITY_EXE --expect-app
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          Arreter
+          try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 http://127.0.0.1:3001/api/health | Out-Null; Write-Error "Clarity tourne encore"; exit 1 } catch { "Clarity fermé" }
+          node app/backend/tools/essai-connecteur.mjs --node $env:CLARITY_EXE --wake
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Arreter
+
       # L'option « installer Ollama pour moi », pour de vrai : l'app installée
       # télécharge l'installateur officiel, vérifie sa signature Authenticode,
       # l'installe sans droits d'admin, le démarre, tire un petit modèle, puis
