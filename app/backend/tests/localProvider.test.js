@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { createRequire } from 'module';
 import { pathToFileURL, fileURLToPath } from 'url';
-import { LocalProvider, keepAliveMs, unloadAll, SEQUENCES, loadProcessEngine, ENGINE_STOPPED, ENGINE_LOAD_TIMEOUT } from '../src/llm/LocalProvider.js';
+import { LocalProvider, isSoftwareGpu, keepAliveMs, unloadAll, SEQUENCES, loadProcessEngine, ENGINE_STOPPED, ENGINE_LOAD_TIMEOUT } from '../src/llm/LocalProvider.js';
 import { createProvider } from '../src/llm/index.js';
 
 // A stand-in for node-llama-cpp: records what it was asked, answers what it is told.
@@ -137,6 +137,11 @@ describe('LocalProvider', () => {
     const p = new LocalProvider({ modelsDir: dir, loadEngine, localModel: '../../gemma-4-E2B-it-Q4_0.gguf' });
     await collect(p.generate('x'));
     expect(state.modelPath).toBe(join(dir, 'gemma-4-E2B-it-Q4_0.gguf'));
+  });
+
+  test('a GPU drawn in software by the CPU is recognised, a real one is not', () => {
+    for (const n of ['llvmpipe (LLVM 15.0.7, 256 bits)', 'Microsoft Basic Render Driver', 'SwiftShader Device (Subzero)', 'Microsoft Direct3D12 (Microsoft Basic Render Driver) (Dozen)']) expect(isSoftwareGpu(n)).toBe(true);
+    for (const n of ['Intel(R) UHD Graphics 620', 'NVIDIA GeForce RTX 3060', 'AMD Radeon(TM) Graphics']) expect(isSoftwareGpu(n)).toBe(false);
   });
 
   test('keep-alive reads Ollama’s duration format', () => {

@@ -1366,7 +1366,7 @@ function warmModel() {
   const provider = createProvider({ ...s, modelsDir: MODELS_DIR });
   if (typeof provider.warm !== 'function') return;
   provider.warm().then(r => {
-    if (r.ok) console.log(`[Clarity] model warm in ${r.ms} ms — kept for ${s.keepAlive}`);
+    if (r.ok) console.log(`[Clarity] model warm in ${r.ms} ms — kept for ${s.keepAlive}${r.gpu ? ` — on ${r.gpu}` : ''}`);
     else console.log(`[Clarity] could not warm the model (${r.error || 'not reachable'}) — it will load on first use`);
   }).catch(() => {});
 }

@@ -60,14 +60,30 @@ async function loadNodeLlamaCpp() {
   return { lib, compactGrammar };
 }
 
+export function isSoftwareGpu(name) {
+  return /llvmpipe|lavapipe|swiftshader|basic render|microsoft basic|software|dozen/i.test(String(name));
+}
+
 /** The engine itself. Runs inside engineWorker.js, never in the backend. */
 export async function loadLlamaEngine(modelPath) {
   const { lib, compactGrammar } = await loadNodeLlamaCpp();
   const { getLlama, LlamaChatSession, LlamaGrammar, Gemma4ChatWrapper, LlamaLogLevel } = lib;
   // Never compile, never download: the installed app carries its binaries,
   // and a missing one must be an error, not a ten-minute build on someone's laptop.
-  const llama = await getLlama({ build: 'never', skipDownload: true, progressLogs: false,
-                                 logLevel: LlamaLogLevel.error });
+  const base = { build: 'never', skipDownload: true, progressLogs: false, logLevel: LlamaLogLevel.error };
+  let llama = await getLlama(base);
+  // A Vulkan "GPU" that is really the CPU drawing in software (Windows' basic
+  // driver, llvmpipe, SwiftShader) is far slower than the CPU itself: on the
+  // Windows CI runner, which has no graphics card, a reply came at 9 tokens in
+  // five minutes. Such a device is refused and the CPU build used instead.
+  let devices = [];
+  if (llama.gpu) {
+    devices = await llama.getGpuDeviceNames().catch(() => []);
+    if (!devices.length || devices.every(isSoftwareGpu)) {
+      await llama.dispose().catch(() => {});
+      llama = await getLlama({ ...base, gpu: false });
+    }
+  }
   const model = await llama.loadModel({ modelPath });
   const context = await model.createContext({ contextSize: CONTEXT_SIZE, sequences: SEQUENCES });
   const jsonGrammar = await llama.getGrammarFor('json');
@@ -82,7 +98,7 @@ export async function loadLlamaEngine(modelPath) {
   };
 
   return {
-    gpu: llama.gpu || 'cpu',
+    gpu: llama.gpu ? `${llama.gpu} (${devices.join(', ')})` : 'cpu',
     /** Run one exchange. history: [{role, content}], prompt: the last user turn. */
     async run({ system, history = [], prompt, grammar, schema, temperature, maxTokens, signal, onText }) {
       const sequence = context.getSequence();
@@ -320,8 +336,8 @@ export class LocalProvider extends LLMProvider {
   async warm() {
     const started = Date.now();
     try {
-      await this._with(() => {});
-      return { ok: true, ms: Date.now() - started };
+      const gpu = await this._with(engine => engine.gpu);
+      return { ok: true, ms: Date.now() - started, gpu };
     } catch (err) {
       return { ok: false, ms: Date.now() - started, error: err.message };
     }
