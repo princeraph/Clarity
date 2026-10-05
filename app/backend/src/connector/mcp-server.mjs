@@ -92,7 +92,7 @@ export const TOOLS = [
   {
     name: 'clarity_list_tasks',
     description: 'All of the person’s tasks in Clarity (active ones by default), e.g. “show my tasks”, “what is due this week”. Each has a ref to use with the other tools.',
-    inputSchema: { type: 'object', properties: { status: { ...STATUS, description: 'Only tasks with this status. "done" lists finished ones.' } } },
+    inputSchema: { type: 'object', properties: { status: { type: 'string', enum: ['not_started', 'in_progress', 'done', 'archived'], description: 'Only tasks with this status. "done" lists finished ones, "archived" the archived ones.' } } },
     annotations: { readOnlyHint: true },
     run: (a) => call('GET', `/tasks${a.status ? `?status=${encodeURIComponent(a.status)}` : ''}`),
   },
@@ -129,6 +129,63 @@ export const TOOLS = [
     description: 'Add a concrete next step to a task the person is stuck on. It appears in Clarity as a suggestion they can accept or rule out.',
     inputSchema: { type: 'object', properties: { ref: REF, text: { type: 'string', description: 'One short, concrete step.' } }, required: ['ref', 'text'] },
     run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/ways-forward`, { text: a.text }),
+  },
+  {
+    name: 'clarity_update_task',
+    description: 'Change a Clarity task: rename it, rewrite its description, move or remove its deadline, change its tags. Give only what changes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: REF,
+        title: { type: 'string' },
+        description: { type: 'string' },
+        deadline: { type: ['string', 'null'], description: 'YYYY-MM-DD, or null to remove the deadline' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Replaces the current tags' },
+      },
+      required: ['ref'],
+    },
+    run: ({ ref, ...change }) => call('POST', `/tasks/${encodeURIComponent(ref)}/update`, change),
+  },
+  {
+    name: 'clarity_add_subtask',
+    description: 'Add a step (subtask) to a Clarity task — e.g. when breaking a task down with the person.',
+    inputSchema: { type: 'object', properties: { ref: REF, title: { type: 'string' } }, required: ['ref', 'title'] },
+    run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/subtasks`, { title: a.title }),
+  },
+  {
+    name: 'clarity_check_subtask',
+    description: 'Tick a subtask as done (or untick it with done: false). Point at it by its number from clarity_get_task, or by its words.',
+    inputSchema: {
+      type: 'object',
+      properties: { ref: REF, subtask: { type: ['integer', 'string'], description: 'Number (1 = first) or the subtask’s words' }, done: { type: 'boolean', default: true } },
+      required: ['ref', 'subtask'],
+    },
+    run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/subtasks/check`, { subtask: a.subtask, done: a.done !== false }),
+  },
+  {
+    name: 'clarity_archive_task',
+    description: 'Archive a Clarity task: it leaves the lists but is kept, and can be brought back. Prefer this to deleting.',
+    inputSchema: { type: 'object', properties: { ref: REF }, required: ['ref'] },
+    run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/archive`),
+  },
+  {
+    name: 'clarity_restore_task',
+    description: 'Bring an archived Clarity task back into the lists. clarity_list_tasks with status "archived" gives the refs.',
+    inputSchema: { type: 'object', properties: { ref: REF }, required: ['ref'] },
+    run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/restore`),
+  },
+  {
+    name: 'clarity_delete_task',
+    description: 'Delete a Clarity task for good — this cannot be undone. Before calling it, say which task you are about to delete and get an explicit yes from the person; then pass confirmed: true. If they only want it out of the way, archive it instead.',
+    inputSchema: { type: 'object', properties: { ref: REF, confirmed: { type: 'boolean', description: 'true only after the person explicitly agreed' } }, required: ['ref', 'confirmed'] },
+    annotations: { destructiveHint: true },
+    run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/delete`, { confirmed: a.confirmed === true }),
+  },
+  {
+    name: 'clarity_timer',
+    description: 'Start or stop the time tracker on a Clarity task — e.g. “I’m starting the report now”, “I’m done for today”.',
+    inputSchema: { type: 'object', properties: { ref: REF, action: { type: 'string', enum: ['start', 'stop'] } }, required: ['ref', 'action'] },
+    run: (a) => call('POST', `/tasks/${encodeURIComponent(a.ref)}/timer`, { action: a.action }),
   },
 ];
 

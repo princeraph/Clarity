@@ -27,14 +27,44 @@ const EXEMPT = {
     'writes subtasks and updatedAt; no metric reads either',
 };
 
+// Top-level helpers, by name. Routes now share createTask, updateTask,
+// deleteTask… with the AI connector, so a write can sit one call away from the
+// handler. Reading only the handler's own text made those routes drop out of
+// this check without a sound: 287 tests became 284 and nothing failed.
+function helpers() {
+  const re = /^function (\w+)\(/gm;
+  const starts = [...SERVER.matchAll(re)];
+  return Object.fromEntries(starts.map(m => {
+    const end = SERVER.indexOf('\n}\n', m.index);
+    return [m[1], SERVER.slice(m.index, end === -1 ? SERVER.length : end + 3)];
+  }));
+}
+
+// A handler's text, plus the text of every helper it calls (and theirs).
+function withHelpers(body, fns, seen = new Set()) {
+  let out = body;
+  for (const [name, text] of Object.entries(fns)) {
+    if (seen.has(name) || !new RegExp(`\\b${name}\\(`).test(body)) continue;
+    seen.add(name);
+    out += '\n' + withHelpers(text, fns, seen);
+  }
+  return out;
+}
+
 function routeHandlers() {
-  const re = /^app\.(get|post|put|delete|patch)\('([^']+)'/gm;
+  const re = /^(?:app|cv1)\.(get|post|put|delete|patch)\('([^']+)'/gm;
+  const fns = helpers();
   const starts = [...SERVER.matchAll(re)].map(m => ({
     key: `${m[1]} '${m[2]}'`, index: m.index,
   }));
-  return starts.map((s, i) => ({
-    ...s, body: SERVER.slice(s.index, i + 1 < starts.length ? starts[i + 1].index : SERVER.length),
-  }));
+  // A handler ends at its own closing `});` — running on to the next route took
+  // in whatever helper sat between the two, and its recompute hid a missing one.
+  return starts.map((s) => {
+    const close = /\n\}\)+;\n/g;            // `});` or, for asyncRoute(…), `}));`
+    close.lastIndex = s.index;
+    const m = close.exec(SERVER);
+    return { ...s, body: withHelpers(SERVER.slice(s.index, m ? m.index + m[0].length : SERVER.length), fns) };
+  });
 }
 
 describe('every route that writes tasks refreshes the profile', () => {

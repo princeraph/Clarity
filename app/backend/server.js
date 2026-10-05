@@ -23,7 +23,7 @@ import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads
 import { unloadAll } from './src/llm/LocalProvider.js';
 import { createOllamaInstaller, recommendedOllamaModel, ENDPOINT as OLLAMA_ENDPOINT } from './src/ollama/install.js';
 import { totalmem } from 'os';
-import { createConnector, findByRef, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES } from './src/connector/connector.js';
+import { createConnector, findByRef, findSubtask, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES, LIST_FILTERS as CONNECTOR_LISTS } from './src/connector/connector.js';
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -515,9 +515,11 @@ app.post('/api/connector/disable', asyncRoute(async (req, res) => {
 
 const cv1 = express.Router();
 cv1.use(connector.guard());
-const knownTask = (req, res) => {
+// archived: false — active tasks only (the default); true — archived only; 'any' — both.
+const knownTask = (req, res, { archived = false } = {}) => {
   const data = readData();
-  const task = findByRef(data.tasks.filter(t => !t.archived), req.params.ref);
+  const pool = archived === 'any' ? data.tasks : data.tasks.filter(t => !!t.archived === archived);
+  const task = findByRef(pool, req.params.ref);
   if (!task) { res.status(404).json({ error: `No task with ref "${req.params.ref}". Call clarity_list_tasks for the refs.` }); return null; }
   return { data, task };
 };
@@ -528,13 +530,13 @@ cv1.get('/overview', (req, res) => {
   res.json(overviewView(data.tasks, data.analysis));
 });
 cv1.get('/tasks', (req, res) => {
-  const status = CONNECTOR_STATUSES.includes(req.query.status) ? req.query.status : undefined;
+  const status = CONNECTOR_LISTS.includes(req.query.status) ? req.query.status : undefined;
   connector.record('list');
   const data = readData();
   res.json({ tasks: listView(data.tasks, data.analysis, { status }) });
 });
 cv1.get('/tasks/:ref', (req, res) => {
-  const found = knownTask(req, res); if (!found) return;
+  const found = knownTask(req, res, { archived: 'any' }); if (!found) return;
   connector.record('read');
   res.json(taskDetail(found.task, found.data.analysis, threadStore.get(found.task.id)));
 });
@@ -570,6 +572,75 @@ cv1.post('/tasks/:ref/ways-forward', (req, res) => {
   const thread = threadStore.update(found.task.id, t => THREAD_ACTIONS.addOption(t, { text, source: 'suggested' }, new Date()));
   res.json({ waysForward: (thread?.options || []).map(o => ({ text: o.text, status: o.status })) });
 });
+const probeRes = () => ({ status(c) { this.code = c; return this; }, json(x) { this.body = x; return this; } });
+
+cv1.post('/tasks/:ref/update', (req, res) => {
+  const b = req.body || {};
+  const patch = {
+    ...(typeof b.title === 'string' ? { title: b.title.slice(0, 200) } : {}),
+    ...(typeof b.description === 'string' ? { description: b.description.slice(0, 2000) } : {}),
+    // null clears the deadline; anything else must be a calendar date
+    ...(b.deadline === null || /^\d{4}-\d{2}-\d{2}$/.test(b.deadline || '') ? { deadline: b.deadline } : {}),
+    ...(Array.isArray(b.tags) ? { tags: b.tags.filter(t => typeof t === 'string').slice(0, 5).map(t => t.slice(0, 40)) } : {}),
+  };
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nothing to change: give a title, description, deadline (YYYY-MM-DD, or null to remove it) or tags.' });
+  const probe = probeRes();
+  if (validateUpdate(patch, probe)) return res.status(probe.code || 400).json(probe.body);
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('update');
+  res.json({ updated: taskDetail(updateTask(found.task.id, patch), found.data.analysis, null) });
+});
+
+cv1.post('/tasks/:ref/subtasks', (req, res) => {
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim().slice(0, 200) : '';
+  if (!title) return res.status(400).json({ error: 'title is required' });
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('subtask');
+  const subtasks = [...(found.task.subtasks || []), { id: uuidv4(), title, done: false }];
+  res.json({ updated: taskDetail(updateTask(found.task.id, { subtasks }), found.data.analysis, null) });
+});
+
+cv1.post('/tasks/:ref/subtasks/check', (req, res) => {
+  const found = knownTask(req, res); if (!found) return;
+  const i = findSubtask(found.task.subtasks, req.body?.subtask);
+  if (i === -1) return res.status(404).json({ error: 'No single subtask matches. Use its number from clarity_get_task.' });
+  connector.record('subtask');
+  const subtasks = found.task.subtasks.map((s, k) => (k === i ? { ...s, done: req.body?.done !== false } : s));
+  res.json({ updated: taskDetail(updateTask(found.task.id, { subtasks }), found.data.analysis, null) });
+});
+
+cv1.post('/tasks/:ref/archive', (req, res) => {
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('archive');
+  setArchived(found.task.id, true);
+  res.json({ archived: found.task.title, note: 'It can be brought back with clarity_restore_task.' });
+});
+
+cv1.post('/tasks/:ref/restore', (req, res) => {
+  const found = knownTask(req, res, { archived: true }); if (!found) return;
+  connector.record('restore');
+  res.json({ restored: taskDetail(setArchived(found.task.id, false), found.data.analysis, null) });
+});
+
+// Deleting cannot be undone, so the request has to say the person agreed —
+// the tool tells the model to ask first, and the backend refuses without it.
+cv1.post('/tasks/:ref/delete', (req, res) => {
+  if (req.body?.confirmed !== true) return res.status(400).json({ error: 'Not deleted. Ask the person to confirm first, then call again with confirmed: true. (Archiving can be undone; deleting cannot.)' });
+  const found = knownTask(req, res, { archived: 'any' }); if (!found) return;
+  connector.record('delete');
+  deleteTask(found.task.id);
+  res.json({ deleted: found.task.title });
+});
+
+cv1.post('/tasks/:ref/timer', (req, res) => {
+  const action = req.body?.action;
+  if (action !== 'start' && action !== 'stop') return res.status(400).json({ error: 'action must be start or stop' });
+  const found = knownTask(req, res); if (!found) return;
+  connector.record('timer');
+  const task = action === 'start' ? startTimer(found.task.id) : stopTimer(found.task.id);
+  res.json({ timer: action === 'start' ? 'running' : 'stopped', minutesTracked: task.timeTracked || 0 });
+});
+
 app.use('/api/connector/v1', cv1);
 
 app.get('/api/settings', (req, res) => {
@@ -1144,59 +1215,69 @@ app.delete('/api/tasks/all', (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
+// Shared with the AI connector, like createTask/updateTask below.
+function deleteTask(id) {
   const data = readData();
-  data.tasks = data.tasks.filter(t => t.id !== req.params.id);
+  if (!data.tasks.some(t => t.id === id)) return false;
+  data.tasks = data.tasks.filter(t => t.id !== id);
   if (data.analysis?.taskAnalysis) {
-    data.analysis.taskAnalysis = data.analysis.taskAnalysis.filter(a => a.id !== req.params.id);
+    data.analysis.taskAnalysis = data.analysis.taskAnalysis.filter(a => a.id !== id);
   }
   saveData(data);
   scheduleAnalysis(data.tasks);
   scheduleProfileRecompute(data.tasks);
-  try { threadStore.remove(req.params.id); } catch {}
+  try { threadStore.remove(id); } catch {}
+  return true;
+}
+
+app.delete('/api/tasks/:id', (req, res) => {
+  deleteTask(req.params.id);
   res.json({ success: true });
 });
 
-app.post('/api/tasks/:id/archive', (req, res) => {
+function setArchived(id, archived) {
   const data = readData();
-  const task = data.tasks.find(t => t.id === req.params.id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  task.archived = true; task.archivedAt = new Date().toISOString(); task.updatedAt = new Date().toISOString();
-  if (data.analysis?.taskAnalysis) {
-    data.analysis.taskAnalysis = data.analysis.taskAnalysis.filter(a => a.id !== req.params.id);
+  const task = data.tasks.find(t => t.id === id);
+  if (!task) return null;
+  const at = new Date().toISOString();
+  task.archived = archived; task.archivedAt = archived ? at : null; task.updatedAt = at;
+  if (archived && data.analysis?.taskAnalysis) {
+    data.analysis.taskAnalysis = data.analysis.taskAnalysis.filter(a => a.id !== id);
   }
   saveData(data); scheduleAnalysis(data.tasks);
   scheduleProfileRecompute(data.tasks);
+  return task;
+}
+
+app.post('/api/tasks/:id/archive', (req, res) => {
+  const task = setArchived(req.params.id, true);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
   res.json({ task });
 });
 
 app.post('/api/tasks/:id/restore', (req, res) => {
-  const data = readData();
-  const task = data.tasks.find(t => t.id === req.params.id);
+  const task = setArchived(req.params.id, false);
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  task.archived = false; task.archivedAt = null; task.updatedAt = new Date().toISOString();
-  saveData(data); scheduleAnalysis(data.tasks);
-  scheduleProfileRecompute(data.tasks);
   res.json({ task });
 });
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
 
-app.post('/api/tasks/:id/timer/start', (req, res) => {
+function startTimer(id) {
   const data = readData();
-  const task = data.tasks.find(t => t.id === req.params.id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  if (task.timerStarted) return res.json({ task }); // already running
+  const task = data.tasks.find(t => t.id === id);
+  if (!task) return null;
+  if (task.timerStarted) return task;   // already running
   task.timerStarted = new Date().toISOString();
   task.updatedAt = new Date().toISOString();
   saveData(data);
-  res.json({ task });
-});
+  return task;
+}
 
-app.post('/api/tasks/:id/timer/stop', (req, res) => {
+function stopTimer(id) {
   const data = readData();
-  const task = data.tasks.find(t => t.id === req.params.id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
+  const task = data.tasks.find(t => t.id === id);
+  if (!task) return null;
   if (task.timerStarted) {
     const elapsed = Math.min(Math.ceil((Date.now() - new Date(task.timerStarted).getTime()) / 60000), 1440);
     task.timeTracked = (task.timeTracked || 0) + elapsed;
@@ -1208,6 +1289,18 @@ app.post('/api/tasks/:id/timer/stop', (req, res) => {
     // happened to trigger a pass — so timing a task appeared to change nothing.
     scheduleProfileRecompute(data.tasks);
   }
+  return task;
+}
+
+app.post('/api/tasks/:id/timer/start', (req, res) => {
+  const task = startTimer(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  res.json({ task });
+});
+
+app.post('/api/tasks/:id/timer/stop', (req, res) => {
+  const task = stopTimer(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
   res.json({ task });
 });
 

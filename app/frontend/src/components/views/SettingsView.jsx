@@ -511,6 +511,12 @@ const CONNECTOR_ACTION_KEY = {
   add:        'settings.connector.action.add',
   status:     'settings.connector.action.status',
   wayForward: 'settings.connector.action.wayForward',
+  update:     'settings.connector.action.update',
+  subtask:    'settings.connector.action.subtask',
+  archive:    'settings.connector.action.archive',
+  restore:    'settings.connector.action.restore',
+  delete:     'settings.connector.action.delete',
+  timer:      'settings.connector.action.timer',
 };
 
 // Lets Claude Desktop (or any app that speaks MCP) see and update the tasks.
