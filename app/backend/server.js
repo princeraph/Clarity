@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID as uuidv4 } from 'node:crypto';
 import { createProvider } from './src/llm/index.js';
@@ -28,6 +28,9 @@ const DATA_DIR      = process.env.CLARITY_DATA_DIR || join(__dirname, 'data');
 const DATA_FILE     = join(DATA_DIR, 'tasks.json');
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json');
 const BACKUPS_DIR   = join(DATA_DIR, 'backups');
+// The built-in assistant's models sit beside the data folder, not in it: backups
+// copy the data folder, and a 3 GB model has no business being copied daily.
+const MODELS_DIR    = process.env.CLARITY_MODELS_DIR || join(dirname(DATA_DIR), 'models');
 
 if (!existsSync(DATA_DIR))    mkdirSync(DATA_DIR,    { recursive: true });
 if (!existsSync(BACKUPS_DIR)) mkdirSync(BACKUPS_DIR, { recursive: true });
@@ -42,6 +45,9 @@ const DEFAULT_SETTINGS = {
   // in bursts, so the default 5 minutes meant most requests paid a full reload
   // before their first token. '0' hands the RAM back at once instead.
   keepAlive:          '30m',
+  // The built-in assistant's model, by file name in MODELS_DIR. Empty means
+  // whichever one is there.
+  localModel:         '',
   tunnelSecret:       '',
   apiKey:             '',
   onboardingComplete: false,
@@ -75,7 +81,7 @@ process.on('disconnect', () => process.exit(0));
 function readSettings() { return secrets.view(readRawSettings()); }
 
 async function saveSettings(s) { writeJSONAtomic(SETTINGS_FILE, await secrets.toFile(s, readRawSettings())); }
-function getProvider()   { return createProvider(readSettings()); }
+function getProvider()   { return createProvider({ ...readSettings(), modelsDir: MODELS_DIR }); }
 
 // ─── Task store ───────────────────────────────────────────────────────────────
 
@@ -182,10 +188,10 @@ const profileStore = createProfileStore({ dataDir: DATA_DIR });
 const threadStore  = createThreadStore({ dataDir: DATA_DIR });
 const suggestStore = createSuggestStore({ dataDir: DATA_DIR });
 
-// Ollama runs on this machine, so a prompt sent to it never crosses the device
-// boundary and the brief's redactions do not apply. Every other provider is
-// network-bound and gets the bounded summary instead.
-const providerIsLocal = (settings) => settings.providerType === 'ollama';
+// Ollama and the built-in assistant run on this machine, so a prompt sent to
+// them never crosses the device boundary and the brief's redactions do not
+// apply. Every other provider is network-bound and gets the bounded summary.
+const providerIsLocal = (settings) => settings.providerType === 'ollama' || settings.providerType === 'local';
 
 // Read the profile, computing the observed layer if it has never been built.
 // Without this a fresh install sends an empty brief even though the history to
@@ -374,7 +380,7 @@ app.get('/api/health', asyncRoute(async (req, res) => {
     const models = connected ? await provider.listModels() : [];
     res.json({
       ollama: connected,           // kept for compatibility (means "AI connected")
-      model: settings.ollamaModel,
+      model: settings.providerType === 'local' ? provider.model : settings.ollamaModel,
       providerType: settings.providerType,
       endpoint: settings.llmEndpoint,
       analyzing: isAnalyzing,
@@ -399,11 +405,17 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel } = req.body;
   if (llmEndpoint && providerType === 'ollama') {
     try { new URL(llmEndpoint); } catch {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
+  }
+  // A bare file name: the setting must not be able to point the engine at a
+  // file outside the models folder.
+  if (localModel !== undefined && (typeof localModel !== 'string' || basename(localModel) !== localModel
+      || (localModel && !localModel.endsWith('.gguf')))) {
+    return res.status(400).json({ error: 'Invalid model name' });
   }
   const next = {
     ...current,
@@ -413,6 +425,7 @@ app.post('/api/settings', async (req, res) => {
     ...(tunnelSecret        !== undefined && tunnelSecret !== '••••••••' && { tunnelSecret }),
     ...(apiKey              !== undefined && apiKey       !== '••••••••' && { apiKey }),
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
+    ...(localModel          !== undefined && { localModel }),
   };
   try { await saveSettings(next); }
   catch (err) {
@@ -636,7 +649,12 @@ app.post('/api/tasks/:id/thread/suggest', asyncRoute(async (req, res) => {
     providerIsLocal: providerIsLocal(settings),
   });
 
-  const options = parseOptions(await getProvider().generateJSON(prompt.text, { maxTokens: 300 }));  // 4 one-line moves
+  // The schema binds the built-in assistant to the shape parseOptions reads;
+  // providers that cannot take one ignore it.
+  const options = parseOptions(await getProvider().generateJSON(prompt.text, {
+    maxTokens: 300,   // 4 one-line moves
+    schema: { type: 'array', items: { type: 'string', maxLength: 160 }, minItems: 1, maxItems: 4 },
+  }));
   if (!options.length) return res.json({ thread: existing, added: 0 });
 
   const now = new Date();
@@ -1257,8 +1275,8 @@ const BIND_HOST = process.env.CLARITY_BIND || '127.0.0.1';
 // run is not a reason to refuse to start.
 function warmModel() {
   const s = readSettings();
-  if (s.providerType !== 'ollama') return;
-  const provider = createProvider(s);
+  if (!providerIsLocal(s)) return;
+  const provider = createProvider({ ...s, modelsDir: MODELS_DIR });
   if (typeof provider.warm !== 'function') return;
   provider.warm().then(r => {
     if (r.ok) console.log(`[Clarity] model warm in ${r.ms} ms — kept for ${s.keepAlive}`);

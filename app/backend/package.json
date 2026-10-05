@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.22.3"
+    "express": "^4.22.3",
+    "node-llama-cpp": "3.22.1"
   },
   "devDependencies": {
     "jest": "^29.7.0"
