@@ -464,6 +464,52 @@ lui parlait sans le savoir.
 
 ---
 
+## 5 octobre — l'IA pour qui n'a pas Ollama
+
+Voies 2 et 3 du `BACKLOG.md` § 5, faites toutes les deux.
+
+**Assistant intégré (voie 3).** Fournisseur `local` : un modèle GGUF lancé par
+node-llama-cpp 3.22.1, dans un processus à part (`engineWorker.js`). Raison
+mesurée : sur un processeur AMX, sous le Node d'Electron, le chargement tuait
+le processus d'une instruction illégale — dans le backend, il emportait toutes
+les routes, et rien ne relance le backend. Isolé, il fait échouer la requête
+avec un message ; la suivante relance un moteur. Un chargement figé échoue
+après 3 min au lieu de retenir la requête pour toujours.
+
+Téléchargement depuis l'app : Gemma 4 E2B (2,6 Go) ou E4B (4,3 Go, conseillé
+dès 16 Go de RAM), épinglés à une révision, sha256 vérifié avant usage, reprise
+depuis le `.part`. Mesuré contre Hugging Face : 2,8 Go relus et vérifiés en
+4,7 s, seuls les 5 Mo manquants retéléchargés. Clarity bascule seul sur
+l'assistant quand le fichier est bon, fenêtre ouverte ou non.
+
+Empaquetage : CPU + Vulkan seulement, CUDA retiré (540 Mo sous Windows) —
+`verifier-empaquetage` exige un moteur et refuse CUDA.
+
+**Ollama installé par Clarity (voie 2, Windows).** Installateur officiel,
+exécuté seulement si sa signature Authenticode est valide et au nom d'Ollama ;
+installation sans droits d'admin, démarrage, modèle tiré avec progression,
+bascule.
+
+**Trois défauts trouvés en essayant pour de vrai** sur l'analyse en français :
+réponse en anglais (« écris dans la langue des tâches » ne suffit pas au petit
+modèle — la langue est désormais nommée), « Start T4 » dans le texte (les
+T-noms sont remplacés par les titres), et une réponse coupée (le plafond de
+jetons, deviné, est désormais dérivé des bornes du schéma).
+
+**Interface.** « Assistant intégré » en tête des fournisseurs. Le message
+« IA indisponible » ne dit plus `ollama serve` à quelqu'un qui n'a jamais
+installé Ollama : il mène à la page IA des Réglages. L'écran d'accueil
+n'annonce plus « llama-3 8b · 4,2 Go » sur toutes les machines.
+
+**Preuve en CI Windows**, dans l'app installée : moteur chargé (0,9 s),
+discussion et pistes par l'assistant intégré, puis Ollama installé et
+interrogé. Le premier essai a bloqué 5 min : le modèle de test de 1 Mo
+n'acceptait que 128 jetons de contexte. Remplacé par SmolLM2-135M.
+
+    tests backend    275, en 16 suites
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

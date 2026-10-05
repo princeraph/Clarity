@@ -256,7 +256,7 @@ octobre, pas corrigé.
 
 ---
 
-## 5. L'assistant IA pour quelqu'un qui n'a pas Ollama — décidé le 5 octobre
+## 5. L'assistant IA pour quelqu'un qui n'a pas Ollama — décidé le 5 octobre, voies 2 et 3 faites le même jour (voir JOURNAL)
 
 Le cœur de Clarity, pour son auteur, c'est l'IA : relier les tâches entre
 elles, aider quand on bloque, faire plus qu'une liste. Or un utilisateur non
