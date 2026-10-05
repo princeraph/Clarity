@@ -35,13 +35,19 @@ export function ollamaExePath(env = process.env) {
 
 /** Windows' own verdict on the file's signature. */
 export function verifySignature(file) {
+  // -EncodedCommand, not -Command: Windows PowerShell 5.1 re-parses the quotes
+  // Node puts around a -Command argument, and the script came back empty —
+  // a valid installer reported as unsigned (seen in CI on 5 October).
+  const script = '$s = Get-AuthenticodeSignature -LiteralPath $env:CLARITY_FILE; Write-Output ([string]$s.Status + "|" + [string]$s.SignerCertificate.Subject)';
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
   return new Promise((resolve) => {
-    const script = '$s = Get-AuthenticodeSignature -LiteralPath $env:CLARITY_FILE; "$($s.Status)|$($s.SignerCertificate.Subject)"';
-    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
       { env: { ...process.env, CLARITY_FILE: file }, windowsHide: true, timeout: 60000 },
-      (err, stdout) => {
+      (err, stdout, stderr) => {
         if (err) return resolve({ ok: false, detail: err.message });
-        const [status, subject = ''] = String(stdout).trim().split('|');
+        const out = String(stdout).trim();
+        if (!out) return resolve({ ok: false, detail: `no answer from PowerShell ${String(stderr).trim().slice(0, 200)}` });
+        const [status, subject = ''] = out.split('|');
         resolve({ ok: status === 'Valid' && /ollama/i.test(subject), detail: `${status} ${subject}`.trim() });
       });
   });
