@@ -5,9 +5,6 @@ import { parseInput } from '../lib/saisie.js';
 
 const API = 'http://localhost:3001/api';
 
-function fmtDuration(mins) {
-  return mins >= 60 ? `${Math.round(mins / 60 * 10) / 10}h` : `${mins}m`;
-}
 
 function getTaskDueLabel(task, t, fmt) {
   if (!task.deadline) return { label: null, overdue: false };
@@ -142,7 +139,7 @@ export default function SearchCapture({
   // avoir eu ce hook : Ctrl+K levait « t is not defined » à chaque ouverture.
   // Le contrôle des locales ne le voyait pas — il exigeait la parenthèse
   // fermante des paramètres sur la même ligne, et ceux-ci tiennent sur deux.
-  const { t, fmtDate } = useLocale();
+  const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('search'); // 'search' | 'capture'
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -170,7 +167,7 @@ export default function SearchCapture({
     { icon: '✉', label: t('capture.goInbox'),      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    onClose(); } },
     { icon: '↗', label: t('capture.openChat'), kbd: 'Ctrl+/', action: () => { onOpenChat?.();           onClose(); } },
     { icon: '⚙', label: t('capture.openSettings'),    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); onClose(); } },
-  ], [onNavigate, onOpenChat, onClose]);
+  ], [onNavigate, onOpenChat, onClose, t]);
 
   // Flat list of navigable items for keyboard selection
   const navItems = useMemo(() => {
@@ -233,13 +230,15 @@ export default function SearchCapture({
           status: 'not_started', recurring: 'none',
         }),
       });
-      if (!resp.ok) { let msg = 'Save failed'; try { msg = (await resp.json()).error || msg; } catch {} throw new Error(msg); }
+      // The server's own message is English plumbing ("Title is required"); the
+      // person gets the interface's sentence, never a raw error string.
+      if (!resp.ok) { const e = new Error(); e.shown = t('capture.saveFailed'); throw e; }
       const newTask = await resp.json();
       onSaved?.();
       onClose();
       if (openAfter && onSavedAndOpen && newTask?.id) onSavedAndOpen(newTask);
     } catch (err) {
-      setSaveError(err.message || 'Could not save task — check your connection');
+      setSaveError(err.shown || t('capture.saveUnreachable'));
       setSaving(false);
     }
   }
@@ -315,7 +314,7 @@ export default function SearchCapture({
                 <span style={{ fontFamily: T.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
                 {parsed.tags.map(tag => <ParsePill key={tag} label={t('capture.area')} value={tag} T={T} />)}
                 {parsed.deadline && <ParsePill label={t('capture.due')} value={fmtDate(parsed.deadline + 'T00:00:00')} T={T} />}
-                {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={fmtDuration(parsed.estimatedDuration)} T={T} />}
+                {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={parsed.estimatedDuration >= 60 ? fmtHours(parsed.estimatedDuration) : fmtDuration(parsed.estimatedDuration)} T={T} />}
               </div>
             )}
             {saveError && (
@@ -328,9 +327,9 @@ export default function SearchCapture({
               </div>
             )}
             <CKFooter T={T} left={t('capture.onDeviceParse')} right={[
-              { key: 'Ctrl+↵', label: 'save & open' },
-              { key: '↵', label: 'save' },
-              { key: 'Esc', label: 'back' },
+              { key: 'Ctrl+↵', label: t('capture.kbd.saveOpen') },
+              { key: '↵', label: t('capture.kbd.save') },
+              { key: t('kbd.esc'), label: t('capture.kbd.back') },
             ]} />
           </>
         )}
@@ -361,10 +360,10 @@ export default function SearchCapture({
                 T={T}
               />
             ))}
-            <CKFooter T={T} left="↑↓ navigate" right={[
-              { key: '↵', label: 'open' },
-              { key: 'Tab', label: 'capture' },
-              { key: 'Esc', label: 'close' },
+            <CKFooter T={T} left={t('capture.kbd.navigate')} right={[
+              { key: '↵', label: t('capture.kbd.open') },
+              { key: 'Tab', label: t('capture.kbd.capture') },
+              { key: t('kbd.esc'), label: t('capture.kbd.close') },
             ]} />
           </>
         )}
@@ -379,7 +378,7 @@ export default function SearchCapture({
                   <TaskRow
                     key={task.id} task={task}
                     active={selectedIndex === i}
-                    showScore={i === 0 ? 'best match' : null}
+                    showScore={i === 0 ? t('capture.bestMatch') : null}
                     onClick={() => { onOpenTask?.(task); onClose(); }}
                     T={T}
                   />
@@ -414,7 +413,7 @@ export default function SearchCapture({
             </div>
             <CKFooter T={T}
               left={searchResults.length ? t('capture.nResults', { n: searchResults.length }) : t('capture.noResults')}
-              right={[{ key: '↵', label: 'open task' }, { key: 'Tab', label: 'capture' }, { key: 'Esc', label: 'close' }]}
+              right={[{ key: '↵', label: t('capture.kbd.openTask') }, { key: 'Tab', label: t('capture.kbd.capture') }, { key: t('kbd.esc'), label: t('capture.kbd.close') }]}
             />
           </>
         )}

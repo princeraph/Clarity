@@ -99,7 +99,7 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
           </div>
           {s.dueDate && (
             <div style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
-              {t('detail.due')}: {fmtDate(s.dueDate + 'T00:00:00')}
+              {t('detail.dueOn', { date: fmtDate(s.dueDate + 'T00:00:00') })}
             </div>
           )}
           <button
@@ -119,7 +119,7 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
 
 export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onFocusMode }) {
   const { T } = useTheme();
-  const { t, fmtDate: fmtLocaleDate, dateLocale } = useLocale();
+  const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState('');
   const [newDeadline, setNewDeadline] = useState(task.deadline || '');
@@ -154,7 +154,12 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
             const data = JSON.parse(line.slice(6));
             if (data.token) setBreakdownText(prev => prev + data.token);
             if (data.done)  { onSaved?.(); setBreaking(false); setBreakdownText(''); }
-            if (data.error) { setBreakdownError(data.error); setBreaking(false); }
+            // The server's sentence is English; a known failure has a code,
+            // anything else is a provider message shown as the detail it is.
+            if (data.error) {
+              setBreakdownError(data.code === 'unparseable' ? t('detail.breakdownUnparseable') : t('detail.aiError', { detail: data.error }));
+              setBreaking(false);
+            }
           } catch {}
         }
       }
@@ -199,8 +204,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
   function fmtTracked(minutes) {
     if (!minutes || minutes < 0) return null;
-    if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${Math.ceil(minutes % 60)}m`;
-    return `${Math.ceil(minutes)}m`;
+    return fmtDuration(Math.ceil(minutes));
   }
   const isOverdue = days !== null && days < 0 && task.status !== 'done';
   const isUrgent  = days !== null && days >= 0 && days <= 3 && task.status !== 'done';
@@ -294,9 +298,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           {task.timeTracked > 0 && (
             <TDPill
               label={t('detail.tracked')}
-              value={task.timeTracked >= 60
-                ? `${Math.floor(task.timeTracked / 60)}h ${task.timeTracked % 60}m`
-                : `${task.timeTracked}m`}
+              value={fmtDuration(task.timeTracked)}
               accent={false}
               T={T}
             />
@@ -332,7 +334,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               fontSize: 13.5, color: task.description ? T.ink : T.ink40,
               lineHeight: 1.65,
             }}>
-              {task.description || 'No notes yet.'}
+              {task.description || t('detail.noNotesYet')}
             </div>
 
             {/* Deadline reschedule inline */}
@@ -372,7 +374,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                       {fmtLocaleDate(task.deadline + 'T00:00:00', { weekday: 'short', month: 'short', day: 'numeric' })}
                       {days !== null && (
                         <span style={{ marginLeft: 8, color: isOverdue ? T.warn : T.ink40 }}>
-                          {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? '· today' : `· in ${days}d`}
+                          {isOverdue ? t('due.overdueDays', { n: Math.abs(days) }) : days === 0 ? t('due.today') : t('due.inDaysLong', { n: days })}
                         </span>
                       )}
                     </span>
@@ -497,8 +499,8 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               ) : null}
               {aiData?.priority && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, minWidth: 64 }}>AI</span>
-                  <span style={{ fontSize: 12.5, color: T.accentInk }}>Priority #{aiData.priority} assigned</span>
+                  <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, minWidth: 64 }}>{t('detail.ai')}</span>
+                  <span style={{ fontSize: 12.5, color: T.accentInk }}>{t('detail.priorityAssigned', { n: aiData.priority })}</span>
                 </div>
               )}
             </div>
@@ -594,7 +596,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
             )}
             {task.timeTracked > 0 && (
               <div style={{ marginTop: 6, fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
-                Tracked: {fmtTracked(task.timeTracked)}
+                {t('detail.trackedTotal', { time: fmtTracked(task.timeTracked) })}
               </div>
             )}
           </div>

@@ -121,7 +121,7 @@ function AppInner() {
   const toastTimer          = useRef(null);
   const toastActionRef      = useRef(null);
 
-  const showToast = useCallback((message, type = 'success', action = null, actionLabel = 'Undo') => {
+  const showToast = useCallback((message, type = 'success', action = null, actionLabel = null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastActionRef.current = action;
     // Deduplicate: only re-render if message or type changed (avoids animation restart on rapid same-message calls)
@@ -191,11 +191,11 @@ function AppInner() {
       const key = `${task.id}-${task.deadline}`;
       if ((daysLeft === 1 || daysLeft === 0) && !notifiedDeadlines.current.has(key)) {
         notifiedDeadlines.current.add(key);
-        window.clarity.showNotification('Clarity — Deadline Alert',
-          `"${task.title}" is due ${daysLeft === 0 ? 'today' : 'tomorrow'}!`);
+        window.clarity.showNotification(t('notify.deadlineTitle'),
+          t(daysLeft === 0 ? 'notify.dueToday' : 'notify.dueTomorrow', { title: task.title }));
       }
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
@@ -262,7 +262,7 @@ function AppInner() {
       setShowForm(false);
       setEditingTask(null);
       await loadData();
-      showToast(isEdit ? 'Task updated' : 'Task added');
+      showToast(isEdit ? t('toast.taskUpdated') : t('toast.taskAdded'));
     } catch { showToast(t('toast.saveFailed'), 'error'); }
     finally { setSaving(false); }
   }
@@ -289,7 +289,7 @@ function AppInner() {
       const tid = pendingDeleteTimers.current.get(taskId);
       if (tid) { clearTimeout(tid); pendingDeleteTimers.current.delete(taskId); }
       setHiddenTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
-    }, 'Undo');
+    });
   }
 
   async function handleArchive(taskId) {
@@ -324,7 +324,8 @@ function AppInner() {
       if (!resp.ok) throw new Error();
       const fresh = await loadData();
       if (status === 'done' && task.recurring && task.recurring !== 'none') {
-        showToast(`Done! Next ${task.recurring} occurrence created.`);
+        const freq = { daily: 'recurFreq.daily', weekly: 'recurFreq.weekly', monthly: 'recurFreq.monthly' }[task.recurring];
+        showToast(t('toast.recurringCreated', { freq: freq ? t(freq) : task.recurring }));
       }
       return fresh;
     } catch {
@@ -374,9 +375,11 @@ function AppInner() {
         body: JSON.stringify({ title, status: 'not_started' }),
       });
       if (resp.ok) {
-        const t = await resp.json();
-        setData(d => ({ ...d, tasks: [...d.tasks, t] }));
-        showToast(`"${title.slice(0, 40)}" added`);
+        // Not `t`: that name is the translator, and shadowing it here is how a
+        // toast ends up calling a task object.
+        const created = await resp.json();
+        setData(d => ({ ...d, tasks: [...d.tasks, created] }));
+        showToast(t('toast.quickAdded', { title: title.slice(0, 40) }));
       }
     } catch {
       showToast(t('toast.addFailed'), 'error');
@@ -586,7 +589,7 @@ function AppInner() {
               {toast.message}
             </span>
             {toast.action && (
-              <ToastUndoBtn onClick={() => dismissToast(true)} label={toast.actionLabel} T={T} />
+              <ToastUndoBtn onClick={() => dismissToast(true)} label={toast.actionLabel ?? t('toast.undo')} T={T} />
             )}
             <button onClick={() => dismissToast(false)} style={{
               background: 'transparent', border: 'none', cursor: 'pointer',

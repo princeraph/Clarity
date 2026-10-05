@@ -194,9 +194,18 @@ function FollowUpsDue({ tasks, onOpenDetail, T }) {
         () => open(row.taskId),
       ))}
 
-      {stalled.map(s => line(`s-${s.taskId}`, s.title, s.why, () => open(s.taskId)))}
+      {stalled.map(s => line(`s-${s.taskId}`, s.title, stalledWhy(s, t), () => open(s.taskId)))}
     </div>
   );
+}
+
+// The backend sends `why` as an English sentence and `code` as what it means.
+// Only the code is read here; the sentence is the fallback for an older server.
+function stalledWhy(s, t) {
+  if (s.code === 'postponed') return t('followups.why.postponed', { n: s.slips });
+  if (s.code === 'overdue')   return t('followups.why.overdue');
+  if (s.code === 'idle')      return t('followups.why.idle', { n: s.idleDays });
+  return s.why;
 }
 
 export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
@@ -336,7 +345,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
           )}
 
           {quickTasks.length > 0 && (
-            <TaskGroup title={t('focus.upNext')} subtitle={t('focus.nTasks', { n: quickTasks.length })} T={T}>
+            <TaskGroup title={t('focus.upNext')} subtitle={t(quickTasks.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: quickTasks.length })} T={T}>
               {quickTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
             </TaskGroup>
           )}
@@ -354,7 +363,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
                 <button onClick={onViewTasks} style={{
                   fontSize: 12.5, color: T.ink60, background: 'transparent', border: 'none',
                   cursor: 'pointer', textAlign: 'left', padding: '8px 4px', fontFamily: T.fontUI,
-                }}>+{doneTasks.length - 3} more — view all tasks</button>
+                }}>{t('focus.moreDone', { n: doneTasks.length - 3 })}</button>
               )}
             </TaskGroup>
           )}

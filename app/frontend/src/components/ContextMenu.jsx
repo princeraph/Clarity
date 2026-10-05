@@ -101,7 +101,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
         <MenuItem
           icon="✓"
           label={isDone ? t('task.markIncomplete') : t('task.markComplete')}
-          kbd="Space"
+          kbd={t('kbd.space')}
           onClick={() => { onStatusChange(task, isDone ? 'not_started' : 'done'); onClose(); }}
         />
         <MenuItem
@@ -159,7 +159,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
               width: '100%', padding: '4px 12px', background: 'transparent', border: 'none',
               cursor: 'pointer', fontSize: 11.5, color: T.ink40, textAlign: 'left',
               fontFamily: T.fontUI,
-            }}>← Back</button>
+            }}>{t('menu.back')}</button>
           </div>
         )}
         {onFocusMode && task.status !== 'done' && (
@@ -178,7 +178,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
         <MenuItem
           icon="⌫"
           label={t('menu.delete')}
-          kbd="Del"
+          kbd={t('kbd.del')}
           danger
           onClick={() => { onDelete(task.id); onClose(); }}
         />

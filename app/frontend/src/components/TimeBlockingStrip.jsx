@@ -18,9 +18,9 @@ function getBlockColors(T, isDark) {
   };
 }
 
-function fmtH(h) {
-  if (h === 12) return '12p';
-  return h > 12 ? `${h - 12}p` : `${h}a`;
+// "6a"/"2p" in English, "6 h"/"14 h" in French: the clock is part of the locale.
+function fmtH(h, t) {
+  return t(h >= 12 ? 'timeline.hourPm' : 'timeline.hourAm', { h, h12: h > 12 ? h - 12 : h });
 }
 
 function fmtHM(h) {
@@ -44,7 +44,7 @@ function Legend({ color, label }) {
 }
 
 export default function TimeBlockingStrip({ blocks = [] }) {
-  const { t } = useLocale();
+  const { t, fmtHours } = useLocale();
   const { T, isDark } = useTheme();
   const BLOCK_COLORS = getBlockColors(T, isDark);
   const [hovered, setHovered] = useState(null);
@@ -73,12 +73,12 @@ export default function TimeBlockingStrip({ blocks = [] }) {
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontFamily: T.fontUI, fontSize: 11.5, color: T.ink60 }}>
           {focusHours > 0 ? (
-            <span><span style={{ fontWeight: 500, color: T.ink }}>{focusHours.toFixed(1).replace('.0', '')}h</span> focus</span>
+            <span><span style={{ fontWeight: 500, color: T.ink }}>{fmtHours(focusHours * 60)}</span> {t('timeline.focusSuffix')}</span>
           ) : (
             <span style={{ color: T.ink40 }}>{t('timeline.noBlocks')}</span>
           )}
           {meetingBlocks.length > 0 && (
-            <span><span style={{ fontWeight: 500, color: T.ink }}>{meetingBlocks.length}</span> {meetingBlocks.length === 1 ? 'meeting' : 'meetings'}</span>
+            <span><span style={{ fontWeight: 500, color: T.ink }}>{meetingBlocks.length}</span> {meetingBlocks.length === 1 ? t('timeline.meetingOne') : t('timeline.meetingMany')}</span>
           )}
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function TimeBlockingStrip({ blocks = [] }) {
           }}>
             <div style={{ width: 1, height: 6, background: T.hairline }} />
             <span style={{ fontFamily: T.fontMono, fontSize: 9, color: T.ink40, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-              {fmtH(h)}
+              {fmtH(h, t)}
             </span>
           </div>
         ))}

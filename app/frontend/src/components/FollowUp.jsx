@@ -119,7 +119,7 @@ export default function FollowUp({ task }) {
     try {
       const resp = await fetch(`${API}/tasks/${task.id}/thread/suggest`, { method: 'POST' });
       const body = await resp.json().catch(() => ({}));
-      if (!resp.ok) { setNote(body.error || t('thread.cannotAsk')); return; }
+      if (!resp.ok) { setNote(t('thread.cannotAsk')); return; }
       setThread(body.thread);
       if (!body.added) setNote(t('thread.nothingNew'));
     } catch { setNote(t('thread.backendOrModelDown')); }
@@ -151,7 +151,7 @@ export default function FollowUp({ task }) {
         <Label T={T}>{t('thread.label')}</Label>
         <span style={{ fontFamily: T.fontMono, fontSize: 10, color: thread.state === 'blocked' ? T.warn : T.ink40 }}>
           {STATE_KEY[thread.state] ? t(STATE_KEY[thread.state]) : thread.state}
-          {blockedFor !== null && thread.state === 'blocked' && ` · ${blockedFor}d`}
+          {blockedFor !== null && thread.state === 'blocked' && ` · ${t('unit.days', { n: blockedFor })}`}
           {thread.state === 'parked' && ` · ${thread.mutedByUser ? t('thread.youMuted') : t('thread.stoppedAsking')}`}
         </span>
       </div>
@@ -238,7 +238,7 @@ export default function FollowUp({ task }) {
           {/* Kept, not deleted: "we tried that" is what a thread is worth a month later. */}
           {ruledOut.length > 0 && (
             <div style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, marginBottom: 7, lineHeight: 1.6 }}>
-              {t('thread.ruledOut')}: {ruledOut.map(o => o.text + (o.note ? ` (${o.note})` : '')).join(' · ')}
+              {t('thread.ruledOutList', { list: ruledOut.map(o => o.text + (o.note ? ` (${o.note})` : '')).join(' · ') })}
             </div>
           )}
 

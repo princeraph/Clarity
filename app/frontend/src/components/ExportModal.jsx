@@ -4,36 +4,42 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
-function toMarkdown(data) {
+const STATUS_KEY = { not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
+const LEVEL_KEY  = { high: 'priority.high', medium: 'priority.medium', low: 'priority.low' };
+
+// The exported file is read by the same person who reads the interface, so its
+// headings follow the interface language. `t` comes from the caller: this runs
+// outside any component.
+function toMarkdown(data, t, fmtDateTime) {
   const { tasks, analysis, weeklySummary, exportedAt } = data;
-  const lines = [`# Clarity Export`, `Exported: ${new Date(exportedAt).toISOString()}`, ''];
-  if (analysis?.whatToDoNext) lines.push('## AI Recommendation', analysis.whatToDoNext, '');
-  lines.push('## Tasks', '');
+  const lines = [`# ${t('export.doc.title')}`, t('export.doc.exported', { date: fmtDateTime(exportedAt) }), ''];
+  if (analysis?.whatToDoNext) lines.push(`## ${t('export.doc.aiRecommendation')}`, analysis.whatToDoNext, '');
+  lines.push(`## ${t('export.doc.tasks')}`, '');
   tasks.forEach(task => {
     const ai = analysis?.taskAnalysis?.find(a => a.id === task.id);
     lines.push(`### ${task.title}`);
-    lines.push(`- **Status:** ${task.status.replace('_', ' ')}`);
-    if (task.deadline) lines.push(`- **Deadline:** ${task.deadline}`);
-    if (task.deliverable) lines.push(`- **Deliverable:** ${task.deliverable}`);
-    if (ai) lines.push(`- **Priority:** #${ai.priority} (${ai.priorityLevel})`);
+    lines.push(`- **${t('export.doc.status')}** ${STATUS_KEY[task.status] ? t(STATUS_KEY[task.status]) : task.status}`);
+    if (task.deadline) lines.push(`- **${t('export.doc.deadline')}** ${task.deadline}`);
+    if (task.deliverable) lines.push(`- **${t('export.doc.deliverable')}** ${task.deliverable}`);
+    if (ai) lines.push(`- **${t('export.doc.priority')}** #${ai.priority} (${LEVEL_KEY[ai.priorityLevel] ? t(LEVEL_KEY[ai.priorityLevel]) : ai.priorityLevel})`);
     if (task.description) lines.push(``, task.description);
     if (task.subtasks?.length) {
-      lines.push('', '**Subtasks:**');
+      lines.push('', `**${t('export.doc.subtasks')}**`);
       task.subtasks.forEach(s => lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}`));
     }
     if (ai?.actionPlan?.length) {
-      lines.push('', '**Action Plan:**');
+      lines.push('', `**${t('export.doc.actionPlan')}**`);
       ai.actionPlan.forEach((step, i) => lines.push(`${i + 1}. ${step}`));
     }
-    if (ai?.reasoning) lines.push('', `*AI reasoning: ${ai.reasoning}*`);
+    if (ai?.reasoning) lines.push('', `*${t('export.doc.aiReasoning', { text: ai.reasoning })}*`);
     lines.push('');
   });
-  if (weeklySummary?.content) lines.push('## Weekly Summary', weeklySummary.content, '');
+  if (weeklySummary?.content) lines.push(`## ${t('export.doc.weeklySummary')}`, weeklySummary.content, '');
   return lines.join('\n');
 }
 
 export default function ExportModal({ onClose }) {
-  const { t } = useLocale();
+  const { t, fmtDateTime } = useLocale();
   const { T } = useTheme();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -49,7 +55,7 @@ export default function ExportModal({ onClose }) {
         filename = `clarity-export-${new Date().toISOString().split('T')[0]}.json`;
         type = 'application/json';
       } else {
-        content = toMarkdown(data);
+        content = toMarkdown(data, t, fmtDateTime);
         filename = `clarity-export-${new Date().toISOString().split('T')[0]}.md`;
         type = 'text/markdown';
       }

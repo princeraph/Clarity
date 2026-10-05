@@ -131,6 +131,9 @@ export function buildOutboundContext({
     id: 'tasks',
     label: 'Your active tasks',
     included: true,
+    // The numbers behind `detail`, so the Settings preview can say it in the
+    // interface language instead of showing this English sentence verbatim.
+    count: tLines.length,
     detail: `${tLines.length} task${tLines.length === 1 ? '' : 's'} — title, status, due date and tags`,
     text: tLines.join('\n') || 'No tasks yet.',
   });
@@ -140,6 +143,9 @@ export function buildOutboundContext({
     id: 'profile-brief',
     label: providerIsLocal ? 'What Clarity has learned about you' : 'A short profile summary',
     included: brief.lines.length > 0,
+    statements: brief.lines.length,
+    dropped: brief.dropped || 0,
+    minSamples: MIN_SAMPLES,
     detail: brief.lines.length
       ? `${brief.lines.length} statement${brief.lines.length === 1 ? '' : 's'}, capped at ${budget} characters${brief.dropped ? ` — ${brief.dropped} held back by the cap` : ''}`
       : `Nothing yet — a pattern needs ${MIN_SAMPLES} samples before it is stated`,

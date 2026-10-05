@@ -3,20 +3,11 @@ import { tagColor } from './TaskForm.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 
-const RECURRING_LABEL = { daily: '↻ Daily', weekly: '↻ Weekly', monthly: '↻ Monthly' };
+const RECURRING_KEY = { daily: 'recur.daily', weekly: 'recur.weekly', monthly: 'recur.monthly' };
 
 function daysUntil(deadline) {
   if (!deadline) return null;
   return Math.ceil((new Date(deadline + 'T00:00:00') - new Date()) / 86400000);
-}
-
-function formatTime(minutes) {
-  if (minutes === null || minutes === undefined || minutes < 0) return null;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 function CircleCheck({ done, focus, stale, T }) {
@@ -40,7 +31,7 @@ function CircleCheck({ done, focus, stale, T }) {
 
 export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onOpenDetail, onContextMenu }) {
   const { T } = useTheme();
-  const { t } = useLocale();
+  const { t, fmtDate, fmtDuration } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [hov, setHov] = useState(false);
   const { aiData } = task;
@@ -53,7 +44,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
   const subtasksDone  = task.subtasks?.filter(s => s.done).length || 0;
   const subtasksTotal = task.subtasks?.length || 0;
-  const timeLabel     = formatTime(task.timeTracked);
+  const timeLabel     = fmtDuration(task.timeTracked);
   const timerRunning  = !!task.timerStarted;
   const [elapsedMin, setElapsedMin] = useState(0);
 
@@ -114,7 +105,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
             <span style={{
               fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.06em',
               color: T.ink60, flexShrink: 0,
-            }}>{RECURRING_LABEL[task.recurring]}</span>
+            }}>{RECURRING_KEY[task.recurring] ? t(RECURRING_KEY[task.recurring]) : task.recurring}</span>
           )}
         </div>
 
@@ -150,10 +141,10 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               fontFamily: T.fontMono, fontSize: 11,
               color: isOverdue ? T.warn : isUrgent ? T.warn : T.ink60,
             }}>
-              {new Date(task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {fmtDate(task.deadline + 'T00:00:00')}
               {days !== null && (
                 <span style={{ marginLeft: 5, color: isOverdue ? T.warn : T.ink40 }}>
-                  {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? '· today' : `· ${days}d`}
+                  {isOverdue ? t('due.overdueDays', { n: Math.abs(days) }) : days === 0 ? t('due.today') : t('due.inDays', { n: days })}
                 </span>
               )}
             </span>
@@ -161,7 +152,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
           {subtasksTotal > 0 && (
             <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
-              {subtasksDone}/{subtasksTotal} subtasks
+              {t('task.subtaskCount', { done: subtasksDone, total: subtasksTotal })}
             </span>
           )}
 
@@ -179,8 +170,8 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               }}
             >
               {timerRunning
-                ? <><span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, animation: 'timerPulse 1.5s ease-in-out infinite', flexShrink: 0 }} /> {elapsedMin}m · stop</>
-                : <>{timeLabel ? `${timeLabel} logged` : 'track'}</>
+                ? <><span style={{ width: 6, height: 6, borderRadius: '50%', background: T.accent, animation: 'timerPulse 1.5s ease-in-out infinite', flexShrink: 0 }} /> {t('task.timerRunning', { time: fmtDuration(elapsedMin) })}</>
+                : <>{timeLabel ? t('task.timeLogged', { time: timeLabel }) : t('task.track')}</>
               }
             </button>
           )}

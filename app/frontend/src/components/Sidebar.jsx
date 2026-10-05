@@ -319,7 +319,7 @@ export default function Sidebar({
         {/* Bottom: status dot + gear + avatar */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div
-            title={health.ollama ? `AI · ${health.model || 'connected'}` : t('sidebar.aiOfflineLong')}
+            title={health.ollama ? (health.model ? t('sidebar.aiModel', { model: health.model }) : t('sidebar.aiConnected')) : t('sidebar.aiOfflineLong')}
             onClick={() => !health.ollama && (onOpenAiSettings ? onOpenAiSettings() : setView('settings'))}
             style={{ cursor: health.ollama ? 'default' : 'pointer' }}
           >
@@ -478,7 +478,7 @@ export default function Sidebar({
               {analyzing ? t('sidebar.analyzing') : t('tray.onDevice')}
             </span>
             <span style={{ fontSize: 11.5, color: health.ollama ? T.ink80 : T.warn, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {health.ollama ? `Clarity AI · ${health.model || 'running locally'}` : t('sidebar.aiOffline')}
+              {health.ollama ? (health.model ? t('sidebar.clarityAiModel', { model: health.model }) : t('sidebar.clarityAiLocal')) : t('sidebar.aiOffline')}
             </span>
           </div>
         </div>

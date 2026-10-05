@@ -12,9 +12,11 @@ import fr from '../locales/fr.js';
 // any of them, which is what stops a half-translated language from shipping and
 // looking like the old lie all over again.
 
+// Each language is named in itself, whatever the interface language — that is
+// how a person finds their own in the list (locales-ok on both lines).
 export const DICTIONARIES = {
-  'en-US': { label: 'English', flag: '\u{1F1FA}\u{1F1F8}', dateLocale: 'en-US', strings: en },
-  'fr-FR': { label: 'Français', flag: '\u{1F1EB}\u{1F1F7}', dateLocale: 'fr-FR', strings: fr },
+  'en-US': { label: 'English', flag: '\u{1F1FA}\u{1F1F8}', dateLocale: 'en-US', strings: en },  // locales-ok: endonym
+  'fr-FR': { label: 'Français', flag: '\u{1F1EB}\u{1F1F7}', dateLocale: 'fr-FR', strings: fr }, // locales-ok: endonym
 };
 
 export const LANGUAGES = Object.entries(DICTIONARIES).map(([id, d]) => ({ id, label: d.label, flag: d.flag }));
@@ -71,7 +73,24 @@ export function LocaleProvider({ children }) {
       return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(dict.dateLocale);
     };
 
-    return { locale, setLocale, t, fmtDate, fmtDateTime, dateLocale: dict.dateLocale, languages: LANGUAGES };
+    // Durations are words too: "3h 30m" stayed English in a French interface
+    // because every component built it with a template string. One place now,
+    // and the unit layout ("3 h 30", "45 min") comes from the dictionary.
+    const fmtNumber = (n, digits = 1) =>
+      Number(n).toLocaleString(dict.dateLocale, { maximumFractionDigits: digits });
+    const fmtDuration = (minutes) => {
+      if (minutes === null || minutes === undefined || !Number.isFinite(minutes) || minutes < 0) return null;
+      const total = Math.round(minutes);
+      const h = Math.floor(total / 60);
+      const m = total % 60;
+      if (h === 0) return t('unit.minutes', { n: m });
+      if (m === 0) return t('unit.hours', { n: h });
+      return t('unit.hoursMinutes', { h, m, mm: String(m).padStart(2, '0') });
+    };
+    // Decimal hours for a compact total: "1.5h", "1,5 h".
+    const fmtHours = (minutes) => t('unit.hours', { n: fmtNumber(minutes / 60) });
+
+    return { locale, setLocale, t, fmtDate, fmtDateTime, fmtNumber, fmtDuration, fmtHours, dateLocale: dict.dateLocale, languages: LANGUAGES };
   }, [locale, setLocale]);
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
