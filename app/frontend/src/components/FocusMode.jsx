@@ -165,7 +165,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
               {overrun ? '+' : ''}{fmtTime(overrun ? elapsed - SESSION_SECS : remaining)}
             </span>
             <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginTop: 4 }}>
-              {overrun ? 'over session' : 'remaining'}
+              {overrun ? t('focusmode.overSession') : t('focusmode.remaining')}
             </span>
           </div>
         </div>
@@ -173,7 +173,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
         {/* Task */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.accentInk, padding: '3px 8px', background: T.accentSoft, borderRadius: 3 }}>Focus</span>
+            <span style={{ fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.accentInk, padding: '3px 8px', background: T.accentSoft, borderRadius: 3 }}>{t('task.focus')}</span>
             {task.tags?.[0] && (
               <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>{task.tags[0]}</span>
             )}
@@ -218,7 +218,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
                     fontWeight: isActive ? 500 : 400,
                   }}>{sub.title}</span>
                   {isActive && (
-                    <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.accentInk, background: T.accentSoft, padding: '2px 6px', borderRadius: 3 }}>now</span>
+                    <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.accentInk, background: T.accentSoft, padding: '2px 6px', borderRadius: 3 }}>{t('focusmode.now')}</span>
                   )}
                 </div>
               );
@@ -228,7 +228,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <FMBtn label={paused ? '▶ Resume' : '⏸ Pause'} T={T} onClick={handleToggleTimer} />
+          <FMBtn label={paused ? t('focusmode.resume') : t('focusmode.pause')} T={T} onClick={handleToggleTimer} />
           <FMBtn label={t('focusmode.done')} primary T={T} onClick={handleDone} />
           <FMBtn label={t('focusmode.takeABreak')} ghost T={T} onClick={handleBreak} />
         </div>

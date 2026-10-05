@@ -4,7 +4,16 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
-const DAYS_HEADER = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+// The grid starts on Monday. Day names come from the locale, not a list:
+// 5 January 2026 is a Monday, so the next seven days give the header in order.
+const WEEK_FROM_MONDAY = Array.from({ length: 7 }, (_, i) => new Date(2026, 0, 5 + i));
+// Quick picks: ids the logic compares, keys the buttons show.
+const QUICK_PICKS = [
+  { id: 'today',    key: 'time.today' },
+  { id: 'tomorrow', key: 'time.tomorrow' },
+  { id: 'nextWeek', key: 'schedule.nextWeek' },
+  { id: 'someday',  key: 'schedule.someday' },
+];
 const TIME_QUICK  = ['09:00', '10:00', '12:00', '14:00', '17:00'];
 
 function buildCalendar(year, month) {
@@ -81,18 +90,18 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
 
   function pickQuick(label) {
     const d = new Date();
-    if (label === 'Today') {
+    if (label === 'today') {
       setSelectedDate(toISODate(d.getFullYear(), d.getMonth(), d.getDate()));
       setYear(d.getFullYear()); setMonth(d.getMonth());
-    } else if (label === 'Tomorrow') {
+    } else if (label === 'tomorrow') {
       d.setDate(d.getDate() + 1);
       setSelectedDate(toISODate(d.getFullYear(), d.getMonth(), d.getDate()));
       setYear(d.getFullYear()); setMonth(d.getMonth());
-    } else if (label === 'Next week') {
+    } else if (label === 'nextWeek') {
       d.setDate(d.getDate() + (8 - d.getDay()));
       setSelectedDate(toISODate(d.getFullYear(), d.getMonth(), d.getDate()));
       setYear(d.getFullYear()); setMonth(d.getMonth());
-    } else if (label === 'Someday') {
+    } else if (label === 'someday') {
       setSelectedDate(null);
       // Don't navigate — no specific date chosen
     }
@@ -147,14 +156,14 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
 
         {/* Quick picks */}
         <div style={{ padding: '12px 18px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {['Today', 'Tomorrow', 'Next week', 'Someday'].map(q => {
+          {QUICK_PICKS.map(({ id: q, key: qKey }) => {
             const tomorrowIso = (() => { const d = new Date(); d.setDate(d.getDate()+1); return toISODate(d.getFullYear(), d.getMonth(), d.getDate()); })();
             const todayIso = toISODate(today.getFullYear(), today.getMonth(), today.getDate());
-            const matchesSelected = (q === 'Today' && selectedDate === todayIso) ||
-              (q === 'Tomorrow' && selectedDate === tomorrowIso) ||
-              (q === 'Someday' && !selectedDate);
-            const sub = q === 'Today' ? fmtDate(today, { weekday: 'short', day: 'numeric', month: 'short' })
-                      : q === 'Tomorrow' ? (() => { const d = new Date(); d.setDate(d.getDate()+1); return fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' }); })()
+            const matchesSelected = (q === 'today' && selectedDate === todayIso) ||
+              (q === 'tomorrow' && selectedDate === tomorrowIso) ||
+              (q === 'someday' && !selectedDate);
+            const sub = q === 'today' ? fmtDate(today, { weekday: 'short', day: 'numeric', month: 'short' })
+                      : q === 'tomorrow' ? (() => { const d = new Date(); d.setDate(d.getDate()+1); return fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' }); })()
                       : '';
             return (
               <button
@@ -169,7 +178,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                 }}
               >
-                <span style={{ fontWeight: 500 }}>{q}</span>
+                <span style={{ fontWeight: 500 }}>{t(qKey)}</span>
                 {sub && <span style={{ fontFamily: T.fontMono, fontSize: 9.5, opacity: 0.6 }}>{sub}</span>}
               </button>
             );
@@ -193,8 +202,8 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
-            {DAYS_HEADER.map(d => (
-              <div key={d} style={{ textAlign: 'center', fontFamily: T.fontMono, fontSize: 9.5, color: T.ink40, letterSpacing: '0.06em', padding: '0 0 4px' }}>{d}</div>
+            {WEEK_FROM_MONDAY.map(day => fmtDate(day, { weekday: 'short' }).replace('.', '').slice(0, 2)).map((d, i) => (
+              <div key={i} style={{ textAlign: 'center', fontFamily: T.fontMono, fontSize: 9.5, color: T.ink40, letterSpacing: '0.06em', padding: '0 0 4px' }}>{d}</div>
             ))}
           </div>
           {weeks.map((week, wi) => (
@@ -234,7 +243,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
 
         {/* Time picker */}
         <div style={{ padding: '10px 18px', borderTop: `1px solid ${T.hairlineSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, minWidth: 36 }}>Time</span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, minWidth: 36 }}>{t('schedule.time')}</span>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1 }}>
             {TIME_QUICK.map(tm => (
               <button key={tm} onClick={() => setSelectedTime(t => t === tm ? null : tm)} style={{
@@ -252,14 +261,14 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
         <div style={{ padding: '10px 18px', borderTop: `1px solid ${T.hairlineSoft}`, display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, minWidth: 36 }}>{t('schedule.repeat')}</span>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            {[['none', 'None'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']].map(([val, label]) => (
+            {[['none', 'schedule.noRepeat'], ['daily', 'form.daily'], ['weekly', 'form.weekly'], ['monthly', 'form.monthly']].map(([val, labelKey]) => (
               <button key={val} onClick={() => setRecur(val)} style={{
                 fontFamily: T.fontUI, fontSize: 12, cursor: 'pointer',
                 padding: '4px 9px', borderRadius: T.rPill,
                 background: recur === val ? T.ink : T.paperSubtle,
                 color: recur === val ? T.paper : T.ink60,
                 border: 'none',
-              }}>{label}</button>
+              }}>{t(labelKey)}</button>
             ))}
           </div>
         </div>
@@ -276,7 +285,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
             color: T.paper, background: T.ink, border: 'none',
             padding: '7px 14px', borderRadius: T.r6, cursor: saving ? 'not-allowed' : 'pointer',
             opacity: saving ? 0.6 : 1,
-          }}>{saving ? 'Saving…' : 'Schedule'}</button>
+          }}>{saving ? t('common.saving') : t('schedule.submit')}</button>
         </div>
       </div>
     </div>

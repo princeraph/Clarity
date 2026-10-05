@@ -89,11 +89,80 @@ function formatKeyEvent(e) {
 
 
 const ACCENT_OPTIONS = [
-  { name: 'Ink',   val: 'oklch(0.48 0.13 258)' },
-  { name: 'Moss',  val: 'oklch(0.55 0.10 155)' },
-  { name: 'Ember', val: 'oklch(0.62 0.13 40)' },
-  { name: 'Plum',  val: 'oklch(0.50 0.12 320)' },
+  { nameKey: 'settings.accent.ink',   val: 'oklch(0.48 0.13 258)' },
+  { nameKey: 'settings.accent.moss',  val: 'oklch(0.55 0.10 155)' },
+  { nameKey: 'settings.accent.ember', val: 'oklch(0.62 0.13 40)' },
+  { nameKey: 'settings.accent.plum',  val: 'oklch(0.50 0.12 320)' },
 ];
+
+// Shortcuts are STORED with English key names (keysMatchEvent reads them), and
+// only SHOWN in the interface language: "Maj", "Échap", "Suppr" on a French
+// keyboard. Ctrl, letters and arrows read the same in both.
+const KEY_LABEL = { Shift: 'kbd.shift', Space: 'kbd.space', Esc: 'kbd.esc', Del: 'kbd.del', Backspace: 'kbd.backspace' };
+
+const DENSITIES = [
+  { id: 'spacious', key: 'settings.density.spacious' },
+  { id: 'balanced', key: 'settings.density.balanced' },
+  { id: 'compact',  key: 'settings.density.compact' },
+];
+
+// The context preview arrives from the backend in English. Its parts and
+// refusals carry stable ids and their numbers; the sentences are rebuilt here.
+const WITHHELD_KEY = {
+  journal:     { label: 'settings.preview.withheld.journal.label',     reason: 'settings.preview.withheld.journal.reason' },
+  evidence:    { label: 'settings.preview.withheld.evidence.label',    reason: 'settings.preview.withheld.evidence.reason' },
+  transcripts: { label: 'settings.preview.withheld.transcripts.label', reason: 'settings.preview.withheld.transcripts.reason' },
+  metrics:     { label: 'settings.preview.withheld.metrics.label',     reason: 'settings.preview.withheld.metrics.reason' },
+};
+
+const MODE_NAME_KEY = {
+  active:    'settings.suggest.modeName.active',
+  daily:     'settings.suggest.modeName.daily',
+  onRequest: 'settings.suggest.modeName.onRequest',
+};
+
+function previewPart(p, local, t) {
+  if (p.id === 'tasks' && Number.isFinite(p.count)) {
+    return {
+      label: t('settings.preview.tasks.label'),
+      detail: t(p.count === 1 ? 'settings.preview.tasks.detailOne' : 'settings.preview.tasks.detailMany', { n: p.count }),
+    };
+  }
+  if (p.id === 'profile-brief' && Number.isFinite(p.statements)) {
+    const label = t(local ? 'settings.preview.brief.labelLocal' : 'settings.preview.brief.labelRemote');
+    if (!p.statements) return { label, detail: t('settings.preview.brief.empty', { n: p.minSamples }) };
+    const base = t(p.statements === 1 ? 'settings.preview.brief.detailOne' : 'settings.preview.brief.detailMany', { n: p.statements, budget: p.budget });
+    return { label, detail: p.dropped ? t('settings.preview.brief.detailDropped', { detail: base, n: p.dropped }) : base };
+  }
+  return { label: p.label, detail: p.detail };
+}
+
+// Why Clarity is staying quiet, from the verdict's code — the backend's
+// `reason` is the English fallback for a code this build does not know.
+function silenceReason(status, t, fmtDateTime) {
+  const p = status.preferences || {};
+  switch (status.code) {
+    case 'quiet-rule': {
+      const kind = status.rule?.kind;
+      if (kind === 'indefinite') return t('settings.suggest.why.quietAlways');
+      if (kind === 'duration')   return t('settings.suggest.why.quietUntil', { when: fmtDateTime(status.rule.until) });
+      return t('settings.suggest.why.quietUntilDone');
+    }
+    case 'on-request':   return t('settings.suggest.why.onRequest');
+    case 'daily-done':   return t('settings.suggest.why.dailyDone');
+    case 'night':        return t('settings.suggest.why.night', { from: p.quietHours?.from ?? 22, to: p.quietHours?.to ?? 7 });
+    case 'budget-zero':  return t('settings.suggest.why.budgetZero');
+    case 'budget-spent': return t('settings.suggest.why.budgetSpent', { n: p.maxSuggestionsPerDay });
+    case 'too-soon':     return t('settings.suggest.why.tooSoon', { n: status.waitMinutes });
+    default:             return status.reason;
+  }
+}
+
+const SAVE_ERROR_KEY = {
+  'invalid-url':   'settings.saveError.invalidUrl',
+  'invalid-model': 'settings.saveError.invalidModel',
+  'store-failed':  'settings.saveError.storeFailed',
+};
 
 function Toggle({ on, onChange, T }) {
   return (
@@ -206,7 +275,7 @@ function OutboundPreview({ T }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {ctx.parts.map(p => (
+        {ctx.parts.map(raw => ({ ...raw, ...previewPart({ ...raw, budget: ctx.budget }, local, t) })).map(p => (
           <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 10, alignItems: 'baseline' }}>
             <span style={{ fontFamily: T.fontMono, fontSize: 12, color: p.included ? T.done : T.ink40 }}>
               {p.included ? '✓' : '–'}
@@ -221,8 +290,8 @@ function OutboundPreview({ T }) {
           <div key={w.id} style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 10, alignItems: 'baseline' }}>
             <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.danger }}>✕</span>
             <div>
-              <span style={{ fontSize: 13, color: T.ink }}>{w.label}</span>
-              <span style={{ fontSize: 12, color: T.ink40 }}> — {w.reason}</span>
+              <span style={{ fontSize: 13, color: T.ink }}>{WITHHELD_KEY[w.id] ? t(WITHHELD_KEY[w.id].label) : w.label}</span>
+              <span style={{ fontSize: 12, color: T.ink40 }}> — {WITHHELD_KEY[w.id] ? t(WITHHELD_KEY[w.id].reason) : w.reason}</span>
             </div>
           </div>
         ))}
@@ -233,7 +302,7 @@ function OutboundPreview({ T }) {
           padding: '7px 14px', background: 'transparent',
           border: `1px solid ${T.hairline}`, borderRadius: T.r6,
           fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
-        }}>{open ? 'Hide the exact text' : t('settings.showExactText')}</button>
+        }}>{open ? t('settings.hideExactText') : t('settings.showExactText')}</button>
       </div>
 
       {open && (
@@ -242,7 +311,7 @@ function OutboundPreview({ T }) {
           background: T.paperSubtle, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
           fontFamily: T.fontMono, fontSize: 11.5, lineHeight: 1.6, color: T.ink80,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-        }}>{ctx.text || '(nothing)'}</pre>
+        }}>{ctx.text || t('settings.previewNothing')}</pre>
       )}
     </div>
   );
@@ -323,7 +392,7 @@ function KeyboardSection({ T }) {
                   onMouseEnter={e => e.currentTarget.style.background = T.paperMuted}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  {keys.map((k, i) => <KbdChip key={i} T={T}>{k}</KbdChip>)}
+                  {keys.map((k, i) => <KbdChip key={i} T={T}>{KEY_LABEL[k] ? t(KEY_LABEL[k]) : k}</KbdChip>)}
                 </div>
               )}
               {isCustom && (
@@ -334,7 +403,7 @@ function KeyboardSection({ T }) {
                     background: 'transparent', border: 'none', cursor: 'pointer',
                     fontSize: 10.5, color: T.ink40, fontFamily: T.fontMono, padding: 0,
                   }}
-                >reset</button>
+                >{t('settings.keyboard.reset')}</button>
               )}
             </div>
           </div>
@@ -351,7 +420,7 @@ function KeyboardSection({ T }) {
 // gone quiet is told which of their own settings did it — rather than left to
 // wonder whether the feature is broken.
 function SuggestionSettings({ T }) {
-  const { t } = useLocale();
+  const { t, fmtDateTime } = useLocale();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -384,12 +453,12 @@ function SuggestionSettings({ T }) {
       }}>
         {status.allowed
           ? t('settings.suggest.allowed', { n: status.remaining })
-          : `${t('settings.suggest.silent')} ${status.reason}`}
+          : `${t('settings.suggest.silent')} ${silenceReason(status, t, fmtDateTime)}`}
       </div>
 
       <Section title={t('settings.suggest.budget')} subtitle={t('settings.suggest.budgetHint')} T={T}>
         <FieldRow label={t('settings.suggest.mode')} hint={t(`settings.suggest.mode.${p.suggestionMode || 'active'}`)} T={T}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{p.suggestionMode || 'active'}</span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t(MODE_NAME_KEY[p.suggestionMode || 'active'] || MODE_NAME_KEY.active)}</span>
         </FieldRow>
         <FieldRow label={t('settings.suggest.perDay')} hint={t('settings.suggest.perDayHint')} T={T}>
           <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
@@ -397,7 +466,7 @@ function SuggestionSettings({ T }) {
           </span>
         </FieldRow>
         <FieldRow label={t('settings.suggest.gap')} hint={t('settings.suggest.gapHint')} T={T}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{p.minGapMinutes} min</span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('settings.suggest.gapValue', { n: p.minGapMinutes })}</span>
         </FieldRow>
         <FieldRow label={t('settings.suggest.night')} hint={t('settings.suggest.nightHint')} T={T}>
           <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
@@ -416,8 +485,9 @@ function SuggestionSettings({ T }) {
           }}>
             <span style={{ flex: 1, fontSize: 13, color: T.ink }}>
               {r.kind === 'indefinite' ? t('settings.suggest.rule.always')
-                : r.kind === 'duration' ? t('settings.suggest.rule.until', { when: new Date(r.until).toLocaleString() })
+                : r.kind === 'duration' ? t('settings.suggest.rule.until', { when: fmtDateTime(r.until) })
                 : t('settings.suggest.rule.untilDone')}
+              {/* locales-ok: the person's own words, echoed back as typed */}
               {r.reason && <span style={{ color: T.ink40 }}> — {r.reason}</span>}
             </span>
             <button disabled={busy} onClick={() => lift(r.id)} style={{
@@ -433,17 +503,23 @@ function SuggestionSettings({ T }) {
 }
 
 function PageHeader({ section: sLabel, title, T }) {
+  const { t } = useLocale();
   return (
     <header>
       <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
-        Settings · {sLabel}
+        {t('settings.pageEyebrow', { section: sLabel })}
       </div>
       <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>{title}</h1>
     </header>
   );
 }
 
-async function triggerExport(fmt) {
+const EXPORT_STATUS_KEY = { not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
+
+// `t` is passed in: this runs outside any component, and the file is read in
+// the interface language like everything else.
+async function triggerExport(fmt, t) {
+  const statusLabel = s => EXPORT_STATUS_KEY[s] ? t(EXPORT_STATUS_KEY[s]) : s.replace('_', ' ');
   try {
     const resp = await fetch(`${API}/export`);
     if (!resp.ok) return;
@@ -456,30 +532,30 @@ async function triggerExport(fmt) {
       filename = 'clarity-export.json';
       mime     = 'application/json';
     } else if (fmt === 'md') {
-      content = tasks.map(t => {
-        const lines = [`## ${t.title}`];
-        if (t.description) lines.push(`\n${t.description}`);
-        if (t.deadline) lines.push(`\n**Due:** ${t.deadline}`);
-        if (t.status) lines.push(`**Status:** ${t.status.replace('_', ' ')}`);
-        if (t.tags?.length) lines.push(`**Tags:** ${t.tags.join(', ')}`);
-        if (t.subtasks?.length) {
-          lines.push('\n**Subtasks:**');
-          t.subtasks.forEach(s => lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}`));
+      content = tasks.map(task => {
+        const lines = [`## ${task.title}`];
+        if (task.description) lines.push(`\n${task.description}`);
+        if (task.deadline) lines.push(`\n**${t('export.doc.due')}** ${task.deadline}`);
+        if (task.status) lines.push(`**${t('export.doc.status')}** ${statusLabel(task.status)}`);
+        if (task.tags?.length) lines.push(`**${t('export.doc.tags')}** ${task.tags.join(', ')}`);
+        if (task.subtasks?.length) {
+          lines.push(`\n**${t('export.doc.subtasks')}**`);
+          task.subtasks.forEach(s => lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}`));
         }
         return lines.join('\n');
       }).join('\n\n---\n\n');
       filename = 'clarity-export.md';
       mime     = 'text/markdown';
     } else {
-      content = tasks.map(t => {
-        const lines = [t.title];
-        if (t.description) lines.push(t.description);
-        if (t.deadline) lines.push(`Due: ${t.deadline}`);
-        if (t.status) lines.push(`Status: ${t.status.replace('_', ' ')}`);
-        if (t.tags?.length) lines.push(`Tags: ${t.tags.join(', ')}`);
-        if (t.subtasks?.length) {
-          lines.push('Subtasks:');
-          t.subtasks.forEach(s => lines.push(`  [${s.done ? 'x' : ' '}] ${s.title}`));
+      content = tasks.map(task => {
+        const lines = [task.title];
+        if (task.description) lines.push(task.description);
+        if (task.deadline) lines.push(`${t('export.doc.due')} ${task.deadline}`);
+        if (task.status) lines.push(`${t('export.doc.status')} ${statusLabel(task.status)}`);
+        if (task.tags?.length) lines.push(`${t('export.doc.tags')} ${task.tags.join(', ')}`);
+        if (task.subtasks?.length) {
+          lines.push(t('export.doc.subtasks'));
+          task.subtasks.forEach(s => lines.push(`  [${s.done ? 'x' : ' '}] ${s.title}`));
         }
         return lines.join('\n');
       }).join('\n\n----------\n\n');
@@ -501,7 +577,7 @@ async function triggerExport(fmt) {
 
 export default function SettingsView({ onSaved, initialSection = 'appearance' }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
-  const { t, locale, setLocale } = useLocale();
+  const { t, locale, setLocale, fmtDate } = useLocale();
   const [form, setForm] = useState({
     providerType: 'ollama',
     llmEndpoint: 'http://localhost:11434',
@@ -618,10 +694,10 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
         onSaved?.();
       } else {
         const err = await resp.json().catch(() => ({}));
-        setStatus({ type: 'error', message: err.error || 'Failed to save.' });
+        setStatus({ type: 'error', message: SAVE_ERROR_KEY[err.code] ? t(SAVE_ERROR_KEY[err.code]) : t('settings.saveFailed') });
       }
     } catch {
-      setStatus({ type: 'error', message: 'Could not reach the backend.' });
+      setStatus({ type: 'error', message: t('error.backendUnreachable') });
     }
     setSaving(false);
   }
@@ -720,17 +796,17 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                 background: T.paperSubtle, borderRadius: T.r6,
                 border: `1px solid ${T.hairline}`, width: 'fit-content',
               }}>
-                {['Spacious', 'Balanced', 'Compact'].map(opt => {
-                  const active = density === opt.toLowerCase();
+                {DENSITIES.map(({ id: opt, key: optKey }) => {
+                  const active = density === opt;
                   return (
-                    <button key={opt} onClick={() => setDensity(opt.toLowerCase())} style={{
+                    <button key={opt} onClick={() => setDensity(opt)} style={{
                       padding: '6px 14px', borderRadius: 4, fontSize: 12.5,
                       background: active ? T.paper : 'transparent',
                       color: active ? T.ink : T.ink60,
                       fontWeight: active ? 500 : 400,
                       boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
                       cursor: 'pointer', fontFamily: T.fontUI, border: 'none',
-                    }}>{opt}</button>
+                    }}>{t(optKey)}</button>
                   );
                 })}
               </div>
@@ -742,8 +818,8 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                   const active = accent === c.val;
                   return (
                     <div
-                      key={c.name}
-                      title={c.name}
+                      key={c.nameKey}
+                      title={t(c.nameKey)}
                       onClick={() => setAccent(c.val)}
                       style={{
                         width: 36, height: 36, borderRadius: T.rPill,
@@ -762,8 +838,8 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
                   { id: 'geist',  label: 'Geist',     sample: t('settings.fontGeist') },
-                  { id: 'system', label: 'System UI',  sample: t('settings.fontSystem') },
-                  { id: 'serif',  label: 'Serif',      sample: t('settings.fontSerif') },
+                  { id: 'system', label: t('settings.font.system'), sample: t('settings.fontSystem') },
+                  { id: 'serif',  label: t('settings.font.serif'),  sample: t('settings.fontSerif') },
                 ].map(opt => {
                   const active = font === opt.id;
                   return (
@@ -862,13 +938,13 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
               ) : (
                 <FieldRow
                   label={t('settings.model')}
-                  hint={isOllama ? 'Ollama not connected — type model name manually.' : activeProvider === 'openrouter' ? 'e.g. mistralai/mistral-7b-instruct' : ''}
+                  hint={isOllama ? t('settings.ai.ollamaNotConnected') : activeProvider === 'openrouter' ? t('settings.ai.openrouterExample') : ''}
                   T={T}
                 >
                   <input
                     value={form.ollamaModel}
                     onChange={e => set('ollamaModel', e.target.value)}
-                    placeholder={DEFAULT_MODEL[activeProvider] || 'model-name'}
+                    placeholder={DEFAULT_MODEL[activeProvider] || t('settings.ai.modelPlaceholder')}
                     style={field}
                   />
                 </FieldRow>
@@ -987,7 +1063,7 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
               color: T.paper, cursor: saving ? 'not-allowed' : 'pointer',
               opacity: saving ? 0.5 : 1, fontFamily: T.fontUI,
             }}>
-              {saving ? 'Saving…' : t('settings.save')}
+              {saving ? t('common.saving') : t('settings.save')}
             </button>
           </form>
 
@@ -1009,7 +1085,7 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('nav.inbox')}</span>
               </SettingRow>
               <SettingRow label={t('settings.defaultDueDate')} hint={t('settings.appliedToNewCaptures')} T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>None</span>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('settings.none')}</span>
               </SettingRow>
             </Section>
 
@@ -1104,7 +1180,7 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('form.daily')}</span>
               </SettingRow>
               <SettingRow label={t('settings.keepLast')} hint={t('settings.olderSnapshotsAreRemovedAutomatically')} T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>7 snapshots</span>
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('settings.nSnapshots', { n: 7 })}</span>
               </SettingRow>
             </Section>
 
@@ -1113,7 +1189,7 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                 {backups.map(b => (
                   <div key={b.name} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '10px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
                     <div>
-                      <span style={{ fontSize: 13.5, color: T.ink }}>{b.date}</span>
+                      <span style={{ fontSize: 13.5, color: T.ink }}>{fmtDate(b.date + 'T00:00:00', { day: 'numeric', month: 'long', year: 'numeric' }) || b.date}</span>
                       <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40, marginLeft: 10 }}>{b.name}</span>
                     </div>
                     <a href={`${API}/backups/${b.name}`} download={b.name} style={{
@@ -1127,19 +1203,19 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
             <Section title={t('settings.data.export')} subtitle={t('settings.data.exportHint')} T={T}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => triggerExport('json')}
+                  onClick={() => triggerExport('json', t)}
                   style={{
                     padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
                   }}>JSON</button>
                 <button
-                  onClick={() => triggerExport('md')}
+                  onClick={() => triggerExport('md', t)}
                   style={{
                     padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
                   }}>{t('export.markdown')}</button>
                 <button
-                  onClick={() => triggerExport('txt')}
+                  onClick={() => triggerExport('txt', t)}
                   style={{
                     padding: '9px 18px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
@@ -1271,10 +1347,10 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
 
             <Section title={t('settings.about.system')} T={T}>
               {[
-                ['Version', '1.2.0', null],
+                [t('settings.about.version'), '1.2.0', null],
                 [t('settings.data.storage'), t('tray.onDevice'), t('settings.about.storedIn')],
-                ['AI providers', 'Ollama · OpenAI · Anthropic · OpenRouter', null],
-                ['Platform', window.navigator.platform || 'Unknown', null],
+                [t('settings.about.providers'), 'Ollama · OpenAI · Anthropic · OpenRouter', null],
+                [t('settings.about.platform'), window.navigator.platform || t('time.unknown'), null],
               ].map(([label, value, hint]) => (
                 <div key={label} style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start', padding: '12px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
                   <span style={{ fontSize: 13.5, color: T.ink }}>{label}</span>

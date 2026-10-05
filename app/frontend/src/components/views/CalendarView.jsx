@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// The grid starts on Sunday. Names come from the locale, not from a list:
+// 4 January 2026 is a Sunday, so the next seven days give the header in order.
+const WEEK_FROM_SUNDAY = Array.from({ length: 7 }, (_, i) => new Date(2026, 0, 4 + i));
+const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 function buildCalendar(year, month) {
   const firstDay = new Date(year, month, 1).getDay();
@@ -16,7 +18,7 @@ function buildCalendar(year, month) {
 }
 
 export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
-  const { t } = useLocale();
+  const { t, fmtDate } = useLocale();
   const { T } = useTheme();
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
@@ -59,7 +61,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
         <div>
           <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('nav.calendar')}</div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
-            {MONTHS[month]} {year}
+            {capitalize(fmtDate(new Date(year, month, 1), { month: 'long', year: 'numeric' }))}
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -83,8 +85,8 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
 
       {/* Day headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
-        {DAYS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink40, padding: '6px 0' }}>{d}</div>
+        {WEEK_FROM_SUNDAY.map(day => fmtDate(day, { weekday: 'short' }).replace('.', '')).map((d, i) => (
+          <div key={i} style={{ textAlign: 'center', fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink40, padding: '6px 0' }}>{d}</div>
         ))}
       </div>
 
@@ -106,7 +108,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask }) {
               key={i}
               style={{ background: T.paper, minHeight: 88, padding: 6, opacity: isPast && !isToday ? 0.45 : 1, position: 'relative' }}
               onDoubleClick={() => onAddTask?.({ deadline: dateStr })}
-              title={onAddTask ? 'Double-click to add task on this day' : undefined}
+              title={onAddTask ? t('calendar.doubleClickToAdd') : undefined}
             >
               <div style={{
                 width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',

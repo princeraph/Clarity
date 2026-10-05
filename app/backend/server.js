@@ -495,14 +495,14 @@ app.post('/api/settings', async (req, res) => {
   const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel } = req.body;
   if (llmEndpoint && providerType === 'ollama') {
     try { new URL(llmEndpoint); } catch {
-      return res.status(400).json({ error: 'Invalid URL format' });
+      return res.status(400).json({ error: 'Invalid URL format', code: 'invalid-url' });
     }
   }
   // A bare file name: the setting must not be able to point the engine at a
   // file outside the models folder.
   if (localModel !== undefined && (typeof localModel !== 'string' || basename(localModel) !== localModel
       || (localModel && !localModel.endsWith('.gguf')))) {
-    return res.status(400).json({ error: 'Invalid model name' });
+    return res.status(400).json({ error: 'Invalid model name', code: 'invalid-model' });
   }
   const next = {
     ...current,
@@ -518,7 +518,7 @@ app.post('/api/settings', async (req, res) => {
   catch (err) {
     // Never fall back to writing the key in clear because encryption failed.
     console.error('[secrets] could not store settings:', err.message);
-    return res.status(500).json({ error: 'Could not store the settings securely' });
+    return res.status(500).json({ error: 'Could not store the settings securely', code: 'store-failed' });
   }
   res.json({ ok: true });
 });
@@ -608,7 +608,8 @@ app.post('/api/profile/elicit', asyncRoute(async (req, res) => {
   // model to invent something and refusing all of it a moment later.
   if (!prompt.citable) {
     return res.json({ added: [], skipped: [], refused: [], pending: profileStore.readProposals(),
-                      note: 'Nothing to work from yet — add a few tasks, or talk to Clarity in the chat.' });
+                      note: 'Nothing to work from yet — add a few tasks, or talk to Clarity in the chat.',
+                      noteCode: 'nothing-citable' });
   }
 
   const raw = await getProvider().generateJSON(prompt.text, { maxTokens: 700 });   // at most 5 short proposals
@@ -1287,7 +1288,7 @@ Return ONLY a JSON array — no markdown, no commentary:
       }
       res.write(`data: ${JSON.stringify({ done: true, subtasks: newSubtasks })}\n\n`);
     } else {
-      res.write(`data: ${JSON.stringify({ error: 'Could not parse subtasks from AI response' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: 'Could not parse subtasks from AI response', code: 'unparseable' })}\n\n`);
     }
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);

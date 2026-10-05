@@ -136,7 +136,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
         }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>
-              {task ? 'Edit Task' : 'New Task'}
+              {task ? t('form.editTitle') : t('form.newTitle')}
             </h2>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
               {t('form.plainLanguage')}
@@ -221,7 +221,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
                   style={{ ...field, width: '100%', paddingRight: 28, cursor: 'pointer' }}>
                   <option value="not_started">{t('status.notStarted')}</option>
                   <option value="in_progress">{t('status.inProgress')}</option>
-                  <option value="done">Done</option>
+                  <option value="done">{t('status.done')}</option>
                 </select>
                 <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
               </div>
@@ -334,7 +334,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
               opacity: saving || !form.title.trim() ? 0.4 : 1,
               fontFamily: T.fontUI,
             }}>
-              {saving ? 'Saving…' : task ? 'Save Changes' : 'Add Task'}
+              {saving ? t('common.saving') : task ? t('form.saveChanges') : t('form.addTask')}
             </button>
           </div>
         </form>

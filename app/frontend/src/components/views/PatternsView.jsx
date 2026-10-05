@@ -15,7 +15,45 @@ function hourLabel(h) {
   return `${String(h).padStart(2, '0')}:00`;
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// Indexed like Date#getDay(), 0 = Sunday. 4 January 2026 is a Sunday; the
+// names themselves come from the locale.
+const WEEK_FROM_SUNDAY = Array.from({ length: 7 }, (_, i) => new Date(2026, 0, 4 + i));
+
+// A finding worked out from measurements is stored with an English sentence —
+// that sentence is also what a model is told, so the backend keeps it. The
+// interface rebuilds it from the stable key and the same measurements, and
+// falls back to the stored sentence only when it cannot (a model's suggestion
+// you accepted, or a finding whose numbers have since gone).
+function insightText(insight, o, t, fmtNumber) {
+  const key = insight.key || '';
+  const est = o?.estimation;
+  if (key === 'observed:estimation:overall' && est?.medianRatio != null) {
+    const which = { under: 'insight.estimation.under', accurate: 'insight.estimation.accurate', over: 'insight.estimation.over' }[est.bias];
+    if (which) return t(which, { ratio: fmtNumber(est.medianRatio, 2) });
+  }
+  if (key.startsWith('observed:estimation:area:')) {
+    const area = key.slice('observed:estimation:area:'.length);
+    const v = est?.byArea?.[area];
+    if (v?.medianRatio != null) return t('insight.estimation.area', { area, ratio: fmtNumber(v.medianRatio, 2) });
+  }
+  if (key.startsWith('observed:slippage:task:')) {
+    const id = key.slice('observed:slippage:task:'.length);
+    const c = (o?.slippage?.chronic || []).find(x => String(x.taskId) === id);
+    if (c) return t('insight.slippage', { title: c.title, n: c.slips, days: c.totalDays });
+  }
+  if (key === 'observed:latency:overall' && o?.latency?.medianDaysToStart != null) {
+    return t('insight.latency', { days: fmtNumber(o.latency.medianDaysToStart) });
+  }
+  if (key.startsWith('observed:abandonment:area:')) {
+    const area = key.slice('observed:abandonment:area:'.length);
+    const v = o?.abandonment?.rateByArea?.[area];
+    if (v?.rate != null) return t('insight.abandonment', { area, pct: Math.round(v.rate * 100) });
+  }
+  if (key === 'observed:rhythm:peak' && o?.rhythm?.peakHour != null) {
+    return t('insight.rhythm', { hour: String(o.rhythm.peakHour).padStart(2, '0') });
+  }
+  return insight.statement;
+}
 
 // ── Shared shells ─────────────────────────────────────────────────────────────
 
@@ -81,8 +119,8 @@ function Bar({ value, max, color, T }) {
 // A belief, with the evidence behind it and the two verdicts that matter.
 // Showing the basis is the point: a conclusion you cannot check is one you have
 // to take on faith, which is exactly what this layer must not ask for.
-function InsightCard({ insight, onReject, onConfirm, busy, T }) {
-  const { t } = useLocale();
+function InsightCard({ insight, observed, onReject, onConfirm, busy, T }) {
+  const { t, fmtNumber } = useLocale();
   const [showWhy, setShowWhy] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
@@ -96,7 +134,7 @@ function InsightCard({ insight, onReject, onConfirm, busy, T }) {
       display: 'flex', flexDirection: 'column', gap: 9,
       opacity: stale ? 0.62 : 1,
     }}>
-      <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{insight.statement}</div>
+      <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{insightText(insight, observed, t, fmtNumber)}</div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
@@ -357,7 +395,7 @@ function NothingYet({ o, T }) {
 
 export default function PatternsView() {
   const { T } = useTheme();
-  const { t, fmtDateTime } = useLocale();
+  const { t, fmtDateTime, fmtDate, fmtHours } = useLocale();
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -419,12 +457,14 @@ export default function PatternsView() {
     try {
       const resp = await fetch(`${API}/profile/elicit`, { method: 'POST' });
       const body = await resp.json().catch(() => ({}));
-      if (!resp.ok) { setElicitNote(body.error || t('patterns.cannotRun')); return; }
+      // The backend's sentences are English. 409 is its one deliberate refusal
+      // (no local model); anything else is "could not run".
+      if (!resp.ok) { setElicitNote(resp.status === 409 ? t('patterns.needsLocal') : t('patterns.cannotRun')); return; }
       setProposals(body.pending || []);
       if (!body.added?.length) {
         // Silence has several causes and they are not interchangeable — a model
         // that found nothing is not the same as one whose every citation failed.
-        const why = body.note
+        const why = (body.noteCode === 'nothing-citable' ? t('patterns.nothingToWorkFrom') : body.note)
           || (body.refused?.length ? t('patterns.unsupported')
           : body.skipped?.length ? t('patterns.nothingNew')
           : t('patterns.foundNothing'));
@@ -581,7 +621,7 @@ export default function PatternsView() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {insights.map(i => (
-              <InsightCard key={i.id} insight={i} busy={busy} T={T}
+              <InsightCard key={i.id} insight={i} observed={o} busy={busy} T={T}
                 onReject={(ins, reason) => judge(ins, 'reject', reason)}
                 onConfirm={(ins) => judge(ins, 'confirm')} />
             ))}
@@ -599,7 +639,7 @@ export default function PatternsView() {
             { k: t('patterns.open'), v: o.load.openTasks },
             { k: t('patterns.dueThisWeek'), v: o.load.dueNext7Days },
             { k: t('patterns.overdue'), v: o.load.overdue, tone: o.load.overdue > 0 ? T.danger : null },
-            { k: t('patterns.plannedThisWeek'), v: `${Math.round(o.load.committedMinutes / 60)}h` },
+            { k: t('patterns.plannedThisWeek'), v: fmtHours(Math.round(o.load.committedMinutes / 60) * 60) },
           ].map(s => (
             <div key={s.k} style={{
               background: T.paperSubtle, border: `1px solid ${T.hairline}`,
@@ -731,7 +771,7 @@ export default function PatternsView() {
               {o.rhythm.weekdays.map((n, d) => (
                 <div key={d} style={{ flex: 1, textAlign: 'center' }}>
                   <Bar value={n} max={maxWeekday} color={d === o.rhythm.peakWeekday ? T.accent : T.hairline} T={T} />
-                  <div style={{ fontFamily: T.fontMono, fontSize: 10, color: T.ink40, marginTop: 5 }}>{WEEKDAYS[d]}</div>
+                  <div style={{ fontFamily: T.fontMono, fontSize: 10, color: T.ink40, marginTop: 5 }}>{fmtDate(WEEK_FROM_SUNDAY[d], { weekday: 'short' }).replace('.', '')}</div>
                 </div>
               ))}
             </div>

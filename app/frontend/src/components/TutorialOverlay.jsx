@@ -135,7 +135,7 @@ export default function TutorialOverlay({ onDone }) {
               border: 'none', padding: '8px 16px',
               borderRadius: T.r6, cursor: 'pointer',
             }}
-          >{step === total - 1 ? 'Done →' : 'Next →'}</button>
+          >{step === total - 1 ? t('tutorial.done') : t('tutorial.next')}</button>
         </div>
       </div>
     </div>

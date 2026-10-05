@@ -4,12 +4,9 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
-const SUGGESTIONS = [
-  'What should I focus on today?',
-  'Which tasks are related to each other?',
-  'Explain why task #1 has the highest priority',
-  'What are my most urgent deadlines?',
-];
+// Keys, not text: this list exists before any component, so it cannot hold
+// translated strings — only the names of them.
+const SUGGESTION_KEYS = ['chat.suggest1', 'chat.suggest2', 'chat.suggest3', 'chat.suggest4'];
 
 export default function ChatPanel({ onClose, taskCount }) {
   const { t } = useLocale();
@@ -17,8 +14,8 @@ export default function ChatPanel({ onClose, taskCount }) {
   const [messages, setMessages] = useState([{
     role: 'assistant',
     content: taskCount > 0
-      ? `Hi! I can see you have ${taskCount} task${taskCount !== 1 ? 's' : ''}. Ask me anything — priorities, deadlines, how tasks connect, or what to work on.`
-      : "Hi! Add some tasks first and I can help you understand priorities and connections between them.",
+      ? t(taskCount === 1 ? 'chat.greetingOne' : 'chat.greetingMany', { n: taskCount })
+      : t('chat.greetingEmpty'),
   }]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -101,7 +98,7 @@ export default function ChatPanel({ onClose, taskCount }) {
       });
     } catch (err) {
       if (err.name !== 'AbortError') {
-        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: '⚠ Could not connect to Clarity AI. Check your AI provider settings.', error: true }; return u; });
+        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: t('chat.connectFailed'), error: true }; return u; });
       }
     } finally { setStreaming(false); }
   }
@@ -164,7 +161,7 @@ export default function ChatPanel({ onClose, taskCount }) {
           <div style={{ padding: '0 20px 12px' }}>
             <p style={{ fontSize: 11.5, color: T.ink60, marginBottom: 8, fontFamily: T.fontMono }}>{t('chat.tryAsking')}</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {SUGGESTIONS.map((s, i) => (
+              {SUGGESTION_KEYS.map(k => t(k)).map((s, i) => (
                 <button key={i} onClick={() => { setInput(s); inputRef.current?.focus(); }} style={{
                   fontSize: 11.5, padding: '4px 10px', borderRadius: T.rPill,
                   background: T.paperSubtle, border: `1px solid ${T.hairline}`,

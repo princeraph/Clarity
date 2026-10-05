@@ -33,28 +33,19 @@ function isToday(iso) {
   return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
 }
 
-function fmtFocusLeft(mins) {
-  if (!mins || mins <= 0) return '0m';
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
-}
-
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function nextTaskLabel(task) {
+function nextTaskLabel(task, t, fmtDate) {
   if (!task) return null;
   if (task.time) return task.time;
   if (task.deadline) {
     const today = todayStr();
-    if (task.deadline < today) return 'Overdue';
-    if (task.deadline === today) return 'Today';
-    return new Date(task.deadline + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (task.deadline < today) return t('capture.overdue');
+    if (task.deadline === today) return t('time.today');
+    return fmtDate(task.deadline + 'T00:00:00');
   }
   return null;
 }
@@ -86,7 +77,7 @@ function ActionRow({ icon, label, kbd, muted, onClick }) {
 }
 
 export default function TrayMenu() {
-  const { t } = useLocale();
+  const { t, fmtDate, fmtDuration } = useLocale();
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
@@ -121,9 +112,9 @@ export default function TrayMenu() {
   })[0] || null;
 
   const stats = [
-    { value: String(doneToday),          label: 'done' },
-    { value: String(remaining.length),   label: 'remaining' },
-    { value: fmtFocusLeft(focusLeftMin),  label: 'focus left' },
+    { value: String(doneToday),          label: t('focus.stat.done') },
+    { value: String(remaining.length),   label: t('tray.remaining') },
+    { value: fmtDuration(Math.max(0, focusLeftMin || 0)), label: t('tray.focusLeft') },
   ];
 
   const act = (name) => () => window.clarity?.trayAction?.(name);
@@ -170,8 +161,8 @@ export default function TrayMenu() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 12, height: 12, borderRadius: '50%', border: `1.5px solid ${C.accent}`, flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: C.ink82, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextTask.title}</span>
-              {nextTaskLabel(nextTask) && (
-                <span style={{ fontFamily: C.fontMono, fontSize: 10.5, color: C.ink35, flexShrink: 0 }}>{nextTaskLabel(nextTask)}</span>
+              {nextTaskLabel(nextTask, t, fmtDate) && (
+                <span style={{ fontFamily: C.fontMono, fontSize: 10.5, color: C.ink35, flexShrink: 0 }}>{nextTaskLabel(nextTask, t, fmtDate)}</span>
               )}
             </div>
           ) : (

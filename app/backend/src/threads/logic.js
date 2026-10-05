@@ -193,13 +193,15 @@ export function stalledTasks(tasks, { now = new Date(), stallDays = STALL_DAYS, 
 
     const overdue = t.deadline && Date.parse(t.deadline) < now.getTime() && t.status !== 'done';
 
-    let why = null;
-    if (slips >= 2)                             why = `postponed ${slips} times`;
-    else if (overdue)                           why = 'past its deadline and not finished';
-    else if (idleDays !== null && idleDays >= stallDays) why = `untouched for ${idleDays} days`;
+    // `why` is the English sentence; `code` is what an interface translates
+    // from. The UI must not parse the sentence to find out which one it is.
+    let why = null, code = null;
+    if (slips >= 2)                             { code = 'postponed'; why = `postponed ${slips} times`; }
+    else if (overdue)                           { code = 'overdue';   why = 'past its deadline and not finished'; }
+    else if (idleDays !== null && idleDays >= stallDays) { code = 'idle'; why = `untouched for ${idleDays} days`; }
     if (!why) continue;
 
-    out.push({ taskId: t.id, title: t.title ?? 'Untitled', why, slips, idleDays });
+    out.push({ taskId: t.id, title: t.title ?? 'Untitled', why, code, slips, idleDays });
   }
   // Most stuck first: repeated postponement says more than mere silence.
   return out.sort((a, b) => (b.slips - a.slips) || ((b.idleDays ?? 0) - (a.idleDays ?? 0)));

@@ -70,7 +70,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
           </div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
             {t('tasks.count', { n: rankedTasks.length })}
-            {analyzing && <span style={{ fontSize: 14, color: T.accent, marginLeft: 12, fontWeight: 400 }}>· analyzing…</span>}
+            {analyzing && <span style={{ fontSize: 14, color: T.accent, marginLeft: 12, fontWeight: 400 }}>{t('tasks.analyzing')}</span>}
           </h1>
         </div>
         <button onClick={onAddTask} style={{

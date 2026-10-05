@@ -537,7 +537,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
         zIndex: 10,
       }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40 }}>
-          Graph
+          {t('nav.graph')}
         </span>
         <span style={{ width: 1, height: 13, background: T.hairline, display: 'inline-block' }} />
         <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
@@ -575,8 +575,8 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
           {[
             { label: t('status.notStarted'), color: T.ink20 },
             { label: t('status.inProgress'), color: T.accent },
-            { label: 'Done',        color: T.done },
-            { label: 'Overdue',     color: T.warn },
+            { label: t('status.done'),     color: T.done },
+            { label: t('capture.overdue'), color: T.warn },
           ].map(({ label, color }) => (
             <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: T.fontMono, fontSize: 10, color: T.ink40 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
@@ -587,7 +587,11 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
         {topicOrder.slice(0, 5).map((topic, i) => (
           <span key={topic} style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60 }}>
             <span style={{ width: 9, height: 9, borderRadius: 2, background: topicColor(i), display: 'inline-block', flexShrink: 0 }} />
-            {topic.length > 22 ? topic.slice(0, 21) + '…' : topic}
+            {(() => {
+              // 'Untagged' is the internal bucket id; the legend shows its name.
+              const name = topic === 'Untagged' ? t('graph.untagged') : topic;
+              return name.length > 22 ? name.slice(0, 21) + '…' : name;
+            })()}
           </span>
         ))}
       </div>
@@ -629,7 +633,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
             borderRadius: T.r10, padding: '20px 32px', textAlign: 'center',
             boxShadow: '0 4px 12px rgba(25,25,26,0.08)',
           }}>
-            <p style={{ fontSize: 14, fontWeight: 500, color: T.ink60, margin: 0 }}>No {filter.toLowerCase()} tasks</p>
+            <p style={{ fontSize: 14, fontWeight: 500, color: T.ink60, margin: 0 }}>{filter === 'Overdue' ? t('graph.noOverdue') : t('graph.noInProgress')}</p>
             <p style={{ fontSize: 12, color: T.ink40, marginTop: 4, marginBottom: 0 }}>{t('graph.tryFilter')}</p>
           </div>
         </div>

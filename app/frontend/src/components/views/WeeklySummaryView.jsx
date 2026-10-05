@@ -50,7 +50,7 @@ export default function WeeklySummaryView({ weeklySummary, health, onRefresh, on
             const data = JSON.parse(line.slice(6));
             if (data.token) setStreamedText(prev => prev + data.token);
             if (data.done) { await onRefresh(); setGenerating(false); }
-            if (data.error) { setStreamedText(`Error: ${data.error}`); setGenerating(false); }
+            if (data.error) { setStreamedText(t('weekly.error', { detail: data.error })); setGenerating(false); }
           } catch {}
         }
       }

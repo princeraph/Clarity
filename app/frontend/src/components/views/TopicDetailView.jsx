@@ -19,11 +19,11 @@ function formatDeadline(dateStr, t, fmt) {
 }
 
 function TaskRow({ task, onOpenDetail, T }) {
-  const { t, fmtDate } = useLocale();
+  const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
   const { label: due, overdue: isOverdue } = task.deadline
     ? formatDeadline(task.deadline, t, fmtDate) : { label: null, overdue: false };
   const isDone = task.status === 'done';
-  const meta = due || (task.estimatedDuration ? (task.estimatedDuration >= 60 ? `${Math.round(task.estimatedDuration / 60 * 10) / 10}h` : `${task.estimatedDuration}m`) : '');
+  const meta = due || (task.estimatedDuration ? (task.estimatedDuration >= 60 ? fmtHours(task.estimatedDuration) : fmtDuration(task.estimatedDuration)) : '');
 
   return (
     <div
@@ -146,7 +146,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 13, color: T.ink80 }}>{t('topic.progress')}</span>
-              <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.ink60 }}>{doneCount} of {total} done</span>
+              <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.ink60 }}>{t('topic.doneOf', { done: doneCount, total })}</span>
             </div>
             <div style={{ height: 6, background: T.paperMuted, borderRadius: 999, overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, height: '100%', background: T.done, borderRadius: 999, transition: 'width 600ms ease' }} />
@@ -154,9 +154,9 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
           </div>
           <div style={{ display: 'flex', gap: 20 }}>
             {[
-              { label: 'Today',    value: todayTasks.length    },
-              { label: 'Upcoming', value: upcomingTasks.length },
-              { label: 'Anytime',  value: anytimeTasks.length  },
+              { label: t('topic.today'),    value: todayTasks.length    },
+              { label: t('topic.upcoming'), value: upcomingTasks.length },
+              { label: t('topic.anytime'),  value: anytimeTasks.length  },
             ].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>{s.value}</div>

@@ -326,3 +326,40 @@ Trois réglages ont fait la différence, mesurés un par un :
 Ollama, lui, s'installe sans droits d'administrateur (documentation officielle),
 mais pèse **environ 4 Go** avant le moindre modèle : le moteur intégré
 (≈ 30 Mo processeur + 70 Mo carte graphique) est nettement plus léger.
+
+---
+
+## 6. Passer le stockage à SQLite — pas maintenant, et voici quand
+
+Question posée le 5 octobre : MySQL, MongoDB, SQLite ou Oracle ?
+
+**Seul SQLite convient.** MySQL, MongoDB et Oracle sont des serveurs : un
+programme à installer, démarrer et entretenir à côté de Clarity, chez chaque
+ami — exactement l'obstacle qu'on vient de retirer pour l'IA. Ils servent à
+plusieurs utilisateurs sur un réseau ; Clarity a une personne sur une machine.
+SQLite est un fichier dans l'app, et Electron 44 l'embarque déjà (`node:sqlite`) :
+aucune dépendance native de plus, donc aucun risque du genre de ceux que le
+moteur IA a coûtés sous Windows.
+
+**Pourquoi pas tout de suite.** Le stockage en JSON tient : écriture atomique
+(fichier temporaire puis échange), sauvegarde quotidienne, quelques centaines de
+tâches. Migrer, c'est réécrire la couche de stockage et convertir les données
+existantes, sans gain visible aujourd'hui.
+
+**Les signes qui diront que c'est le moment** — un seul suffit :
+
+- le journal ou l'historique dépasse quelques milliers d'entrées et un écran
+  devient lent à s'ouvrir (le mesurer, ne pas le supposer) ;
+- il faut chercher dans tout l'historique (recherche plein texte) ;
+- deux écritures simultanées se marchent dessus (analyse en arrière-plan +
+  saisie, par exemple) ;
+- `tasks.json` dépasse quelques Mo.
+
+**Le jour venu :** `node:sqlite`, un fichier `clarity.db` dans le dossier de
+données (donc couvert par les sauvegardes), migration automatique au premier
+démarrage avec copie du JSON gardée, et les tests du backend rejoués sur les
+deux stockages pendant la transition.
+
+**Si « Clarity Cloud » (voie 4 du § 5) se fait un jour,** son serveur prendra
+PostgreSQL — une décision distincte de l'app de bureau, et toujours pas MySQL,
+MongoDB ni Oracle.
