@@ -94,7 +94,9 @@ describe('model download', () => {
     mode = 'slow';
     const dl = createDownloader({ modelsDir: dir, catalog: [model()] });
     dl.start('mini');
-    for (let i = 0; i < 200 && !(dl.status().download.received > 0); i++) await new Promise(r => setTimeout(r, 10));
+    // Wait for the bytes on DISK, not just received: pausing in between left
+    // an empty .part about one run in six under a full test run's load.
+    for (let i = 0; i < 300 && dl.status().models[0].partial < 1024; i++) await new Promise(r => setTimeout(r, 10));
     expect(dl.cancel()).toBe(true);
     expect((await until(dl, ['cancelled', 'error'])).state).toBe('cancelled');
     expect(dl.status().models[0].partial).toBe(1024);

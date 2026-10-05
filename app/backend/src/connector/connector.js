@@ -18,6 +18,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 const ACTIVITY_MAX = 30;
 export const STATUSES = ['not_started', 'in_progress', 'done'];
+export const LIST_FILTERS = [...STATUSES, 'archived'];
 
 export function createConnector({ readSettings, saveSettings, now = () => new Date() }) {
   const activity = [];   // memory only: { at, action }
@@ -89,7 +90,11 @@ export function taskView(task, analysis) {
 export function taskDetail(task, analysis, thread) {
   return {
     ...taskView(task, analysis),
-    subtasks: (task.subtasks || []).map(s => ({ title: s.title, done: !!s.done })),
+    // Numbered from 1, so "tick the second one" has something to point at.
+    subtasks: (task.subtasks || []).map((s, i) => ({ n: i + 1, title: s.title, done: !!s.done })),
+    ...(task.timerStarted ? { timerRunningSince: task.timerStarted } : {}),
+    ...(task.timeTracked ? { minutesTracked: task.timeTracked } : {}),
+    ...(task.archived ? { archived: true } : {}),
     ...(thread ? {
       stuckOn: thread.blocker?.text || null,
       waysForward: (thread.options || []).map(o => ({ text: o.text, status: o.status })),
@@ -100,7 +105,8 @@ export function taskDetail(task, analysis, thread) {
 const active = (tasks) => tasks.filter(t => !t.archived && t.status !== 'done');
 
 export function listView(tasks, analysis, { status } = {}) {
-  const pool = status === 'done' ? tasks.filter(t => !t.archived && t.status === 'done')
+  const pool = status === 'archived' ? tasks.filter(t => t.archived)
+    : status === 'done' ? tasks.filter(t => !t.archived && t.status === 'done')
     : status ? active(tasks).filter(t => t.status === status) : active(tasks);
   return pool.map(t => taskView(t, analysis));
 }
@@ -118,4 +124,17 @@ export function overviewView(tasks, analysis) {
     ...(analysis?.analyzedAt ? { analyzedAt: analysis.analyzedAt } : {}),
     topTasks: ranked.slice(0, 10).map(t => taskView(t, analysis)),
   };
+}
+
+/** A subtask by number (1-based) or by its words, when they point at exactly one. */
+export function findSubtask(subtasks, which) {
+  const list = subtasks || [];
+  const n = Number(which);
+  if (Number.isInteger(n) && n >= 1 && n <= list.length) return n - 1;
+  const words = String(which ?? '').trim().toLowerCase();
+  if (!words) return -1;
+  const exact = list.findIndex(s => s.title.toLowerCase() === words);
+  if (exact !== -1) return exact;
+  const partial = list.map((s, i) => (s.title.toLowerCase().includes(words) ? i : -1)).filter(i => i !== -1);
+  return partial.length === 1 ? partial[0] : -1;
 }

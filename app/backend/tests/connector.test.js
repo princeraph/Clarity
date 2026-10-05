@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { createConnector, findByRef, taskView, taskDetail, listView, overviewView } from '../src/connector/connector.js';
+import { createConnector, findByRef, findSubtask, taskView, taskDetail, listView, overviewView } from '../src/connector/connector.js';
 import { handle, TOOLS } from '../src/connector/mcp-server.mjs';
 import { manifest, zip, buildBundle } from '../src/connector/bundle.js';
 
@@ -81,6 +81,21 @@ describe('what an assistant sees', () => {
     const o = overviewView(tasks, { whatToDoNext: 'D4 d’abord', taskAnalysis: [{ id: 'd4', priority: 1 }, { id: 'a1', priority: 2 }] });
     expect(o.topTasks.map(t => t.ref)).toEqual(['d4', 'a1']);
     expect(o.whatToDoNext).toBe('D4 d’abord');
+  });
+});
+
+describe('subtasks by number or by words', () => {
+  const subs = [{ title: 'Trouver le numéro' }, { title: 'Préparer les questions' }, { title: 'Préparer le dossier' }];
+  test('a number from 1, exact words, or words that match only one', () => {
+    expect(findSubtask(subs, 2)).toBe(1);
+    expect(findSubtask(subs, '1')).toBe(0);
+    expect(findSubtask(subs, 'trouver le numéro')).toBe(0);
+    expect(findSubtask(subs, 'questions')).toBe(1);
+  });
+  test('ambiguous or unknown: nothing, rather than a guess', () => {
+    expect(findSubtask(subs, 'préparer')).toBe(-1);
+    expect(findSubtask(subs, 9)).toBe(-1);
+    expect(findSubtask(subs, '')).toBe(-1);
   });
 });
 

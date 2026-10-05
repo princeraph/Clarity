@@ -116,6 +116,30 @@ const leaked = list.some(t => 'notes' in t || 'history' in t || 'id' in t);
 if (leaked) fail('the list carries fields that must stay on this machine');
 const fwd = await c.tool('clarity_add_way_forward', { ref, text: 'Retrouver son numéro dans les courriels' });
 if (fwd.isError) fail(fwd.text);
+const upd = JSON.parse((await c.tool('clarity_update_task', { ref, title: 'Appeler la comptable', deadline: null })).text).updated;
+if (upd.title !== 'Appeler la comptable' || upd.deadline !== null) fail(`update: ${JSON.stringify(upd)}`);
+await c.tool('clarity_add_subtask', { ref, title: 'Trouver le numéro' });
+await c.tool('clarity_add_subtask', { ref, title: 'Préparer les questions' });
+const ticked = JSON.parse((await c.tool('clarity_check_subtask', { ref, subtask: 'questions' })).text).updated;
+if (!ticked.subtasks[1].done || ticked.subtasks[0].done) fail(`subtask: ${JSON.stringify(ticked.subtasks)}`);
+await c.tool('clarity_timer', { ref, action: 'start' });
+if (!JSON.parse((await c.tool('clarity_get_task', { ref })).text).timerRunningSince) fail('timer did not start');
+await c.tool('clarity_timer', { ref, action: 'stop' });
+say('modifier, sous-tâches, minuteur : OK');
+
+// Archive and restore, then a delete that is refused without the person's yes.
+await c.tool('clarity_archive_task', { ref });
+if (JSON.parse((await c.tool('clarity_list_tasks')).text).tasks.some(t => t.ref === ref)) fail('archived task still listed');
+if (!JSON.parse((await c.tool('clarity_list_tasks', { status: 'archived' })).text).tasks.some(t => t.ref === ref)) fail('archived task not in the archive');
+await c.tool('clarity_restore_task', { ref });
+const spare = JSON.parse((await c.tool('clarity_add_task', { title: 'À supprimer' })).text).added.ref;
+const refused = await c.tool('clarity_delete_task', { ref: spare, confirmed: false });
+if (!refused.isError) fail('deleted without confirmation');
+const gone = await c.tool('clarity_delete_task', { ref: spare, confirmed: true });
+if (gone.isError) fail(gone.text);
+if (!(await c.tool('clarity_get_task', { ref: spare })).isError) fail('deleted task still there');
+say('archiver, restaurer, supprimer (refusé sans accord, fait avec) : OK');
+
 const done = await c.tool('clarity_set_status', { ref, status: 'done' });
 if (done.isError || JSON.parse(done.text).updated.status !== 'done') fail(`status: ${done.text}`);
 const detail = JSON.parse((await c.tool('clarity_get_task', { ref })).text);
