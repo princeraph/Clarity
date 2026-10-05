@@ -35,6 +35,17 @@ jobs:
         working-directory: app/backend
         run: npm test
 
+      # L'assistant intégré, de bout en bout, sur un modèle de 1 Mo : le
+      # processus du moteur démarre, charge, écrit du texte et du JSON sous
+      # schéma. La réponse n'a aucun sens ; la tuyauterie, elle, est vérifiée.
+      - name: l'assistant intégré répond (modèle minuscule)
+        working-directory: app/backend
+        run: |
+          mkdir -p "$RUNNER_TEMP/modeles"
+          curl -sSfL -o "$RUNNER_TEMP/modeles/stories260K.gguf" https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
+          echo "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d  $RUNNER_TEMP/modeles/stories260K.gguf" | sha256sum -c -
+          node tools/essai-moteur.mjs "$RUNNER_TEMP/modeles"
+
       - name: les deux langues sont complètes
         working-directory: app/frontend
         run: node tools/verifier-locales.mjs
@@ -124,6 +135,42 @@ jobs:
           try { Invoke-WebRequest -UseBasicParsing -Headers @{ Host = 'evil.example:3001' } http://127.0.0.1:3001/api/tasks | Out-Null; Write-Error "Host étranger accepté"; exit 1 }
           catch { if ($_.Exception.Response.StatusCode.value__ -ne 403) { throw } ; "Host étranger : 403" }
           Stop-Process -Id $p.Id -Force
+
+      # L'assistant intégré dans l'app installée : le moteur qui a survécu à
+      # l'empaquetage (CPU + Vulkan, sans CUDA), lancé par Clarity.exe, répond
+      # par les routes que l'interface appelle — discussion en flux, et pistes
+      # « je suis bloqué » en JSON sous schéma.
+      - name: l'app installée répond avec l'assistant intégré
+        shell: pwsh
+        run: |
+          $modeles = Join-Path $env:RUNNER_TEMP 'modeles'
+          New-Item -ItemType Directory -Force -Path $modeles | Out-Null
+          $gguf = Join-Path $modeles 'stories260K.gguf'
+          Invoke-WebRequest -UseBasicParsing -OutFile $gguf https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
+          if ((Get-FileHash -Algorithm SHA256 $gguf).Hash -ne '270CBA1BD5109F42D03350F60406024560464DB173C0E387D91F0426D3BD256D') { Write-Error "modèle de test altéré"; exit 1 }
+
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          $env:CLARITY_DATA_DIR = Join-Path $env:RUNNER_TEMP 'clarity-moteur'
+          $env:CLARITY_MODELS_DIR = $modeles
+          New-Item -ItemType Directory -Force -Path $env:CLARITY_DATA_DIR | Out-Null
+          @{ providerType = 'local'; onboardingComplete = $true } | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $env:CLARITY_DATA_DIR 'settings.json')
+          $backend = Join-Path (Split-Path $env:CLARITY_EXE) 'resources\backend\server.js'
+          $p = Start-Process -PassThru -NoNewWindow -FilePath $env:CLARITY_EXE -ArgumentList "`"$backend`""
+          $ok = $false
+          for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
+            try { $ok = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3001/api/health).StatusCode -eq 200 } catch { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { Write-Error "le backend installé ne répond pas"; exit 1 }
+
+          $chat = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://127.0.0.1:3001/api/chat -ContentType 'application/json' -Body '{"message":"Once upon a time","history":[]}'
+          if ($chat.Content -notmatch '"token"') { Write-Error "la discussion n'a rien renvoyé : $($chat.Content)"; exit 1 }
+          "discussion : $(([regex]::Matches($chat.Content, '"token"')).Count) morceaux reçus"
+
+          $tache = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3001/api/tasks -ContentType 'application/json' -Body '{"title":"Essai"}'
+          $pistes = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3001/api/tasks/$($tache.task.id)/thread/suggest"
+          "pistes : réponse JSON lue, $($pistes.added) ajoutée(s)"
+          Stop-Process -Id $p.Id -Force
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
 
       # Le chiffrement des secrets ne peut être prouvé que sous Windows : il passe
       # par DPAPI, via le processus principal d'Electron. L'app installée, la
