@@ -101,33 +101,34 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\modeles" | Out-Null
           Invoke-WebRequest -UseBasicParsing -OutFile "$env:RUNNER_TEMP\modeles\test.gguf" https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q3_K_S.gguf
           if ((Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\modeles\test.gguf").Hash -ne '7ADD77B8D3736D6B2FD21DC96E69BE026F19BDE843E9988B43CEF1315FC5EEBE') { exit 1 }
-      - name: Node, moteur dans le processus
+      - name: Node, moteur dans le processus, défaut fils
+        if: always()
         working-directory: app/backend
-        timeout-minutes: 4
+        timeout-minutes: 3
+        env:
+          CLARITY_LLAMA_THREADS: ''
         run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
-      - name: Node, moteur dans son worker
+      - name: Node, moteur dans le processus, 1 fils
         if: always()
         working-directory: app/backend
-        timeout-minutes: 4
-        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles"
-      - name: Electron, moteur dans le processus
+        timeout-minutes: 3
+        env:
+          CLARITY_LLAMA_THREADS: '1'
+        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
+      - name: Node, moteur dans le processus, 2 fils
         if: always()
         working-directory: app/backend
-        timeout-minutes: 4
-        shell: pwsh
-        run: |
-          $env:ELECTRON_RUN_AS_NODE = '1'
-          & ..\node_modules\electron\dist\electron.exe tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
-          exit $LASTEXITCODE
-      - name: Electron, moteur dans son worker
+        timeout-minutes: 3
+        env:
+          CLARITY_LLAMA_THREADS: '2'
+        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
+      - name: Node, moteur dans le processus, 3 fils
         if: always()
         working-directory: app/backend
-        timeout-minutes: 4
-        shell: pwsh
-        run: |
-          $env:ELECTRON_RUN_AS_NODE = '1'
-          & ..\node_modules\electron\dist\electron.exe tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles"
-          exit $LASTEXITCODE
+        timeout-minutes: 3
+        env:
+          CLARITY_LLAMA_THREADS: '3'
+        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
 
   # Windows, la plateforme de l'utilisateur. Les scripts qui le concernent
   # (Update.bat, setup.bat) ne pouvaient être essayés nulle part avant lui :

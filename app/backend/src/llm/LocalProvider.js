@@ -85,7 +85,10 @@ export async function loadLlamaEngine(modelPath) {
     }
   }
   const model = await llama.loadModel({ modelPath });
-  const context = await model.createContext({ contextSize: CONTEXT_SIZE, sequences: SEQUENCES });
+  // CLARITY_LLAMA_THREADS: an escape hatch to pin the thread count, for
+  // diagnosing a machine where the default does badly.
+  const threads = Number(process.env.CLARITY_LLAMA_THREADS) || undefined;
+  const context = await model.createContext({ contextSize: CONTEXT_SIZE, sequences: SEQUENCES, ...(threads ? { threads } : {}) });
   const jsonGrammar = await llama.getGrammarFor('json');
   // Gemma 4 thinks out loud by default: with reasoning on, a short chat reply
   // came back empty because the whole budget went to thoughts nobody sees.
