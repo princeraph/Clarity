@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { createRequire } from 'module';
 import { pathToFileURL, fileURLToPath } from 'url';
-import { LocalProvider, keepAliveMs, unloadAll, SEQUENCES, loadProcessEngine, ENGINE_STOPPED } from '../src/llm/LocalProvider.js';
+import { LocalProvider, keepAliveMs, unloadAll, SEQUENCES, loadProcessEngine, ENGINE_STOPPED, ENGINE_LOAD_TIMEOUT } from '../src/llm/LocalProvider.js';
 import { createProvider } from '../src/llm/index.js';
 
 // A stand-in for node-llama-cpp: records what it was asked, answers what it is told.
@@ -183,6 +183,16 @@ describe('the engine in its own process', () => {
     writeFileSync(join(dir, 'cassé.gguf'), 'x');
     const p = new LocalProvider({ modelsDir: dir, localModel: 'cassé.gguf', loadEngine: processEngine });
     await expect(p.generateJSON('x')).rejects.toThrow('not a model');
+  });
+
+  test('a load that hangs fails the request after the limit, and the worker is ended', async () => {
+    writeFileSync(join(dir, 'fige.gguf'), 'x');
+    let exited = false;
+    const stuck = (m, o) => loadProcessEngine(m, { ...o, workerPath, loadTimeoutMs: 150, onExit: () => { exited = true; o.onExit(); } });
+    const p = new LocalProvider({ modelsDir: dir, localModel: 'fige.gguf', loadEngine: stuck });
+    await expect(p.generateJSON('x')).rejects.toThrow(ENGINE_LOAD_TIMEOUT);
+    await new Promise(r => setTimeout(r, 100));
+    expect(exited).toBe(true);
   });
 
   test('an abort reaches the worker', async () => {

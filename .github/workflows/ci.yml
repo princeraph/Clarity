@@ -35,15 +35,19 @@ jobs:
         working-directory: app/backend
         run: npm test
 
-      # L'assistant intégré, de bout en bout, sur un modèle de 1 Mo : le
+      # L'assistant intégré, de bout en bout, sur un modèle de 88 Mo : le
       # processus du moteur démarre, charge, écrit du texte et du JSON sous
       # schéma. La réponse n'a aucun sens ; la tuyauterie, elle, est vérifiée.
-      - name: l'assistant intégré répond (modèle minuscule)
+      # Pas plus petit : le modèle de 1 Mo essayé d'abord n'acceptait que 128
+      # jetons de contexte, et la vraie requête de discussion le dépassait —
+      # il a tourné jusqu'au délai de 5 minutes au lieu de répondre.
+      - name: l'assistant intégré répond (petit modèle)
         working-directory: app/backend
+        timeout-minutes: 5
         run: |
           mkdir -p "$RUNNER_TEMP/modeles"
-          curl -sSfL -o "$RUNNER_TEMP/modeles/stories260K.gguf" https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
-          echo "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d  $RUNNER_TEMP/modeles/stories260K.gguf" | sha256sum -c -
+          curl -sSfL -o "$RUNNER_TEMP/modeles/test.gguf" https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q3_K_S.gguf
+          echo "7add77b8d3736d6b2fd21dc96e69be026f19bde843e9988b43cef1315fc5eebe  $RUNNER_TEMP/modeles/test.gguf" | sha256sum -c -
           node tools/essai-moteur.mjs "$RUNNER_TEMP/modeles"
 
       - name: les deux langues sont complètes
@@ -142,12 +146,13 @@ jobs:
       # « je suis bloqué » en JSON sous schéma.
       - name: l'app installée répond avec l'assistant intégré
         shell: pwsh
+        timeout-minutes: 8
         run: |
           $modeles = Join-Path $env:RUNNER_TEMP 'modeles'
           New-Item -ItemType Directory -Force -Path $modeles | Out-Null
-          $gguf = Join-Path $modeles 'stories260K.gguf'
-          Invoke-WebRequest -UseBasicParsing -OutFile $gguf https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
-          if ((Get-FileHash -Algorithm SHA256 $gguf).Hash -ne '270CBA1BD5109F42D03350F60406024560464DB173C0E387D91F0426D3BD256D') { Write-Error "modèle de test altéré"; exit 1 }
+          $gguf = Join-Path $modeles 'test.gguf'
+          Invoke-WebRequest -UseBasicParsing -OutFile $gguf https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q3_K_S.gguf
+          if ((Get-FileHash -Algorithm SHA256 $gguf).Hash -ne '7ADD77B8D3736D6B2FD21DC96E69BE026F19BDE843E9988B43CEF1315FC5EEBE') { Write-Error "modèle de test altéré"; exit 1 }
 
           $env:ELECTRON_RUN_AS_NODE = '1'
           $env:CLARITY_DATA_DIR = Join-Path $env:RUNNER_TEMP 'clarity-moteur'
@@ -162,12 +167,12 @@ jobs:
           }
           if (-not $ok) { Write-Error "le backend installé ne répond pas"; exit 1 }
 
-          $chat = Invoke-WebRequest -UseBasicParsing -Method Post -Uri http://127.0.0.1:3001/api/chat -ContentType 'application/json' -Body '{"message":"Once upon a time","history":[]}'
+          $chat = Invoke-WebRequest -UseBasicParsing -TimeoutSec 120 -Method Post -Uri http://127.0.0.1:3001/api/chat -ContentType 'application/json' -Body '{"message":"Once upon a time","history":[]}'
           if ($chat.Content -notmatch '"token"') { Write-Error "la discussion n'a rien renvoyé : $($chat.Content)"; exit 1 }
           "discussion : $(([regex]::Matches($chat.Content, '"token"')).Count) morceaux reçus"
 
           $tache = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:3001/api/tasks -ContentType 'application/json' -Body '{"title":"Essai"}'
-          $pistes = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3001/api/tasks/$($tache.task.id)/thread/suggest"
+          $pistes = Invoke-RestMethod -TimeoutSec 120 -Method Post -Uri "http://127.0.0.1:3001/api/tasks/$($tache.task.id)/thread/suggest"
           "pistes : réponse JSON lue, $($pistes.added) ajoutée(s)"
           Stop-Process -Id $p.Id -Force
           Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force

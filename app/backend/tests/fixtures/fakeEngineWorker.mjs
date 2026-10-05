@@ -3,6 +3,7 @@
 process.on('disconnect', () => process.exit(0));
 process.on('message', (msg) => {
   if (msg.type === 'load') {
+    if (msg.modelPath.endsWith('fige.gguf')) return;   // never ready: a stuck load
     if (msg.modelPath.endsWith('cassé.gguf')) process.send({ type: 'failed', message: 'not a model' });
     else process.send({ type: 'ready', gpu: false });
   } else if (msg.type === 'run') {

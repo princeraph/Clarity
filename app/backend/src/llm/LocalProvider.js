@@ -118,20 +118,28 @@ export async function loadLlamaEngine(modelPath) {
 
 const WORKER = fileURLToPath(new URL('./engineWorker.js', import.meta.url));
 export const ENGINE_STOPPED = 'The built-in assistant stopped unexpectedly — try again.';
+export const ENGINE_LOAD_TIMEOUT = 'The built-in assistant took too long to start — try again.';
+// The largest model loads in 8 s from an SSD (measured). Three minutes covers a
+// slow disk; past that, something is stuck, and a request must not wait forever
+// on it — without a limit, a load that hangs held its request indefinitely.
+export const LOAD_TIMEOUT_MS = 180000;
 
-export function loadProcessEngine(modelPath, { onExit = () => {}, workerPath = WORKER } = {}) {
+export function loadProcessEngine(modelPath, { onExit = () => {}, workerPath = WORKER, loadTimeoutMs = LOAD_TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
     // fork() reuses process.execPath — Electron's binary in the installed app,
     // which ELECTRON_RUN_AS_NODE (inherited) turns into Node, as for the backend.
     const child = fork(workerPath, [], { stdio: ['ignore', 'inherit', 'inherit', 'ipc'] });
     const pending = new Map();   // id → { resolve, reject, onText }
     let nextId = 1, ready = false, exited = false;
+    const loadTimer = setTimeout(() => { reject(new Error(ENGINE_LOAD_TIMEOUT)); child.kill(); }, loadTimeoutMs);
 
     child.on('message', (msg) => {
       if (msg.type === 'ready') {
         ready = true;
+        clearTimeout(loadTimer);
         resolve(engine(msg.gpu));
       } else if (msg.type === 'failed') {
+        clearTimeout(loadTimer);
         child.kill();
         reject(new Error(msg.message));
       } else {
@@ -144,6 +152,7 @@ export function loadProcessEngine(modelPath, { onExit = () => {}, workerPath = W
     });
     child.on('exit', () => {
       exited = true;
+      clearTimeout(loadTimer);
       for (const p of pending.values()) p.reject(new Error(ENGINE_STOPPED));
       pending.clear();
       if (!ready) reject(new Error(ENGINE_STOPPED));
