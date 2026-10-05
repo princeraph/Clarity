@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import TaskCard from '../TaskCard.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
+import AiOfflineNotice from '../AiOfflineNotice.jsx';
 import TimeBlockingStrip from '../TimeBlockingStrip.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -311,35 +312,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
 
       {/* AI offline hint */}
       {!health.ollama && stats.total > 0 && !analysis && (
-        <div style={{
-          padding: '14px 18px', background: T.paperSubtle,
-          border: `1px solid ${T.hairline}`, borderRadius: T.r10,
-          display: 'flex', alignItems: 'center', gap: 12,
-        }}>
-          <span style={{ color: T.warn, fontSize: 16 }}>⚠</span>
-          <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t('focus.aiOffline')}</p>
-            {health.providerType === 'ollama' || !health.providerType ? (
-              <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
-                {t('focus.ollamaDown.before')}{' '}
-                <code style={{ fontFamily: T.fontMono, background: T.paperMuted, padding: '1px 5px', borderRadius: 3, fontSize: 11 }}>ollama serve</code>
-                {' '}{t('focus.ollamaDown.after')}{' '}
-                <button onClick={onOpenSettings} style={{
-                  fontSize: 12, color: T.accent, background: 'transparent',
-                  border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI,
-                }}>{t('focus.switchProvider')}</button>
-              </p>
-            ) : (
-              <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
-                {t('focus.providerUnreachable', { provider: health.providerType === 'openai' ? 'OpenAI' : health.providerType === 'anthropic' ? 'Anthropic' : 'OpenRouter' })}{' '}
-                <button onClick={onOpenSettings} style={{
-                  fontSize: 12, color: T.accent, background: 'transparent',
-                  border: 'none', cursor: 'pointer', padding: 0, fontFamily: T.fontUI,
-                }}>{t('focus.settingsArrow')}</button>
-              </p>
-            )}
-          </div>
-        </div>
+        <AiOfflineNotice health={health} onOpenSettings={onOpenSettings} />
       )}
 
       {/* Analyzing / analysis staleness banner */}

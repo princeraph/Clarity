@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
 import ApertureMark from '../ApertureMark.jsx';
+import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 
 const API = 'http://localhost:3001/api';
 
 const PROVIDERS = [
+  // First: the one that works for someone who has nothing else set up.
+  { id: 'local',     labelKey: 'settings.provider.localLabel', hintKey: 'settings.provider.local' },
   { id: 'ollama',    label: 'Ollama',     hintKey: 'settings.provider.ollama' },
   { id: 'openai',    label: 'OpenAI',     hintKey: 'settings.provider.openai' },
   { id: 'anthropic', label: 'Anthropic',  hintKey: 'settings.provider.anthropic' },
@@ -495,7 +498,7 @@ async function triggerExport(fmt) {
   } catch {}
 }
 
-export default function SettingsView({ onSaved }) {
+export default function SettingsView({ onSaved, initialSection = 'appearance' }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
   const { t, locale, setLocale } = useLocale();
   const [form, setForm] = useState({
@@ -505,6 +508,7 @@ export default function SettingsView({ onSaved }) {
     tunnelSecret: '',
     keepAlive: '30m',
     apiKey: '',
+    localModel: '',
   });
   const [apiKeySet, setApiKeySet] = useState(false);
   const [editingKey, setEditingKey] = useState(false);
@@ -513,7 +517,7 @@ export default function SettingsView({ onSaved }) {
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [section, setSection] = useState('appearance');
+  const [section, setSection] = useState(initialSection);
   const [backups, setBackups] = useState([]);
   const [userName, setUserName] = useState(() => {
     try { return localStorage.getItem('clarity-userName') || ''; } catch { return ''; }
@@ -551,6 +555,7 @@ export default function SettingsView({ onSaved }) {
             tunnelSecret: s.tunnelSecret || '',
             keepAlive:    s.keepAlive    || '30m',
             apiKey:       isSet ? '' : (s.apiKey || ''),
+            localModel:   s.localModel   || '',
           }));
         }
         if (hr.ok) {
@@ -569,6 +574,19 @@ export default function SettingsView({ onSaved }) {
   }, []);
 
   function set(key, value) { setForm(f => ({ ...f, [key]: value })); setStatus(null); }
+
+  // A finished download switches the backend to the built-in assistant on its
+  // own; the form follows, so a later Save does not switch it back.
+  const assistant = useAssistant({
+    onReady: async () => {
+      try {
+        const s = await (await fetch(`${API}/settings`)).json();
+        setForm(f => ({ ...f, providerType: s.providerType, localModel: s.localModel || '' }));
+      } catch {}
+      setStatus({ type: 'success', message: t('assistant.ready') });
+      onSaved?.();
+    },
+  });
 
   function handleProviderChange(pid) {
     set('providerType', pid);
@@ -616,6 +634,10 @@ export default function SettingsView({ onSaved }) {
 
   const activeProvider = form.providerType;
   const isOllama = activeProvider === 'ollama';
+  const isLocal = activeProvider === 'local';
+  // The backend uses the chosen model, or else the last one installed (by name).
+  const installedFiles = (assistant.info?.models || []).filter(m => m.installed).map(m => m.file).sort();
+  const localInUse = installedFiles.includes(form.localModel) ? form.localModel : installedFiles.at(-1) || null;
   const presetModels = PRESET_MODELS[activeProvider] || [];
 
   return (
@@ -800,7 +822,7 @@ export default function SettingsView({ onSaved }) {
                       )}
                     </div>
                     <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 500, color: activeProvider === p.id ? T.accentInk : T.ink }}>{p.label}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: activeProvider === p.id ? T.accentInk : T.ink }}>{p.labelKey ? t(p.labelKey) : p.label}</div>
                       <div style={{ fontSize: 12, color: activeProvider === p.id ? T.accentInk : T.ink60, marginTop: 2, opacity: 0.85 }}>{t(p.hintKey)}</div>
                     </div>
                   </button>
@@ -808,6 +830,13 @@ export default function SettingsView({ onSaved }) {
               </div>
             </Section>
 
+            {isLocal && (
+              <Section title={t('assistant.title')} subtitle={t('assistant.hint')} T={T}>
+                <AssistantModels assistant={assistant} inUse={localInUse} onUse={file => set('localModel', file)} />
+              </Section>
+            )}
+
+            {!isLocal && (
             <Section title={t('settings.ai.model')} T={T}>
               {presetModels.length > 0 ? (
                 <FieldRow label={t('settings.model')} T={T}>
@@ -844,8 +873,9 @@ export default function SettingsView({ onSaved }) {
                 </FieldRow>
               )}
             </Section>
+            )}
 
-            {!isOllama && (
+            {!isOllama && !isLocal && (
               <Section title={t('settings.ai.apiKey')} subtitle={t('settings.ai.apiKeyHint', { provider: PROVIDERS.find(p => p.id === activeProvider)?.label })} T={T}>
                 <FieldRow label={t('settings.secretKey')} T={T}>
                   {apiKeySet && !editingKey ? (

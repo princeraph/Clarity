@@ -87,6 +87,11 @@ function AppInner() {
   const [data, setData]         = useState({ tasks: [], archivedTasks: [], analysis: null, weeklySummary: null, analyzing: false, analysisError: null });
   const [health, setHealth]     = useState({ ollama: false, model: '', analyzing: false });
   const [view, setView]         = useState('focus');
+  // Which Settings page opens. "The AI isn't available" leads straight to the
+  // AI page — landing on Appearance would leave the person to find it.
+  const [settingsSection, setSettingsSection] = useState('appearance');
+  const openAiSettings = () => { setSettingsSection('ai'); setView('settings'); };
+  useEffect(() => { if (view !== 'settings') setSettingsSection('appearance'); }, [view]);
   const [activeArea, setActiveArea] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -485,6 +490,7 @@ function AppInner() {
           onChat={() => setShowChat(true)} onExport={() => setShowExport(true)}
           onReanalyze={handleReanalyze}
           onOpenSettings={() => setView('settings')}
+          onOpenAiSettings={openAiSettings}
           taskCount={data.tasks.length} archivedCount={data.archivedTasks.length}
           allTasks={data.tasks}
           activeArea={activeArea}
@@ -496,7 +502,7 @@ function AppInner() {
             <FocusView rankedTasks={rankedTasks} analysis={data.analysis} stats={stats}
               analyzing={data.analyzing} analysisError={data.analysisError} health={health} {...taskHandlers}
               onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onViewTasks={() => setView('calendar')}
-              onOpenSettings={() => setView('settings')} onReanalyze={handleReanalyze}
+              onOpenSettings={openAiSettings} onReanalyze={handleReanalyze}
               onOpenChat={() => setShowChat(true)} />
           )}
           {view === 'tasks' && (
@@ -511,10 +517,11 @@ function AppInner() {
             <ArchiveView archivedTasks={data.archivedTasks} onRestore={handleRestore} onDelete={handleDeleteTask} onAddTask={openAddTask} />
           )}
           {view === 'weekly' && (
-            <WeeklySummaryView weeklySummary={data.weeklySummary} health={health} onRefresh={loadData} onOpenSettings={() => setView('settings')} />
+            <WeeklySummaryView weeklySummary={data.weeklySummary} health={health} onRefresh={loadData} onOpenSettings={openAiSettings} />
           )}
           {view === 'settings' && (
-            <SettingsView onSaved={() => { checkHealth(); showToast(t('toast.settingsSaved')); }} />
+            <SettingsView key={settingsSection} initialSection={settingsSection}
+              onSaved={() => { checkHealth(); showToast(t('toast.settingsSaved')); }} />
           )}
           {view === 'history' && (
             <HistoryView
