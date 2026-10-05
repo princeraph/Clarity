@@ -253,3 +253,46 @@ jours est vide et que la vue se rabat sur tout l'historique, elle affiche
 français : le texte est écrit en dur dans `PatternsView.jsx`, hors de `t()`, et
 le vérificateur de locales ne voit que ce qui passe par `t()`. Relevé le 4
 octobre, pas corrigé.
+
+---
+
+## 5. L'assistant IA pour quelqu'un qui n'a pas Ollama — décidé le 5 octobre
+
+Le cœur de Clarity, pour son auteur, c'est l'IA : relier les tâches entre
+elles, aider quand on bloque, faire plus qu'une liste. Or un utilisateur non
+technique n'a pas Ollama, et lui demander de l'installer en ligne de commande
+puis de télécharger un modèle, c'est le perdre. Cinq voies ont été pesées.
+
+**Retenues maintenant :**
+
+- **Voie 3 — le moteur intégré.** Le modèle tourne dans Clarity même
+  (llama.cpp), téléchargé au premier lancement. Rien d'autre à installer, rien
+  ne quitte la machine. Qualité selon le PC.
+- **Voie 2 — Clarity installe Ollama.** Un bouton « Installer l'assistant » :
+  Clarity télécharge Ollama et un modèle adapté à la mémoire du PC. Pour qui
+  préfère Ollama, ou l'a déjà.
+
+**Gardées pour plus tard — pistes de monétisation, à reprendre lors d'un audit
+ou d'une réflexion sur le modèle économique :**
+
+- **Voie 4 — « Clarity Cloud ».** Un serveur tenu par l'auteur, avec sa propre
+  clé d'API (Anthropic, OpenAI…). Marche sur n'importe quel PC, sans rien
+  installer, avec les meilleurs modèles. Mais chaque utilisateur actif coûte de
+  l'argent à l'auteur : ça n'a de sens que **payant**, par abonnement. Conditions
+  avant de l'ouvrir : une politique de confidentialité (les tâches transitent par
+  ce serveur, puis par le fournisseur), une limite d'usage par compte contre les
+  abus, et un choix explicite de l'utilisateur — jamais par défaut, puisque la
+  promesse de Clarity est « rien ne quitte votre ordinateur ». Modèle plausible :
+  local gratuit par défaut, Cloud en option payante pour les PC trop faibles ou
+  pour qui veut les meilleures réponses. Les revenus pourraient aussi financer
+  la signature de l'installateur.
+- **Voie 5 — l'IA du système.** Microsoft et Apple ouvrent aux applications un
+  modèle intégré à Windows et à macOS, sur les machines récentes. Gratuit pour
+  l'auteur comme pour l'utilisateur, privé. Pas mûr aujourd'hui ; quand il le
+  sera, ce sera un fournisseur de plus dans `src/llm/`. Intérêt commercial
+  indirect : rendre la version gratuite meilleure sans coût, et réserver la
+  voie 4 à ce que le local ne sait pas faire.
+
+**Écartée comme solution par défaut :** la clé d'API de l'utilisateur lui-même
+(déjà possible dans les réglages) — compte, carte bancaire et données envoyées
+à un tiers : trop pour un utilisateur non technique.
