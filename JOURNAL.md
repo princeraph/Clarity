@@ -505,6 +505,10 @@ n'annonce plus « llama-3 8b · 4,2 Go » sur toutes les machines.
 discussion et pistes par l'assistant intégré, puis Ollama installé et
 interrogé. Le premier essai a bloqué 5 min : le modèle de test de 1 Mo
 n'acceptait que 128 jetons de contexte. Remplacé par SmolLM2-135M.
+Le vrai défaut était ailleurs, et il aurait touché de vrais PC : sur le runner
+à 2 cœurs, llama.cpp lançait plus de fils que de cœurs, et ses fils attendent
+en tournant — un jeton toutes les 13 à 26 s. À 1 ou 2 fils : 25 jetons en 1 s.
+Le moteur prend désormais au plus autant de fils que de cœurs logiques.
 
     tests backend    275, en 16 suites
 

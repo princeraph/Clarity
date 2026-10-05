@@ -3,6 +3,7 @@ import { join, basename } from 'path';
 import { createRequire } from 'module';
 import { pathToFileURL, fileURLToPath } from 'url';
 import { fork } from 'child_process';
+import { availableParallelism } from 'os';
 import { LLMProvider } from './LLMProvider.js';
 
 // The assistant built into Clarity: a GGUF model run in this process by
@@ -85,10 +86,13 @@ export async function loadLlamaEngine(modelPath) {
     }
   }
   const model = await llama.loadModel({ modelPath });
-  // CLARITY_LLAMA_THREADS: an escape hatch to pin the thread count, for
-  // diagnosing a machine where the default does badly.
-  const threads = Number(process.env.CLARITY_LLAMA_THREADS) || undefined;
-  const context = await model.createContext({ contextSize: CONTEXT_SIZE, sequences: SEQUENCES, ...(threads ? { threads } : {}) });
+  // Never more threads than the machine has. llama.cpp's threads wait by
+  // spinning, so one too many turns a step into a fight for the cores —
+  // measured on the 2-core Windows CI runner: 1 or 2 threads, 25 tokens in
+  // 1 s; the default or 3, one token every 13 to 26 s. CLARITY_LLAMA_THREADS
+  // overrides it, for diagnosing a machine where this still does badly.
+  const threads = Number(process.env.CLARITY_LLAMA_THREADS) || availableParallelism();
+  const context = await model.createContext({ contextSize: CONTEXT_SIZE, sequences: SEQUENCES, threads });
   const jsonGrammar = await llama.getGrammarFor('json');
   // Gemma 4 thinks out loud by default: with reasoning on, a short chat reply
   // came back empty because the whole budget went to thoughts nobody sees.

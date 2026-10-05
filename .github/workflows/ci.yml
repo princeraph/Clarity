@@ -77,59 +77,6 @@ jobs:
             exit 1
           fi
 
-  # Le moteur intégré sous Windows, sans empaqueter : quelques minutes au lieu
-  # de vingt, pour localiser un défaut. Dans le processus ou dans son worker,
-  # sous Node puis sous le Node d'Electron — ce qui distingue le moteur de ce
-  # qui l'entoure.
-  moteur-windows:
-    runs-on: windows-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: dépendances
-        shell: cmd
-        run: |
-          cd app && call npm install --no-audit --no-fund || exit /b 1
-          call npx install-electron || exit /b 1
-          cd backend && call npm install --no-audit --no-fund || exit /b 1
-      - name: modèle de test
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\modeles" | Out-Null
-          Invoke-WebRequest -UseBasicParsing -OutFile "$env:RUNNER_TEMP\modeles\test.gguf" https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q3_K_S.gguf
-          if ((Get-FileHash -Algorithm SHA256 "$env:RUNNER_TEMP\modeles\test.gguf").Hash -ne '7ADD77B8D3736D6B2FD21DC96E69BE026F19BDE843E9988B43CEF1315FC5EEBE') { exit 1 }
-      - name: Node, moteur dans le processus, défaut fils
-        if: always()
-        working-directory: app/backend
-        timeout-minutes: 3
-        env:
-          CLARITY_LLAMA_THREADS: ''
-        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
-      - name: Node, moteur dans le processus, 1 fils
-        if: always()
-        working-directory: app/backend
-        timeout-minutes: 3
-        env:
-          CLARITY_LLAMA_THREADS: '1'
-        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
-      - name: Node, moteur dans le processus, 2 fils
-        if: always()
-        working-directory: app/backend
-        timeout-minutes: 3
-        env:
-          CLARITY_LLAMA_THREADS: '2'
-        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
-      - name: Node, moteur dans le processus, 3 fils
-        if: always()
-        working-directory: app/backend
-        timeout-minutes: 3
-        env:
-          CLARITY_LLAMA_THREADS: '3'
-        run: node tools/essai-moteur.mjs "$env:RUNNER_TEMP\modeles" --direct
-
   # Windows, la plateforme de l'utilisateur. Les scripts qui le concernent
   # (Update.bat, setup.bat) ne pouvaient être essayés nulle part avant lui :
   # c'est lui qui découvrait chaque défaut, au moment de mettre à jour. Ce job
