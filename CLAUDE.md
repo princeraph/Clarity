@@ -233,9 +233,10 @@ and the installed app updates itself from the **public** repo
 `princeraph/clarity-releases` (installers and the download page only — never
 source, never data). To publish:
 
-1. Bump the version with `npm version X.Y.Z --no-git-tag-version` in `app/` —
-   never by hand: `package-lock.json` repeats it, and the `windows` job refuses
-   a packaging that rewrites a tracked file (1.3.2, 6 October). `package.json`
+1. Change `version` in `app/package.json`, then run `npm install
+   --package-lock-only` in `app/`: `package-lock.json` repeats the version, and
+   the `windows` job refuses a packaging that rewrites a tracked file (1.3.2,
+   6 October). Not `npm version`: it reformats the whole `package.json`. `package.json`
    stays the place the version is read from (Electron passes it to the backend
    as `CLARITY_VERSION`). Rewrite `update.news` in both locales: it is what the
    "Clarity is up to date" window lists after the update.
