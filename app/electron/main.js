@@ -228,13 +228,6 @@ function showMainWindow() {
 
 const APP_VERSION = app.getVersion();   // app/package.json — the one place the version lives
 
-async function checkForUpdates() {
-  try {
-    const res = await fetch('http://localhost:3001/api/version');
-    if (!res.ok) return;
-  } catch {}
-}
-
 async function waitForBackend(retries = 20, delayMs = 250) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -274,7 +267,6 @@ if (!gotTheLock) {
     await waitForBackend();
     createWindow();
     createTray();
-    checkForUpdates();
     startUpdateChecks();
   });
 }
@@ -380,29 +372,48 @@ ipcMain.handle('connector:get-claude', () => {
 // Friends testing Clarity have no Git and no Node: Update.bat is not for them.
 // The installed app looks for a newer version in the public clarity-releases
 // repository (installers only — the source stays private, and no token is
-// needed to read a public release), downloads it in the background, and
-// offers to restart. If nobody restarts, it installs on the next quit.
-let updateReady = null;
+// needed to read a public release). What the person sees, step by step, is in
+// updateFlow.js.
+const { createUpdateFlow, justUpdated } = require('./updateFlow');
+let updateFlow = null;
+
+// Read before the backend starts: it creates the data folder on a fresh install.
+const UPDATED = app.isPackaged ? justUpdated({
+  version: APP_VERSION,
+  readLast: () => fs.readFileSync(path.join(app.getPath('userData'), 'last-version.txt'), 'utf8'),
+  writeLast: (v) => {
+    // On a fresh install the folder does not exist yet; without it, the second
+    // launch would find data and no version, and call that an update.
+    fs.mkdirSync(app.getPath('userData'), { recursive: true });
+    fs.writeFileSync(path.join(app.getPath('userData'), 'last-version.txt'), v);
+  },
+  hasData: () => fs.existsSync(path.join(app.getPath('userData'), 'data', 'tasks.json')),
+}) : null;
+let updatedToShow = UPDATED;
+
 function startUpdateChecks() {
   if (!app.isPackaged) return;   // a development copy updates through Git
   let autoUpdater;
   try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('update-downloaded', (info) => {
-    updateReady = { version: info.version };
-    mainWindow?.webContents.send('update-ready', updateReady);
-  });
+  autoUpdater.autoInstallOnAppQuit = true;      // "later" means: when the person quits
   autoUpdater.on('error', (err) => console.error('[update]', err?.message || err));
-  const check = () => autoUpdater.checkForUpdates().catch(() => {});
-  setTimeout(check, 15000);                     // after startup, not during it
-  setInterval(check, 6 * 60 * 60 * 1000).unref?.();
-  ipcMain.handle('update:install', () => {
-    quittingForReal = true;
-    autoUpdater.quitAndInstall(true, true);     // silent, then reopen Clarity
+  updateFlow = createUpdateFlow({
+    updater: autoUpdater,
+    send: (state) => mainWindow?.webContents.send('update-state', state),
+    notify: ({ title, body }) => { if (Notification.isSupported()) new Notification({ title, body }).show(); },
+    onQuit: () => { quittingForReal = true; },
   });
+  setTimeout(() => updateFlow.check(), 3000);   // as Clarity opens, once the window is up
+  setInterval(() => updateFlow.check(), 6 * 60 * 60 * 1000).unref?.();
 }
-ipcMain.handle('update:status', () => updateReady);
+ipcMain.handle('update:status', () => {
+  const updated = updatedToShow;
+  updatedToShow = null;                         // "up to date" is said once
+  return { state: updateFlow?.status() || null, updated };
+});
+ipcMain.handle('update:now', (_e, words) => updateFlow?.now(words));
+ipcMain.handle('update:later', () => updateFlow?.later());
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 ipcMain.on('show-notification', (event, { title, body }) => {

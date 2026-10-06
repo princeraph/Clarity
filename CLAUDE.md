@@ -233,8 +233,12 @@ and the installed app updates itself from the **public** repo
 `princeraph/clarity-releases` (installers and the download page only — never
 source, never data). To publish:
 
-1. Bump `version` in `app/package.json` — the only place the version lives
-   (Electron reads it and passes it to the backend as `CLARITY_VERSION`).
+1. Bump the version with `npm version X.Y.Z --no-git-tag-version` in `app/` —
+   never by hand: `package-lock.json` repeats it, and the `windows` job refuses
+   a packaging that rewrites a tracked file (1.3.2, 6 October). `package.json`
+   stays the place the version is read from (Electron passes it to the backend
+   as `CLARITY_VERSION`). Rewrite `update.news` in both locales: it is what the
+   "Clarity is up to date" window lists after the update.
 2. Merge into `main` once CI is green, as for any change.
 3. That is all: when `app/package.json` changes on `main`, the `publication`
    workflow checks whether `clarity-releases` already has that version, and if

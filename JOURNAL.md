@@ -546,8 +546,9 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
 - **Mises à jour automatiques.** L'app installée cherche une nouvelle version
   dans le dépôt public `clarity-releases` (installateurs seulement), la
   télécharge en arrière-plan et propose « Mise à jour prête · Redémarrer ».
-  Publier = un tag `vX.Y.Z` ; le workflow `publication` fait le reste. La
-  version ne vit plus qu'à un endroit, `app/package.json`.
+  Publier = changer la version dans `app/package.json` et fusionner dans
+  `main` ; le workflow `publication` fait le reste (un tag poussé depuis la
+  session est refusé). La version ne vit plus qu'à cet endroit.
 - **Page de téléchargement** (GitHub Pages) avec une animation qui montre les
   quatre étapes, avertissement SmartScreen compris — l'installateur n'est pas
   signé. Animation aussi dans Réglages pour connecter Claude Desktop.
@@ -562,6 +563,22 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   voyait plus les écritures déplacées dans des fonctions partagées — 287 tests
   devenus 284 sans alerte. Il suit désormais les appels ; vérifié en retirant
   un recalcul sur copie.
+- **1.3.1 : l'épingle Windows.** La fenêtre et le raccourci de l'installateur
+  ne portaient pas la même identité Windows (AppUserModelID) : l'épingle
+  sautait à chaque fermeture ou mise à jour. Un test garde les deux égales.
+  La première publication de 1.3.1 a échoué : `gh release view` sort en 1
+  quand la version n'existe pas encore, et PowerShell en faisait le code de
+  l'étape. La 1.3.0 existait déjà, d'où l'absence d'alerte au premier essai.
+- **1.3.2 : la mise à jour se voit.** Retour de test : un clic sur la pastille
+  fermait Clarity, l'installation se faisait en silence, et rien ne disait
+  ensuite que c'était fait. Désormais une fenêtre au centre annonce la
+  version dès l'ouverture (« maintenant » ou « plus tard »), montre le
+  téléchargement, prévient que Clarity va se fermer — une notification Windows
+  couvre les secondes sans fenêtre — et le lancement suivant dit « Clarity est
+  à jour », avec les nouveautés (`update.news` dans les langues, à réécrire à
+  chaque version). L'installateur reste silencieux : visible, l'assistant NSIS
+  ferait cliquer sur ses pages et un « Terminer ». Logique dans
+  `electron/updateFlow.js`, testée sans Electron.
 
 ---
 
