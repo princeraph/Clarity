@@ -3,18 +3,24 @@
 // Three rules, because this is a path out of the machine that the person did
 // not configure themselves:
 //
-// 1. Off until configured. feedback.json ships empty; with no form URL or no
-//    message field, the route says `enabled: false` and the interface shows
-//    nothing — no button that leads to an error.
-// 2. What leaves is fixed HERE, not by the caller: the rating, the message the
-//    person typed, Clarity's version and the operating system. Exactly those
-//    four form fields — never a task, a setting, the profile or the journal.
+// 1. Off until configured. feedback.json ships empty; with no form URL, or
+//    nowhere for the comments to go, the route says `enabled: false` and the
+//    interface shows nothing — no button that leads to an error.
+// 2. What leaves is fixed HERE, not by the caller: the star rating, the four
+//    comments the person typed (ease of use, bugs, suggestions, other),
+//    Clarity's version and the operating system. Exactly the form fields
+//    feedback.json names — never a task, a setting, the profile or the journal.
 //    buildPayload() is the only place the body is composed, and the tests
 //    check its keys one by one.
 // 3. Asking is rare and stoppable. The prompt comes once, after a week of use
 //    and five finished tasks; "later" waits a week, "never" is final.
+//
+// The form may or may not have a question per comment category. One that has
+// its own field (`usability`, `bugs`, `suggestions`, `other` in feedback.json)
+// is sent there; the others are combined into `message` as headed sections, so
+// a form with only rating/message/version/system keeps receiving everything.
 
-export const MAX_MESSAGE = 5000;
+export const MAX_MESSAGE = 5000;                   // per comment field
 export const SEND_TIMEOUT_MS = 15000;
 export const RATE_LIMIT = 5;                       // sends…
 export const RATE_WINDOW_MS = 60 * 60 * 1000;      // …per hour
@@ -25,9 +31,18 @@ export const PROMPT_STATES = ['pending', 'snoozed', 'done', 'never'];
 export const PROMPT_ACTIONS = ['later', 'never', 'done'];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const FIELDS = ['rating', 'message', 'version', 'system'];
-// What lands in the sheet: readable there, and the same in both languages.
-const RATING_TEXT = { up: '👍', down: '👎' };
+export const STARS = 5;
+// The comment categories, in the order the dialog shows them.
+export const CATEGORIES = ['usability', 'bugs', 'suggestions', 'other'];
+const FIELDS = ['rating', 'message', ...CATEGORIES, 'version', 'system'];
+// Section headings in the combined message. French and fixed: they are for the
+// owner reading the sheet, whatever language the tester uses.
+export const CATEGORY_HEADINGS = {
+  usability: 'Facilité d’utilisation',
+  bugs: 'Bugs',
+  suggestions: 'Suggestions',
+  other: 'Autres commentaires',
+};
 
 export class FeedbackError extends Error {
   constructor(message, status, code) { super(message); this.status = status; this.code = code; }
@@ -50,34 +65,63 @@ export function normalizeConfig(raw) {
   return { formUrl, fields };
 }
 
-export const isEnabled = (config) => !!(config.formUrl && config.fields.message);
+/** True when every comment category has its own question: `message` is then not needed. */
+const allDedicated = (config) => CATEGORIES.every(c => config.fields[c]);
+
+/** On when there is a form, and somewhere for every comment category to go. */
+export const isEnabled = (config) => !!(config.formUrl && (config.fields.message || allDedicated(config)));
 
 /**
- * The form body. The ONLY place it is composed — four fields at most, each
- * from an argument named here; there is no parameter through which anything
- * else could arrive. A field the form does not have (empty id) is left out.
+ * The categories that have no question of their own, as one text:
+ * "Bugs :\n…\n\nSuggestions :\n…". Empty sections are left out.
  */
-export function buildPayload(config, { rating, message, version, system }) {
+export function combineMessage(config, comments) {
+  return CATEGORIES
+    .filter(c => !config.fields[c] && comments[c])
+    .map(c => `${CATEGORY_HEADINGS[c]} :\n${comments[c]}`)
+    .join('\n\n');
+}
+
+/**
+ * The form body. The ONLY place it is composed — the fields feedback.json
+ * names, each from an argument named here; there is no parameter through which
+ * anything else could arrive. A field the form does not have (empty id) is left
+ * out, and its comment goes into the combined message instead.
+ */
+export function buildPayload(config, { rating, usability, bugs, suggestions, other, version, system }) {
+  const comments = { usability, bugs, suggestions, other };
   const body = new URLSearchParams();
-  const values = { rating: RATING_TEXT[rating] || '', message, version, system };
+  const values = {
+    rating: Number.isInteger(rating) ? `${rating}/${STARS}` : '',
+    message: combineMessage(config, comments),
+    ...comments,
+    version, system,
+  };
   for (const f of FIELDS) {
     if (config.fields[f]) body.append(config.fields[f], String(values[f] ?? ''));
   }
   return body;
 }
 
-/** Validates what the interface sent. Returns the clean { rating, message } or throws a 400. */
+/**
+ * Validates what the interface sent: { rating: 1..5 | null, usability, bugs,
+ * suggestions, other }. Returns the clean values or throws a 400. Anything
+ * else in the input is ignored — it has no way into the payload anyway.
+ */
 export function validateInput(input) {
   const rating = input?.rating ?? null;
-  if (rating !== null && rating !== 'up' && rating !== 'down') {
-    throw new FeedbackError('rating must be "up", "down" or null', 400, 'invalid-rating');
+  if (rating !== null && !(Number.isInteger(rating) && rating >= 1 && rating <= STARS)) {
+    throw new FeedbackError(`rating must be a whole number from 1 to ${STARS}, or null`, 400, 'invalid-rating');
   }
-  const message = input?.message ?? '';
-  if (typeof message !== 'string') throw new FeedbackError('message must be a string', 400, 'invalid-message');
-  if (message.length > MAX_MESSAGE) throw new FeedbackError(`message is longer than ${MAX_MESSAGE} characters`, 400, 'too-long');
-  const trimmed = message.trim();
-  if (!trimmed && !rating) throw new FeedbackError('nothing to send', 400, 'empty');
-  return { rating, message: trimmed };
+  const out = { rating };
+  for (const c of CATEGORIES) {
+    const v = input?.[c] ?? '';
+    if (typeof v !== 'string') throw new FeedbackError(`${c} must be a string`, 400, 'invalid-text');
+    if (v.length > MAX_MESSAGE) throw new FeedbackError(`${c} is longer than ${MAX_MESSAGE} characters`, 400, 'too-long');
+    out[c] = v.trim();
+  }
+  if (!rating && CATEGORIES.every(c => !out[c])) throw new FeedbackError('nothing to send', 400, 'empty');
+  return out;
 }
 
 const doneCount = (tasks) => (tasks || []).filter(t => t?.status === 'done').length;
@@ -126,12 +170,12 @@ export function createFeedback({
     /** Posts one response. Resolves { sent: true } or throws a FeedbackError. */
     async send(input) {
       if (!isEnabled(cfg)) throw new FeedbackError('feedback is not configured', 404, 'disabled');
-      const { rating, message } = validateInput(input);
+      const clean = validateInput(input);
       const t = now().getTime();
       while (sentAt.length && t - sentAt[0] >= windowMs) sentAt.shift();
       if (sentAt.length >= limit) throw new FeedbackError('too many messages in the last hour', 429, 'rate-limited');
 
-      const body = buildPayload(cfg, { rating, message, version, system });
+      const body = buildPayload(cfg, { ...clean, version, system });
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       let res;

@@ -6,13 +6,20 @@
 // nobody has to dig through the page source by hand.
 //
 // The form needs four questions, titled (French or English, any case):
-//   Note / Rating      — short answer. Receives 👍, 👎 or nothing.
-//   Message            — paragraph.    What the person typed.
+//   Note / Rating      — short answer. Receives "4/5", or nothing.
+//   Message            — paragraph.    The comments, as headed sections.
 //   Version            — short answer. Clarity's version.
 //   Système / System   — short answer. e.g. "win32 10.0.22631".
-// Only "Message" is needed for feedback to switch on. Leave the others NOT
-// required: an answer with no rating is normal, and Google refuses a response
-// that leaves a required question empty.
+// And may have up to four more, one per comment category (paragraphs):
+//   Facilité d'utilisation / Usability
+//   Bugs
+//   Suggestions
+//   Autres commentaires / Other comments
+// A category with its own question is sent there; the others are combined
+// into "Message". "Message" is needed for feedback to switch on — unless all
+// four categories have their own question. Leave every question NOT required:
+// an answer with no rating is normal, and Google refuses a response that
+// leaves a required question empty.
 //
 // Usage: node tools/configurer-avis.mjs <public link of the form> [--essai]
 //   the link is the one "Send" gives (…/viewform or forms.gle/…), not /edit.
@@ -27,17 +34,36 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'feedback.json')
 
 // Question titles, compared without accents, case or trailing punctuation.
 const TITLES = {
-  rating:  ['note', 'rating'],
-  message: ['message'],
-  version: ['version'],
-  system:  ['systeme', 'system'],
+  rating:      ['note', 'rating'],
+  message:     ['message'],
+  usability:   ['facilite d\'utilisation', 'usability', 'ease of use'],
+  bugs:        ['bugs', 'bug'],
+  suggestions: ['suggestions', 'suggestion'],
+  other:       ['autres commentaires', 'autre commentaire', 'other comments', 'other comment'],
+  version:     ['version'],
+  system:      ['systeme', 'system'],
 };
-const LABEL = { rating: 'Note', message: 'Message', version: 'Version', system: 'Système' };
+// Optional: one question per comment category. Without it, the category goes into "Message".
+export const CATEGORIES = ['usability', 'bugs', 'suggestions', 'other'];
+const LABEL = {
+  rating: 'Note', message: 'Message', version: 'Version', system: 'Système',
+  usability: 'Facilité d’utilisation', bugs: 'Bugs', suggestions: 'Suggestions', other: 'Autres commentaires',
+};
 // FB_PUBLIC_LOAD_DATA_ item types that take free text.
 const TEXT_TYPES = { 0: 'réponse courte', 1: 'paragraphe' };
 
 const normalize = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-  .toLowerCase().replace(/[\s*:?.!]+$/u, '').trim();
+  .toLowerCase().replace(/[’‘ʼ`´]/g, '\'').replace(/\s+/g, ' ').replace(/[\s*:?.!]+$/u, '').trim();
+
+/** Where every comment category will go, one line each — what the person reads before writing. */
+export function routeSummary(fields) {
+  return CATEGORIES.map(c => {
+    const where = fields[c]
+      ? `sa propre question (${fields[c]})`
+      : fields.message ? `regroupée dans « Message » (${fields.message})` : 'nulle part — pas de question « Message »';
+    return `${LABEL[c].padEnd(22)} → ${where}`;
+  });
+}
 
 /** …/forms/d/e/<id>/viewform (or /u/0/ variants) → …/forms/d/e/<id>/formResponse */
 export function responseUrlFrom(pageUrl, data) {
@@ -64,26 +90,35 @@ export function parseFormPage(html, pageUrl) {
 
   const items = Array.isArray(data?.[1]?.[1]) ? data[1][1] : [];
   const fields = { rating: '', message: '', version: '', system: '' };
+  const optional = {};   // categories found, written only when present
   const found = [];
   const warnings = [];
   for (const item of items) {
     const title = normalize(item?.[1]);
-    // "Note" or "Note (👍 / 👎)" — the word, then nothing or a non-letter.
+    // "Note" or "Note (sur 5)" — the word, then nothing or a non-letter.
     const key = Object.keys(TITLES).find(k => TITLES[k].some(w => title === w || (title.startsWith(w) && !/\p{L}/u.test(title[w.length]))));
     const entry = item?.[4]?.[0];
     if (!key || !Array.isArray(entry) || !Number.isInteger(entry[0])) continue;
-    if (fields[key]) { warnings.push(`deux questions « ${LABEL[key]} » — seule la première est utilisée.`); continue; }
-    fields[key] = `entry.${entry[0]}`;
-    found.push({ field: key, title: item[1], entry: fields[key], type: item[3], required: entry[2] === 1 });
+    const target = CATEGORIES.includes(key) ? optional : fields;
+    if (target[key]) { warnings.push(`deux questions « ${LABEL[key]} » — seule la première est utilisée.`); continue; }
+    target[key] = `entry.${entry[0]}`;
+    found.push({ field: key, title: item[1], entry: target[key], type: item[3], required: entry[2] === 1 });
     if (!(item[3] in TEXT_TYPES)) warnings.push(`« ${item[1]} » n’est pas une question à texte libre : Google refusera les réponses. Choisissez « Réponse courte » ou « Paragraphe ».`);
-    if (entry[2] === 1 && key !== 'message') warnings.push(`« ${item[1]} » est obligatoire : un avis sans note serait refusé. Décochez « Obligatoire ».`);
+    if (entry[2] === 1 && key !== 'message') warnings.push(`« ${item[1]} » est obligatoire : un avis qui la laisse vide serait refusé. Décochez « Obligatoire ».`);
   }
+  const allDedicated = CATEGORIES.every(c => optional[c]);
   for (const k of Object.keys(fields)) {
-    if (!fields[k]) warnings.push(`aucune question « ${LABEL[k]} » — ce champ ne sera pas envoyé.`);
+    if (fields[k] || (k === 'message' && allDedicated)) continue;
+    warnings.push(`aucune question « ${LABEL[k]} » — ce champ ne sera pas envoyé.`);
   }
+  // In the order the backend lists them: rating, message, the categories, version, system.
+  const ordered = { rating: fields.rating, message: fields.message };
+  for (const c of CATEGORIES) if (optional[c]) ordered[c] = optional[c];
+  ordered.version = fields.version;
+  ordered.system = fields.system;
   const formUrl = responseUrlFrom(pageUrl, data);
   if (!formUrl) throw new Error('adresse de réponse introuvable — donnez le lien …/forms/d/e/…/viewform.');
-  return { config: { formUrl, fields }, found, warnings, title: typeof data?.[3] === 'string' ? data[3] : '' };
+  return { config: { formUrl, fields: ordered }, found, warnings, title: typeof data?.[3] === 'string' ? data[3] : '' };
 }
 
 async function main() {
@@ -111,11 +146,13 @@ async function main() {
   console.log(`Formulaire : ${title || '(sans titre)'}`);
   console.log(`Réponses envoyées à : ${config.formUrl}`);
   for (const f of found) {
-    console.log(`  ${LABEL[f.field].padEnd(8)} → ${f.entry}  (« ${f.title} », ${TEXT_TYPES[f.type] || `type ${f.type}`}${f.required ? ', obligatoire' : ''})`);
+    console.log(`  ${LABEL[f.field].padEnd(22)} → ${f.entry}  (« ${f.title} », ${TEXT_TYPES[f.type] || `type ${f.type}`}${f.required ? ', obligatoire' : ''})`);
   }
+  console.log('Où vont les commentaires :');
+  for (const line of routeSummary(config.fields)) console.log(`  ${line}`);
   for (const w of warnings) console.log(`  attention : ${w}`);
-  if (!config.fields.message) {
-    console.error('ÉCHEC : sans question « Message », l’avis resterait désactivé. Rien n’a été écrit.');
+  if (!config.fields.message && !CATEGORIES.every(c => config.fields[c])) {
+    console.error('ÉCHEC : sans question « Message », les catégories sans question à elles resteraient sans destination et l’avis désactivé. Ajoutez « Message », ou une question pour chacune des quatre catégories. Rien n’a été écrit.');
     process.exit(1);
   }
   if (dry) { console.log('--essai : rien n’a été écrit.'); return; }
