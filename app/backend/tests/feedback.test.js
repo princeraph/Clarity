@@ -1,9 +1,9 @@
 import { describe, test, expect } from '@jest/globals';
 import {
-  createFeedback, normalizeConfig, isPromptDue, promptPatch, buildPayload,
+  createFeedback, normalizeConfig, isPromptDue, promptPatch, buildPayload, combineMessage,
   MAX_MESSAGE, RATE_LIMIT, PROMPT_AFTER_DONE,
 } from '../src/feedback/feedback.js';
-import { parseFormPage, responseUrlFrom } from '../tools/configurer-avis.mjs';
+import { parseFormPage, responseUrlFrom, routeSummary } from '../tools/configurer-avis.mjs';
 
 const CONFIG = {
   formUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSabc/formResponse',
@@ -29,13 +29,23 @@ const make = (over = {}) => {
   return { fb, fetchImpl };
 };
 
-describe('what is sent', () => {
-  test('exactly the four form fields, and nothing else', async () => {
+// The same form, with a question of its own for every comment category.
+const DEDICATED = {
+  formUrl: CONFIG.formUrl,
+  fields: {
+    ...CONFIG.fields,
+    usability: 'entry.2000001', bugs: 'entry.2000002', suggestions: 'entry.2000003', other: 'entry.2000004',
+  },
+};
+const bodyOf = (call) => Object.fromEntries(new URLSearchParams(call.init.body));
+
+describe('what is sent — a form with only rating/message/version/system', () => {
+  test('exactly the four form fields, the comments combined into the message, and nothing else', async () => {
     const { fb, fetchImpl } = make();
     // Everything a careless caller could pass along: none of it may leave.
     const out = await fb.send({
-      rating: 'up', message: '  Très clair.  ',
-      tasks: [{ title: 'SECRET-TASK' }], settings: { apiKey: 'SECRET-KEY' }, notes: 'SECRET-NOTE',
+      rating: 4, usability: '  Très clair.  ', bugs: 'Le minuteur saute.\nÀ chaque fois.', suggestions: '', other: '   ',
+      message: 'SECRET-LEGACY', tasks: [{ title: 'SECRET-TASK' }], settings: { apiKey: 'SECRET-KEY' }, notes: 'SECRET-NOTE',
     });
     expect(out).toEqual({ sent: true });
     expect(fetchImpl.calls).toHaveLength(1);
@@ -46,50 +56,112 @@ describe('what is sent', () => {
     const body = new URLSearchParams(init.body);
     expect([...body.keys()].sort()).toEqual(['entry.1000001', 'entry.1000002', 'entry.1000003', 'entry.1000004']);
     expect(Object.fromEntries(body)).toEqual({
-      'entry.1000001': '👍',
-      'entry.1000002': 'Très clair.',
+      'entry.1000001': '4/5',
+      'entry.1000002': 'Facilité d’utilisation :\nTrès clair.\n\nBugs :\nLe minuteur saute.\nÀ chaque fois.',
       'entry.1000003': '1.2.0',
       'entry.1000004': 'win32 10.0.22631',
     });
     expect(init.body).not.toMatch(/SECRET/);
   });
 
-  test('no rating sends an empty rating field, a down vote 👎', async () => {
+  test('all four categories, in order, each under its French heading', () => {
+    const cfg = normalizeConfig(CONFIG);
+    expect(combineMessage(cfg, { usability: 'a', bugs: 'b', suggestions: 'c', other: 'd' }))
+      .toBe('Facilité d’utilisation :\na\n\nBugs :\nb\n\nSuggestions :\nc\n\nAutres commentaires :\nd');
+    expect(combineMessage(cfg, { other: 'seul' })).toBe('Autres commentaires :\nseul');
+    expect(combineMessage(cfg, {})).toBe('');
+  });
+
+  test('stars only: an empty message; no stars: an empty rating', async () => {
     const { fb, fetchImpl } = make();
-    await fb.send({ rating: null, message: 'Rien à dire' });
-    await fb.send({ rating: 'down', message: '' });
-    expect(new URLSearchParams(fetchImpl.calls[0].init.body).get('entry.1000001')).toBe('');
-    expect(new URLSearchParams(fetchImpl.calls[1].init.body).get('entry.1000001')).toBe('👎');
+    await fb.send({ rating: 5 });
+    await fb.send({ rating: null, suggestions: 'Un mode sombre' });
+    expect(bodyOf(fetchImpl.calls[0])).toMatchObject({ 'entry.1000001': '5/5', 'entry.1000002': '' });
+    expect(bodyOf(fetchImpl.calls[1])).toMatchObject({ 'entry.1000001': '', 'entry.1000002': 'Suggestions :\nUn mode sombre' });
   });
 
   test('a field the form lacks is left out rather than sent under no name', () => {
     const cfg = normalizeConfig({ ...CONFIG, fields: { ...CONFIG.fields, system: '' } });
-    const body = buildPayload(cfg, { rating: 'up', message: 'x', version: '1', system: 'linux' });
+    const body = buildPayload(cfg, { rating: 1, other: 'x', version: '1', system: 'linux' });
     expect([...body.keys()]).toEqual(['entry.1000001', 'entry.1000002', 'entry.1000003']);
   });
 
   test('a redirect (the form wants a Google sign-in) is not followed', async () => {
     const { fb, fetchImpl } = make();
-    await fb.send({ message: 'x' });
+    await fb.send({ other: 'x' });
     expect(fetchImpl.calls[0].init.redirect).toBe('manual');
+  });
+});
+
+describe('what is sent — a form with a question per category', () => {
+  test('each category goes to its own field; message stays empty', async () => {
+    const { fb, fetchImpl } = make({ config: DEDICATED });
+    await fb.send({ rating: 3, usability: 'u', bugs: 'b', suggestions: 's', other: 'o', tasks: ['SECRET'] });
+    const body = new URLSearchParams(fetchImpl.calls[0].init.body);
+    expect([...body.keys()]).toEqual([
+      'entry.1000001', 'entry.1000002',
+      'entry.2000001', 'entry.2000002', 'entry.2000003', 'entry.2000004',
+      'entry.1000003', 'entry.1000004',
+    ]);
+    expect(Object.fromEntries(body)).toEqual({
+      'entry.1000001': '3/5', 'entry.1000002': '',
+      'entry.2000001': 'u', 'entry.2000002': 'b', 'entry.2000003': 's', 'entry.2000004': 'o',
+      'entry.1000003': '1.2.0', 'entry.1000004': 'win32 10.0.22631',
+    });
+    expect(fetchImpl.calls[0].init.body).not.toMatch(/SECRET/);
+  });
+
+  test('mixed: dedicated categories go apart, the rest is combined into message', async () => {
+    const config = { formUrl: CONFIG.formUrl, fields: { ...CONFIG.fields, bugs: 'entry.2000002' } };
+    const { fb, fetchImpl } = make({ config });
+    await fb.send({ rating: null, usability: 'u', bugs: 'b', suggestions: 's' });
+    const body = bodyOf(fetchImpl.calls[0]);
+    expect(Object.keys(body).sort()).toEqual(['entry.1000001', 'entry.1000002', 'entry.1000003', 'entry.1000004', 'entry.2000002']);
+    expect(body['entry.2000002']).toBe('b');
+    expect(body['entry.1000002']).toBe('Facilité d’utilisation :\nu\n\nSuggestions :\ns');
+  });
+
+  test('without a message field, it is on only when all four categories have their own', async () => {
+    const noMessage = { ...DEDICATED, fields: { ...DEDICATED.fields, message: '' } };
+    const { fb, fetchImpl } = make({ config: noMessage });
+    expect(fb.enabled).toBe(true);
+    await fb.send({ bugs: 'b' });
+    expect(Object.keys(bodyOf(fetchImpl.calls[0]))).not.toContain('entry.1000002');
+    const three = { ...noMessage, fields: { ...noMessage.fields, other: '' } };
+    expect(createFeedback({ config: three }).enabled).toBe(false);
   });
 });
 
 describe('input is checked', () => {
   test.each([
-    [{ rating: 'meh', message: 'x' }, 'invalid-rating'],
-    [{ message: 42 }, 'invalid-message'],
-    [{ message: 'x'.repeat(MAX_MESSAGE + 1) }, 'too-long'],
-    [{ rating: null, message: '   ' }, 'empty'],
+    [{ rating: 'up', other: 'x' }, 'invalid-rating'],
+    [{ rating: 0 }, 'invalid-rating'],
+    [{ rating: 6 }, 'invalid-rating'],
+    [{ rating: 3.5 }, 'invalid-rating'],
+    [{ rating: '4' }, 'invalid-rating'],
+    [{ bugs: 42 }, 'invalid-text'],
+    [{ rating: 4, suggestions: ['x'] }, 'invalid-text'],
+    [{ usability: 'x'.repeat(MAX_MESSAGE + 1) }, 'too-long'],
+    [{ rating: 5, other: 'x'.repeat(MAX_MESSAGE + 1) }, 'too-long'],
+    [{ rating: null, usability: '   ', bugs: '', suggestions: '\n' }, 'empty'],
+    [{}, 'empty'],
+    [{ message: 'the old shape is not read' }, 'empty'],
   ])('%j is refused (%s) and nothing is posted', async (input, code) => {
     const { fb, fetchImpl } = make();
     await expect(fb.send(input)).rejects.toMatchObject({ status: 400, code });
     expect(fetchImpl.calls).toHaveLength(0);
   });
 
-  test('exactly the maximum length is accepted', async () => {
+  test.each([1, 2, 3, 4, 5])('%i star(s) alone is enough', async (n) => {
+    const { fb, fetchImpl } = make();
+    await expect(fb.send({ rating: n })).resolves.toEqual({ sent: true });
+    expect(bodyOf(fetchImpl.calls[0])['entry.1000001']).toBe(`${n}/5`);
+  });
+
+  test('exactly the maximum length is accepted, in every field at once', async () => {
     const { fb } = make();
-    await expect(fb.send({ message: 'x'.repeat(MAX_MESSAGE) })).resolves.toEqual({ sent: true });
+    const full = 'x'.repeat(MAX_MESSAGE);
+    await expect(fb.send({ usability: full, bugs: full, suggestions: full, other: full })).resolves.toEqual({ sent: true });
   });
 });
 
@@ -106,7 +178,7 @@ describe('off until configured', () => {
     const fb = createFeedback({ config, fetchImpl });
     expect(fb.enabled).toBe(false);
     expect(fb.isDue({ firstUseAt: '2000-01-01T00:00:00Z' }, Array(10).fill({ status: 'done' }))).toBe(false);
-    await expect(fb.send({ message: 'x' })).rejects.toMatchObject({ status: 404, code: 'disabled' });
+    await expect(fb.send({ other: 'x' })).rejects.toMatchObject({ status: 404, code: 'disabled' });
     expect(fetchImpl.calls).toHaveLength(0);
   });
 
@@ -133,12 +205,12 @@ describe('off until configured', () => {
 describe('failures', () => {
   test('anything but 200 is a 502', async () => {
     const { fb } = make({ fetchImpl: fakeFetch({ status: 302 }) });
-    await expect(fb.send({ message: 'x' })).rejects.toMatchObject({ status: 502, code: 'rejected' });
+    await expect(fb.send({ other: 'x' })).rejects.toMatchObject({ status: 502, code: 'rejected' });
   });
 
   test('an unreachable form is a 502', async () => {
     const { fb } = make({ fetchImpl: fakeFetch({ fail: new Error('ENOTFOUND') }) });
-    await expect(fb.send({ message: 'x' })).rejects.toMatchObject({ status: 502, code: 'unreachable' });
+    await expect(fb.send({ other: 'x' })).rejects.toMatchObject({ status: 502, code: 'unreachable' });
   });
 
   test('a form that never answers times out as a 502', async () => {
@@ -146,7 +218,7 @@ describe('failures', () => {
       init.signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; reject(e); });
     });
     const { fb } = make({ fetchImpl: hang, timeoutMs: 20 });
-    await expect(fb.send({ message: 'x' })).rejects.toMatchObject({ status: 502, code: 'timeout' });
+    await expect(fb.send({ other: 'x' })).rejects.toMatchObject({ status: 502, code: 'timeout' });
   });
 });
 
@@ -154,21 +226,21 @@ describe('rate limit', () => {
   test(`at most ${RATE_LIMIT} sends an hour, then 429 without posting; the window slides`, async () => {
     let t = Date.parse('2026-10-06T10:00:00Z');
     const { fb, fetchImpl } = make({ now: () => new Date(t) });
-    for (let i = 0; i < RATE_LIMIT; i++) { await fb.send({ message: `m${i}` }); t += 60_000; }
-    await expect(fb.send({ message: 'one too many' })).rejects.toMatchObject({ status: 429, code: 'rate-limited' });
+    for (let i = 0; i < RATE_LIMIT; i++) { await fb.send({ other: `m${i}` }); t += 60_000; }
+    await expect(fb.send({ other: 'one too many' })).rejects.toMatchObject({ status: 429, code: 'rate-limited' });
     expect(fetchImpl.calls).toHaveLength(RATE_LIMIT);
     t = Date.parse('2026-10-06T11:00:00Z');          // the first send is now an hour old
-    await expect(fb.send({ message: 'again' })).resolves.toEqual({ sent: true });
-    await expect(fb.send({ message: 'and again' })).rejects.toMatchObject({ status: 429 });
+    await expect(fb.send({ other: 'again' })).resolves.toEqual({ sent: true });
+    await expect(fb.send({ other: 'and again' })).rejects.toMatchObject({ status: 429 });
   });
 
   test('a failed send does not use up the allowance', async () => {
     let status = 500;
     const fetchImpl = async () => ({ status, ok: status === 200 });
     const { fb } = make({ fetchImpl });
-    for (let i = 0; i < RATE_LIMIT + 2; i++) await expect(fb.send({ message: 'x' })).rejects.toMatchObject({ status: 502 });
+    for (let i = 0; i < RATE_LIMIT + 2; i++) await expect(fb.send({ other: 'x' })).rejects.toMatchObject({ status: 502 });
     status = 200;
-    await expect(fb.send({ message: 'x' })).resolves.toEqual({ sent: true });
+    await expect(fb.send({ other: 'x' })).resolves.toEqual({ sent: true });
   });
 });
 
@@ -272,6 +344,64 @@ describe('configurer-avis reads a public form page', () => {
   test('the editor link and a page without a form are refused with a reason', () => {
     expect(() => parseFormPage(page(data), 'https://docs.google.com/forms/d/abc123/edit')).toThrow(/éditeur/);
     expect(() => parseFormPage('<html>nothing</html>', VIEW)).toThrow(/FB_PUBLIC_LOAD_DATA_/);
+  });
+
+  // The four optional category questions, titled the way a person would type them.
+  const withCategories = (titles) => {
+    const d = structuredClone(data);
+    d[1][1].splice(2, 0, ...titles.map((t, i) => [600 + i, t, null, 1, [[2000001 + i, null, 0]]]));
+    return d;
+  };
+
+  test('the four category questions, French titles with accents and a curly apostrophe', () => {
+    const d = withCategories(['Facilité d’utilisation', 'Bugs', 'Suggestions', 'Autres commentaires']);
+    const { config, warnings, found } = parseFormPage(page(d), VIEW);
+    expect(config).toEqual(DEDICATED);
+    expect(Object.keys(config.fields)).toEqual(['rating', 'message', 'usability', 'bugs', 'suggestions', 'other', 'version', 'system']);
+    expect(found.map(f => f.field)).toEqual(['rating', 'message', 'usability', 'bugs', 'suggestions', 'other', 'version', 'system']);
+    expect(warnings).toEqual([]);
+    expect(routeSummary(config.fields).every(l => /sa propre question/.test(l))).toBe(true);
+  });
+
+  test('English titles, any case, no accents, trailing decoration', () => {
+    const d = withCategories(['USABILITY', 'bugs:', 'Suggestions (optional)', 'Other comments?']);
+    expect(parseFormPage(page(d), VIEW).config).toEqual(DEDICATED);
+    const fr = withCategories(["FACILITE D'UTILISATION", 'Bug', 'suggestion', 'autres  commentaires']);
+    expect(parseFormPage(page(fr), VIEW).config).toEqual(DEDICATED);
+  });
+
+  test('some categories only: those get a field, the summary sends the rest to Message', () => {
+    const d = withCategories(['Bugs', 'Suggestions']);
+    const { config, warnings } = parseFormPage(page(d), VIEW);
+    expect(config.fields).toEqual({ ...CONFIG.fields, bugs: 'entry.2000001', suggestions: 'entry.2000002' });
+    expect(warnings).toEqual([]);                    // a missing category is not a problem
+    const summary = routeSummary(config.fields);
+    expect(summary[0]).toMatch(/Facilité d’utilisation.*regroupée dans « Message » \(entry\.1000002\)/);
+    expect(summary[1]).toMatch(/Bugs.*sa propre question \(entry\.2000001\)/);
+    expect(summary[3]).toMatch(/Autres commentaires.*regroupée dans « Message »/);
+    expect(createFeedback({ config }).enabled).toBe(true);
+  });
+
+  test('no Message is fine when all four categories have their own question, and only then', () => {
+    const all = withCategories(['Facilité d’utilisation', 'Bugs', 'Suggestions', 'Autres commentaires']);
+    all[1][1].splice(1, 1);                          // no Message
+    const { config, warnings } = parseFormPage(page(all), VIEW);
+    expect(config.fields.message).toBe('');
+    expect(warnings).toEqual([]);
+    expect(createFeedback({ config }).enabled).toBe(true);
+
+    const three = withCategories(['Bugs', 'Suggestions', 'Autres commentaires']);
+    three[1][1].splice(1, 1);
+    const out = parseFormPage(page(three), VIEW);
+    expect(out.warnings.join('\n')).toMatch(/Message/);
+    expect(routeSummary(out.config.fields)[0]).toMatch(/nulle part/);
+    expect(createFeedback({ config: out.config }).enabled).toBe(false);
+  });
+
+  test('a required category question is reported', () => {
+    const d = withCategories(['Bugs']);
+    d[1][1][2][4][0][2] = 1;
+    expect(parseFormPage(page(d), VIEW).warnings.join('\n')).toMatch(/« Bugs » est obligatoire/);
   });
 
   test('the response address comes from the URL, or from the page when the URL lacks it', () => {
