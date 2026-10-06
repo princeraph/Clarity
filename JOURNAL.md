@@ -541,6 +541,30 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
 
 ---
 
+## 6 octobre — livrer Clarity à des amis
+
+- **Mises à jour automatiques.** L'app installée cherche une nouvelle version
+  dans le dépôt public `clarity-releases` (installateurs seulement), la
+  télécharge en arrière-plan et propose « Mise à jour prête · Redémarrer ».
+  Publier = un tag `vX.Y.Z` ; le workflow `publication` fait le reste. La
+  version ne vit plus qu'à un endroit, `app/package.json`.
+- **Page de téléchargement** (GitHub Pages) avec une animation qui montre les
+  quatre étapes, avertissement SmartScreen compris — l'installateur n'est pas
+  signé. Animation aussi dans Réglages pour connecter Claude Desktop.
+- **Avis des testeurs** : invitation après 7 jours et 5 tâches terminées, et
+  « Donner un avis » à tout moment. Part vers un Google Form : la note, le
+  message, la version, le système — jamais les tâches. Rien n'est envoyé
+  sans un clic sur « Envoyer ».
+- **Connecteur Claude** : la détection de Claude Desktop affirmait qu'il était
+  absent chez quelqu'un qui l'avait (une seule clé de registre regardée) ;
+  elle ne bloque plus jamais. Sept actions de plus pour Claude.
+- Un test d'invariant (« chaque route qui écrit recalcule le profil ») ne
+  voyait plus les écritures déplacées dans des fonctions partagées — 287 tests
+  devenus 284 sans alerte. Il suit désormais les appels ; vérifié en retirant
+  un recalcul sur copie.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

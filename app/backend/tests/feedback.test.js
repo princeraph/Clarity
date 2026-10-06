@@ -110,10 +110,19 @@ describe('off until configured', () => {
     expect(fetchImpl.calls).toHaveLength(0);
   });
 
-  test('the shipped feedback.json is empty, so a fresh clone sends nothing', async () => {
+  // Configured on 6 October (the owner's « Avis Clarity » form). What ships must
+  // still be either nothing, or a Google Form with all four fields — never an
+  // address that is not Google's, and never a half-filled config.
+  test('the shipped feedback.json is empty, or a complete Google Form', async () => {
     const { readFileSync } = await import('fs');
     const shipped = JSON.parse(readFileSync(new URL('../feedback.json', import.meta.url), 'utf8'));
-    expect(createFeedback({ config: shipped }).enabled).toBe(false);
+    if (!shipped.formUrl) {
+      expect(createFeedback({ config: shipped }).enabled).toBe(false);
+      return;
+    }
+    expect(shipped.formUrl).toMatch(/^https:\/\/docs\.google\.com\/forms\/d\/e\/[\w-]+\/formResponse$/);
+    for (const k of ['rating', 'message', 'version', 'system']) expect(shipped.fields[k]).toMatch(/^entry\.\d+$/);
+    expect(createFeedback({ config: shipped }).enabled).toBe(true);
   });
 
   test('a configured form is enabled', () => {

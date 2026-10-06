@@ -226,6 +226,23 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx) and are sorted by `aiData.p
   in the **same** commit — see `CONTRIBUTING.md`, it is the rule that breaks
   fastest and shows least
 
+### Publishing a version for testers
+
+Testers install `Clarity-Setup.exe` from https://princeraph.github.io/clarity-releases/
+and the installed app updates itself from the **public** repo
+`princeraph/clarity-releases` (installers and the download page only — never
+source, never data). To publish:
+
+1. Bump `version` in `app/package.json` — the only place the version lives
+   (Electron reads it and passes it to the backend as `CLARITY_VERSION`).
+2. Merge into `main` once CI is green, as for any change.
+3. Tag that `main` commit `vX.Y.Z` and push the tag. The `publication`
+   workflow checks the tag matches the version, builds, publishes the release
+   to `clarity-releases` with the secret `CLARITY_RELEASES_TOKEN`, and copies
+   `app/release-site/` to that repo (GitHub Pages serves it).
+
+A version must be higher than the testers' or electron-updater ignores it.
+
 This repo was extracted from `princeraph/Personal-Work` by `git subtree split`,
 which is why the history before the extraction says `projet-clarity/app/` where
 this repo says `app/`. That history is real and complete; only the prefix moved.
