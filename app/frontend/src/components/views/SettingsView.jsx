@@ -1684,7 +1684,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
 
             <Section title={t('settings.about.system')} T={T}>
               {[
-                [t('settings.about.version'), '1.2.0', null],
+                [t('settings.about.version'), health?.version || '—', null],
                 [t('settings.data.storage'), t('tray.onDevice'), t('settings.about.storedIn')],
                 [t('settings.about.providers'), 'Ollama · OpenAI · Anthropic · OpenRouter', null],
                 [t('settings.about.platform'), window.navigator.platform || t('time.unknown'), null],
