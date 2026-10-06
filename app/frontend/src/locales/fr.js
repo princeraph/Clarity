@@ -688,7 +688,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Les mises à jour s’annoncent dès l’ouverture : maintenant ou plus tard, c’est vous qui choisissez.\nVous voyez la mise à jour se télécharger et s’installer, et Clarity vous confirme quand c’est fini.\nRéglages › À propos affiche la bonne version.',
+  'update.news': 'Pendant une mise à jour, une fenêtre montre l’installation, puis se ferme toute seule quand Clarity se rouvre.\nLes nouvelles versions s’annoncent dès l’ouverture : « Mettre à jour maintenant » ou « Plus tard ».\nLes nouveautés s’affichent en liste à puces, comme ici.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

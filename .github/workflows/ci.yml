@@ -316,6 +316,41 @@ jobs:
           "discussion par Ollama : $(([regex]::Matches($chat.Content, '"token"')).Count) morceaux reçus"
           Stop-Process -Id $p.Id -Force
 
+      # Une mise à jour, telle qu'electron-updater la lance après « Mettre à
+      # jour maintenant » : silencieuse demandée, relance demandée. 1.3.1 et
+      # 1.3.2 installaient sans rien montrer pendant que Clarity était fermé.
+      # L'installateur (build/installer.nsh) doit se montrer quand même, ne
+      # demander aucun clic, se fermer seul, et rouvrir Clarity.
+      - name: une mise à jour se voit, se ferme seule et rouvre Clarity
+        shell: pwsh
+        timeout-minutes: 8
+        run: |
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          $setup = (Get-ChildItem app/dist-electron -Filter 'Clarity-Setup.exe' | Select-Object -First 1).FullName
+          $debut = Get-Date
+          $p = Start-Process -PassThru -FilePath $setup -ArgumentList '--updated', '/S', '--force-run'
+          $fenetre = $null
+          while (-not $p.HasExited -and ((Get-Date) - $debut).TotalSeconds -lt 300) {
+            $p.Refresh()
+            if (-not $fenetre -and $p.MainWindowHandle -ne 0) {
+              $fenetre = $p.MainWindowTitle
+              "fenêtre de l'installateur après $([int]((Get-Date) - $debut).TotalSeconds) s : « $fenetre »"
+            }
+            Start-Sleep -Milliseconds 200
+          }
+          if (-not $p.HasExited) { Write-Error "l'installateur attend encore après 300 s : une page demande un clic ?"; exit 1 }
+          "installateur fermé seul après $([int]((Get-Date) - $debut).TotalSeconds) s"
+          if (-not $fenetre) { Write-Error "aucune fenêtre pendant la mise à jour : elle est restée silencieuse"; exit 1 }
+          $rouvert = $null
+          for ($i = 0; $i -lt 60 -and -not $rouvert; $i++) {
+            $rouvert = Get-Process Clarity -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt $debut } | Select-Object -First 1
+            if (-not $rouvert) { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $rouvert) { Write-Error "Clarity ne s'est pas rouvert après la mise à jour"; exit 1 }
+          "Clarity rouvert : $((Get-CimInstance Win32_Process -Filter "ProcessId=$($rouvert.Id)").CommandLine)"
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
+
       # Qui modifie frontend/src/ sous Windows reconstruit dist/ et le commite.
       # Ce build doit rendre les octets déjà versionnés : il en rendait un de
       # trop (un CRLF sur `<div id="root"></div>`), ce qui bloquait le pull.

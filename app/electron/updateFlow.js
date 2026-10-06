@@ -7,13 +7,14 @@
 //
 // Now: a new version is announced in a window as soon as Clarity opens, with
 // "now" or "later". "Now" shows the download, then says that Clarity will close
-// and reopen, and a Windows notification covers the seconds when no window is
-// left. "Later" lets the download finish quietly; it installs when the person
-// quits. Either way, the next launch says that Clarity is up to date.
+// and reopen. "Later" lets the download finish quietly; it installs when the
+// person quits. Either way, the next launch says that Clarity is up to date.
 //
-// The installer itself stays silent: the assisted NSIS installer, run visibly,
-// would walk the person through its pages and a "Finish" button for an update
-// they already agreed to.
+// While Clarity is closed, the installer shows its own progress window, with
+// no page and no "Finish" to click (build/installer.nsh). The app still asks
+// for a silent install: an older app always does, so the installer — the new
+// version's code — is what decides to show itself. The notification sent here
+// is for whoever looks away during those seconds.
 
 const PHASES = ['downloading', 'ready', 'installing', 'error'];
 

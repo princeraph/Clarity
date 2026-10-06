@@ -579,6 +579,18 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   chaque version). L'installateur reste silencieux : visible, l'assistant NSIS
   ferait cliquer sur ses pages et un « Terminer ». Logique dans
   `electron/updateFlow.js`, testée sans Electron.
+- **1.3.3 : la fenêtre pendant l'installation.** Retour de test de 1.3.2 : la
+  mise à jour 1.3.1 → 1.3.2 n'a toujours rien montré pendant que Clarity était
+  fermé — normal, elle exécutait le code de 1.3.1. Leçon : une app ne peut pas
+  corriger sa propre mise à jour, seulement la suivante. Ce qui s'exécute
+  pendant l'installation, c'est l'installateur de la NOUVELLE version : c'est
+  lui qui se montre désormais (`build/installer.nsh` : `SetSilent normal` en
+  mise à jour, aucune page, pas de « Terminer », Clarity relancé), même si
+  l'app demande le silence. Une fenêtre PowerShell lancée par l'installateur
+  avait d'abord été envisagée, puis abandonnée : elle passait par un
+  contournement de la stratégie d'exécution. La CI Windows rejoue une vraie
+  mise à jour et exige la fenêtre, la fermeture sans clic, et Clarity rouvert.
+  Les puces des nouveautés manquaient : un `<ul>` en flex perd ses puces.
 
 ---
 

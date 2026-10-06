@@ -46,8 +46,10 @@ export default function UpdateDialog() {
       content = (
         <div style={{ textAlign: 'left', width: '100%', background: T.paperSubtle, border: `1px solid ${T.hairlineSoft}`, borderRadius: T.r10, padding: '12px 14px' }}>
           <div style={{ fontSize: 12, fontWeight: 500, color: T.ink60, marginBottom: 6 }}>{t('update.done.news')}</div>
-          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {news.map(n => <li key={n} style={{ fontSize: 13, color: T.ink80, lineHeight: 1.45 }}>{n}</li>)}
+          {/* A flex <ul> loses its bullets (its items stop being list items),
+              and the global reset removes them too: both set back here. */}
+          <ul style={{ margin: 0, paddingLeft: 18, listStyle: 'disc' }}>
+            {news.map(n => <li key={n} style={{ fontSize: 13, color: T.ink80, lineHeight: 1.45, marginTop: 4 }}>{n}</li>)}
           </ul>
         </div>
       );
