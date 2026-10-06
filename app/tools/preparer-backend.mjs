@@ -20,7 +20,9 @@ const OUT = join(APP, '.backend-pkg');
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
-for (const entry of ['server.js', 'src', 'package.json', 'package-lock.json']) {
+// feedback.json names the testers' feedback form (empty = feedback off). It sits
+// next to server.js, which reads it from there.
+for (const entry of ['server.js', 'src', 'feedback.json', 'package.json', 'package-lock.json']) {
   const from = join(SRC, entry);
   if (!existsSync(from)) throw new Error(`missing ${from}`);
   cpSync(from, join(OUT, entry), { recursive: true });

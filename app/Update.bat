@@ -87,7 +87,7 @@ call npm run package || goto :echec
 echo.
 echo  [4/4] Updating the installed app...
 set "INSTALLEUR="
-for %%f in ("dist-electron\Clarity Setup *.exe") do set "INSTALLEUR=%%f"
+for %%f in ("dist-electron\Clarity-Setup.exe") do set "INSTALLEUR=%%f"
 if not defined INSTALLEUR goto :echec
 start /wait "" "%INSTALLEUR%" /S
 if errorlevel 1 goto :echec

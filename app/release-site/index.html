@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clarity — Télécharger</title>
+<meta name="description" content="Clarity, un gestionnaire de tâches personnel avec un assistant IA qui tourne sur votre ordinateur. Téléchargement pour Windows.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 92 92'%3E%3Cpath d='M46 8 A38 38 0 1 0 78 65' stroke='%2319191A' stroke-width='7' stroke-linecap='round' fill='none'/%3E%3Cpath d='M46 22 A24 24 0 1 0 66 58' stroke='%2319191A' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='46' cy='46' r='8' fill='%232c5aa0'/%3E%3C/svg%3E">
+<!--
+  Page de téléchargement de Clarity, servie par GitHub Pages depuis le dépôt
+  public princeraph/clarity-releases. Un seul fichier, sans police, script ni
+  image venus d'ailleurs : elle s'affiche pareil hors ligne, et ne dit rien
+  à personne de qui la consulte.
+-->
+<style>
+  :root {
+    --paper: #FAFAF7; --paper-subtle: #F4F3EE; --paper-muted: #EEEDE7; --panel: #FFFFFF;
+    --ink: #19191A; --ink80: rgba(25,25,26,.80); --ink60: rgba(25,25,26,.64); --ink40: rgba(25,25,26,.40); --ink20: rgba(25,25,26,.16);
+    --hairline: rgba(25,25,26,.10);
+    --accent: #2c5aa0; --accent: oklch(0.48 0.13 258);
+    --accent-soft: #e7eef9; --accent-soft: oklch(0.94 0.03 258);
+    --on-accent: #FFFFFF;
+    --success: #2f7a55; --success-soft: #dcefe4;
+    --shield: #1d5fb0; --shield-ink: #FFFFFF;
+    --shadow: 0 10px 30px rgba(25,25,26,.10), 0 2px 6px rgba(25,25,26,.06);
+    --font: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #16161A; --paper-subtle: #1C1C20; --paper-muted: #24242A; --panel: #1E1E22;
+      --ink: #F4F3EE; --ink80: rgba(244,243,238,.82); --ink60: rgba(244,243,238,.66); --ink40: rgba(244,243,238,.40); --ink20: rgba(244,243,238,.16);
+      --hairline: rgba(255,255,255,.10);
+      --accent: #7aa2e6; --accent: oklch(0.70 0.12 258);
+      --accent-soft: #263552; --accent-soft: oklch(0.30 0.06 258);
+      --on-accent: #111114;
+      --success: #6cc39a; --success-soft: #1f3b2e;
+      --shield: #1d5fb0;
+      --shadow: 0 10px 30px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--font); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  header.top { display: flex; align-items: center; gap: 10px; padding: 22px 0 0; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -.01em; }
+  .brand svg { width: 24px; height: 24px; }
+  .spacer { flex: 1; }
+  .lang {
+    font: inherit; font-size: 14px; color: var(--ink80); background: transparent;
+    border: 1px solid var(--hairline); border-radius: 999px; padding: 5px 14px; cursor: pointer;
+  }
+  .lang:hover { background: var(--paper-subtle); }
+
+  .hero { padding: 64px 0 40px; }
+  h1 { font-size: clamp(44px, 9vw, 64px); line-height: 1; letter-spacing: -.035em; margin: 0 0 18px; font-weight: 600; }
+  .pitch { font-size: clamp(18px, 2.6vw, 21px); line-height: 1.5; color: var(--ink80); margin: 0 0 32px; max-width: 34em; }
+  .download {
+    display: inline-flex; align-items: center; gap: 12px; text-decoration: none;
+    background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 18px;
+    padding: 16px 26px; border-radius: 12px; box-shadow: var(--shadow);
+    transition: transform .15s ease, filter .15s ease;
+  }
+  .download:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .download svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .meta { margin: 14px 0 0; font-size: 14px; color: var(--ink60); }
+  .meta span + span::before { content: "·"; margin: 0 8px; color: var(--ink40); }
+
+  section { padding: 40px 0; border-top: 1px solid var(--hairline); }
+  h2 { font-size: 24px; letter-spacing: -.02em; margin: 0 0 8px; font-weight: 600; }
+  .lede { margin: 0 0 24px; color: var(--ink80); }
+
+  /* ── The install animation ─────────────────────────────────────────────
+     Drawn at 640 × 360 in plain pixels, then scaled to its box by a
+     ResizeObserver (--k). Every animation is a CSS keyframe built by the
+     script below from one timeline, so the frozen frames shown when motion
+     is reduced are the same drawing paused at chosen instants. */
+  .stage-box { position: relative; width: 100%; aspect-ratio: 640 / 360; overflow: hidden; border-radius: 14px; background: var(--paper-muted); border: 1px solid var(--hairline); }
+  .stage { position: absolute; left: 0; top: 0; width: 640px; height: 360px; transform-origin: 0 0; transform: scale(var(--k, 1)); font-family: var(--font); line-height: 1.35; color: var(--ink); user-select: none; }
+  .stage * { box-sizing: border-box; }
+  .abs { position: absolute; }
+  .win { position: absolute; background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  .bar { position: absolute; height: 6px; border-radius: 3px; background: var(--ink20); }
+  .titlebar { position: absolute; left: 0; right: 0; top: 0; height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 11.5px; font-weight: 600; color: var(--ink80); background: var(--paper-subtle); border-bottom: 1px solid var(--hairline); }
+  .titlebar .ctl { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+  .ctl i { display: block; width: 9px; height: 1.5px; background: var(--ink40); }
+  .ctl i:nth-child(2) { height: 8px; width: 8px; background: none; border: 1.2px solid var(--ink40); }
+  .ctl i:nth-child(3) { background: none; position: relative; height: 9px; }
+  .ctl i:nth-child(3)::before, .ctl i:nth-child(3)::after { content: ""; position: absolute; left: 4px; top: -1px; width: 1.4px; height: 11px; background: var(--ink40); transform: rotate(45deg); }
+  .ctl i:nth-child(3)::after { transform: rotate(-45deg); }
+  .btn { position: absolute; display: grid; place-items: center; border-radius: 5px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .btn > span { grid-area: 1 / 1; }
+  .cursor { position: absolute; width: 18px; height: 25px; transform-origin: 0 0; z-index: 10; }
+  .ripple { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--accent); opacity: 0; z-index: 9; }
+
+  .smartscreen { background: var(--shield); color: var(--shield-ink); border: none; border-radius: 4px; }
+  .smartscreen .btn { border: 1.5px solid rgba(255,255,255,.85); color: #fff; font-size: 11px; }
+
+  .steps-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 0; }
+  .steps-bar div { height: 3px; border-radius: 2px; background: var(--hairline); overflow: hidden; }
+  .steps-bar div i { display: block; height: 100%; background: var(--accent); opacity: 0; }
+
+  ol.steps { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 14px; counter-reset: s; }
+  ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+  ol.steps > li::before {
+    content: counter(s); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+    font: 600 14px var(--mono); background: var(--accent-soft); color: var(--ink);
+  }
+  ol.steps > li > div { padding-top: 3px; }
+  ol.steps .frame { margin-top: 10px; max-width: 520px; }
+  .frames-only { display: none; }
+  .reduce .frames-only { display: block; }
+  .reduce .animated-only { display: none; }
+
+  .why { margin: 28px 0 0; padding: 16px 18px; border-radius: 12px; background: var(--paper-subtle); border: 1px solid var(--hairline); color: var(--ink80); }
+  .why strong { color: var(--ink); }
+  kbd, .ui { font-family: inherit; font-weight: 600; color: var(--ink); }
+
+  .update-pill { display: inline-block; font-size: 13px; padding: 2px 10px; border-radius: 6px; background: var(--accent-soft); color: var(--ink); border: 1px solid var(--hairline); white-space: nowrap; }
+  footer { padding: 32px 0 48px; font-size: 14px; color: var(--ink60); border-top: 1px solid var(--hairline); }
+  footer a { color: var(--ink80); }
+
+  @media (max-width: 520px) {
+    .hero { padding-top: 44px; }
+    .download { width: 100%; justify-content: center; }
+    .steps-bar { gap: 5px; }
+  }
+  /* Without the script there is no animation to pause: show the end. */
+  @media (prefers-reduced-motion: reduce) {
+    .stage *, .stage { animation-play-state: paused !important; }
+    .download { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 92 92" aria-hidden="true"><path d="M46 8 A38 38 0 1 0 78 65" stroke="currentColor" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M46 22 A24 24 0 1 0 66 58" stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none"/><circle cx="46" cy="46" r="7.5" fill="var(--accent)"/></svg>
+      Clarity
+    </div>
+    <span class="spacer"></span>
+    <button type="button" class="lang" id="lang" lang="en">English</button>
+  </header>
+
+  <main>
+    <div class="hero">
+      <h1>Clarity</h1>
+      <p class="pitch" data-i18n="pitch">Un gestionnaire de tâches personnel, avec un assistant IA qui tourne sur votre ordinateur. Vos tâches restent chez vous : rien ne part sur Internet sans que vous l’ayez choisi.</p>
+      <a class="download" href="https://github.com/princeraph/clarity-releases/releases/latest/download/Clarity-Setup.exe">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
+        <span data-i18n="download">Télécharger pour Windows</span>
+      </a>
+      <p class="meta"><span data-i18n="meta.windows">Windows 10 et 11</span><span data-i18n="meta.free">Gratuit</span><span data-i18n="meta.mac">Version Mac bientôt</span></p>
+    </div>
+
+    <section id="installer" aria-labelledby="h-install">
+      <h2 id="h-install" data-i18n="install.title">Installer Clarity</h2>
+      <p class="lede" data-i18n="install.lede">La première fois, Windows affiche un avertissement en bleu. C’est attendu : voici exactement quoi faire.</p>
+
+      <div class="animated-only">
+        <div class="stage-box" role="img" data-i18n-aria="install.alt" aria-label="Animation de l’installation en quatre étapes : ouvrir le fichier téléchargé ; dans l’avertissement bleu de Windows, cliquer sur « Informations complémentaires » puis « Exécuter quand même » ; suivre l’installation jusqu’à « Fermer » ; Clarity s’ouvre.">
+          <div class="stage" id="stage" aria-hidden="true">
+            <!-- 1 — the browser, with the download finished -->
+            <div class="win" style="left:20px;top:16px;width:600px;height:328px">
+              <div class="titlebar" style="background:var(--paper-muted)">
+                <span class="abs" style="left:10px;top:6px;width:150px;height:22px;border-radius:7px 7px 0 0;background:var(--panel)"></span>
+                <span class="abs" style="left:22px;top:13px;width:80px;height:6px;border-radius:3px;background:var(--ink20)"></span>
+                <span class="ctl"><i></i><i></i><i></i></span>
+              </div>
+              <div class="abs" style="left:0;right:0;top:28px;height:34px;border-bottom:1px solid var(--hairline);background:var(--panel)">
+                <span class="abs" style="left:12px;top:12px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink40)"></span>
+                <span class="abs" style="left:32px;top:12px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--ink40)"></span>
+                <span class="abs" style="left:56px;top:7px;width:420px;height:20px;border-radius:10px;background:var(--paper-subtle)"></span>
+                <span class="abs" style="left:72px;top:14px;width:170px;height:6px;border-radius:3px;background:var(--ink20)"></span>
+                <svg class="abs" style="left:556px;top:8px;width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
+              </div>
+              <!-- the page behind: this very page, sketched -->
+              <div class="abs" style="left:40px;top:96px;font-size:30px;font-weight:600;letter-spacing:-.03em">Clarity</div>
+              <span class="bar" style="left:40px;top:144px;width:300px"></span>
+              <span class="bar" style="left:40px;top:158px;width:240px"></span>
+              <span class="abs" style="left:40px;top:182px;width:170px;height:34px;border-radius:8px;background:var(--accent)"></span>
+              <span class="bar" style="left:40px;top:244px;width:120px;height:10px"></span>
+              <span class="bar" style="left:40px;top:266px;width:320px"></span>
+              <span class="bar" style="left:40px;top:280px;width:280px"></span>
+              <!-- the downloads panel, under the toolbar on the right -->
+              <div class="abs" data-a="flyout" style="left:350px;top:58px;width:236px;height:96px;border-radius:9px;background:var(--panel);border:1px solid var(--hairline);box-shadow:var(--shadow)">
+                <div class="abs" style="left:14px;top:9px;font-size:11px;font-weight:600" data-i18n="a.downloads">Téléchargements</div>
+                <div class="abs" style="left:10px;top:32px;width:216px;height:54px;border-radius:7px;background:var(--paper-subtle)"></div>
+                <div class="abs" style="left:20px;top:40px;width:28px;height:36px;border-radius:4px;background:var(--panel);border:1px solid var(--hairline)">
+                  <svg viewBox="0 0 92 92" style="position:absolute;left:5px;top:9px;width:17px;height:17px" aria-hidden="true"><path d="M46 8 A38 38 0 1 0 78 65" stroke="var(--ink)" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M46 22 A24 24 0 1 0 66 58" stroke="var(--ink)" stroke-width="7" stroke-linecap="round" fill="none"/><circle cx="46" cy="46" r="9" fill="var(--accent)"/></svg>
+                </div>
+                <div class="abs" style="left:58px;top:41px;font-size:11.5px;font-weight:600">Clarity-Setup.exe</div>
+                <div class="abs" style="left:58px;top:60px;font-size:11px;color:var(--accent);text-decoration:underline" data-i18n="a.openFile">Ouvrir le fichier</div>
+              </div>
+            </div>
+
+            <!-- 2 — Windows' blue warning -->
+            <div class="win smartscreen" data-a="shield" style="left:140px;top:30px;width:360px;height:300px">
+              <div class="abs" style="left:334px;top:10px;font-size:11px;opacity:.85">✕</div>
+              <div class="abs" style="left:24px;top:34px;width:310px;font-size:21px;font-weight:300;line-height:1.2" data-i18n="a.shieldTitle">Windows a protégé votre ordinateur</div>
+              <div class="abs" style="left:24px;top:92px;width:310px;font-size:11px;line-height:1.45;opacity:.95" data-i18n="a.shieldBody">SmartScreen a empêché le démarrage d’une application qu’il ne connaît pas encore.</div>
+              <div class="abs" style="left:24px;top:130px;font-size:11px;text-decoration:underline" data-a="more" data-i18n="a.more">Informations complémentaires</div>
+              <div class="abs" data-a="details" style="left:24px;top:134px;width:310px;font-size:11px;line-height:1.7">
+                <div><span data-i18n="a.app">Application :</span> Clarity-Setup.exe</div>
+                <div data-i18n="a.publisher">Éditeur : Éditeur inconnu</div>
+              </div>
+              <div class="btn" data-a="runAnyway" style="left:82px;top:258px;width:142px;height:28px"><span data-i18n="a.runAnyway">Exécuter quand même</span></div>
+              <div class="btn" style="left:232px;top:258px;width:112px;height:28px"><span data-i18n="a.dontRun">Ne pas exécuter</span></div>
+            </div>
+
+            <!-- 3 — the installer -->
+            <div class="win" data-a="setup" style="left:160px;top:50px;width:320px;height:250px">
+              <div class="titlebar">
+                <svg viewBox="0 0 92 92" style="width:13px;height:13px" aria-hidden="true"><path d="M46 8 A38 38 0 1 0 78 65" stroke="var(--ink)" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M46 22 A24 24 0 1 0 66 58" stroke="var(--ink)" stroke-width="7" stroke-linecap="round" fill="none"/><circle cx="46" cy="46" r="9" fill="var(--accent)"/></svg>
+                <span data-i18n="a.setupTitle">Installation de Clarity</span>
+                <span class="ctl"><i></i><i></i><i></i></span>
+              </div>
+              <!-- page A: who for, Next -->
+              <div class="abs" data-a="pageA" style="inset:28px 0 44px 0">
+                <span class="bar" style="left:20px;top:20px;width:170px;height:9px;background:var(--ink40)"></span>
+                <span class="bar" style="left:20px;top:38px;width:240px"></span>
+                <span class="abs" style="left:24px;top:70px;width:12px;height:12px;border-radius:50%;border:3.5px solid var(--accent)"></span>
+                <span class="bar" style="left:44px;top:73px;width:140px"></span>
+                <span class="abs" style="left:24px;top:94px;width:12px;height:12px;border-radius:50%;border:1.5px solid var(--ink40)"></span>
+                <span class="bar" style="left:44px;top:97px;width:110px"></span>
+              </div>
+              <!-- page B: where, Install -->
+              <div class="abs" data-a="pageB" style="inset:28px 0 44px 0">
+                <span class="bar" style="left:20px;top:20px;width:150px;height:9px;background:var(--ink40)"></span>
+                <span class="bar" style="left:20px;top:38px;width:220px"></span>
+                <span class="abs" style="left:20px;top:70px;width:210px;height:22px;border-radius:4px;border:1px solid var(--hairline);background:var(--paper-subtle)"></span>
+                <span class="bar" style="left:28px;top:78px;width:150px"></span>
+                <span class="abs" style="left:238px;top:70px;width:62px;height:22px;border-radius:4px;border:1px solid var(--hairline)"></span>
+              </div>
+              <!-- page C: progress -->
+              <div class="abs" data-a="pageC" style="inset:28px 0 44px 0">
+                <div class="abs" style="left:20px;top:16px;font-size:13px;font-weight:600" data-i18n="a.installing">Installation en cours</div>
+                <div class="abs" style="left:20px;top:64px;width:280px;height:10px;border-radius:5px;background:var(--paper-muted);overflow:hidden">
+                  <div data-a="progress" style="height:100%;width:100%;background:var(--accent);transform-origin:0 0"></div>
+                </div>
+                <span class="bar" style="left:20px;top:88px;width:180px"></span>
+              </div>
+              <!-- page D: done, launch Clarity -->
+              <div class="abs" data-a="pageD" style="inset:28px 0 44px 0">
+                <div class="abs" style="left:20px;top:16px;font-size:13px;font-weight:600" data-i18n="a.done">Installation terminée</div>
+                <span class="bar" style="left:20px;top:44px;width:240px"></span>
+                <span class="abs" style="left:20px;top:76px;width:14px;height:14px;border-radius:3px;background:var(--accent);color:var(--on-accent);font-size:11px;line-height:14px;text-align:center;font-weight:700">✓</span>
+                <div class="abs" style="left:42px;top:75px;font-size:11.5px" data-i18n="a.launch">Lancer Clarity</div>
+              </div>
+              <div class="abs" style="left:0;right:0;bottom:0;height:44px;border-top:1px solid var(--hairline);background:var(--paper-subtle)"></div>
+              <div class="btn" style="left:124px;top:214px;width:86px;height:24px;border:1px solid var(--hairline);color:var(--ink80);background:var(--panel)"><span data-i18n="a.cancel">Annuler</span></div>
+              <div class="btn" data-a="setupBtn" style="left:218px;top:214px;width:86px;height:24px;background:var(--accent);color:var(--on-accent);font-weight:600">
+                <span data-a="lblNext" data-i18n="a.next">Suivant ›</span>
+                <span data-a="lblInstall" data-i18n="a.install">Installer</span>
+                <span data-a="lblClose" data-i18n="a.close">Fermer</span>
+              </div>
+            </div>
+
+            <!-- 4 — Clarity is open -->
+            <div class="win" data-a="app" style="left:56px;top:34px;width:528px;height:296px;background:var(--paper)">
+              <div class="titlebar">
+                <svg viewBox="0 0 92 92" style="width:13px;height:13px" aria-hidden="true"><path d="M46 8 A38 38 0 1 0 78 65" stroke="var(--ink)" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M46 22 A24 24 0 1 0 66 58" stroke="var(--ink)" stroke-width="7" stroke-linecap="round" fill="none"/><circle cx="46" cy="46" r="9" fill="var(--accent)"/></svg>
+                Clarity
+                <span class="ctl"><i></i><i></i><i></i></span>
+              </div>
+              <div class="abs" style="left:0;top:28px;width:120px;bottom:0;background:var(--paper-subtle);border-right:1px solid var(--hairline)">
+                <span class="abs" style="left:10px;top:16px;width:100px;height:20px;border-radius:5px;background:var(--accent-soft)"></span>
+                <span class="bar" style="left:18px;top:23px;width:56px;background:var(--accent);opacity:.7"></span>
+                <span class="bar" style="left:18px;top:50px;width:66px"></span>
+                <span class="bar" style="left:18px;top:72px;width:48px"></span>
+                <span class="bar" style="left:18px;top:94px;width:60px"></span>
+              </div>
+              <div class="abs" style="left:146px;top:52px;font-size:22px;font-weight:600;letter-spacing:-.02em" data-i18n="a.hello">Bonjour.</div>
+              <div class="abs" style="left:146px;top:84px;font-size:12px;color:var(--ink60)" data-i18n="a.helloSub">Qu’est-ce qui compte aujourd’hui ?</div>
+              <div class="abs" data-a="row1" style="left:146px;top:122px;width:350px;height:34px;border-bottom:1px solid var(--hairline)">
+                <span class="abs" style="left:2px;top:10px;width:13px;height:13px;border-radius:50%;border:1.5px solid var(--ink40)"></span>
+                <span class="bar" style="left:26px;top:14px;width:190px;background:var(--ink40)"></span>
+              </div>
+              <div class="abs" data-a="row2" style="left:146px;top:158px;width:350px;height:34px;border-bottom:1px solid var(--hairline)">
+                <span class="abs" style="left:2px;top:10px;width:13px;height:13px;border-radius:50%;border:1.5px solid var(--ink40)"></span>
+                <span class="bar" style="left:26px;top:14px;width:150px;background:var(--ink40)"></span>
+              </div>
+              <div class="abs" data-a="row3" style="left:146px;top:194px;width:350px;height:34px;border-bottom:1px solid var(--hairline)">
+                <span class="abs" style="left:2px;top:10px;width:13px;height:13px;border-radius:50%;border:1.5px solid var(--ink40)"></span>
+                <span class="bar" style="left:26px;top:14px;width:210px;background:var(--ink40)"></span>
+              </div>
+            </div>
+
+            <!-- the clicks and the cursor -->
+            <span class="ripple" data-a="r1"></span><span class="ripple" data-a="r2"></span><span class="ripple" data-a="r3"></span>
+            <span class="ripple" data-a="r4"></span><span class="ripple" data-a="r5"></span><span class="ripple" data-a="r6"></span>
+            <div class="cursor" data-a="cursor">
+              <svg viewBox="0 0 16 22" width="100%" height="100%" style="display:block;overflow:visible"><path d="M1 1 L1 17 L5 13.2 L8 20 L10.8 18.8 L7.9 12.2 L13.2 12.2 Z" fill="#FFFFFF" stroke="#19191A" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="steps-bar" aria-hidden="true"><div><i data-a="bar1"></i></div><div><i data-a="bar2"></i></div><div><i data-a="bar3"></i></div><div><i data-a="bar4"></i></div></div>
+      </div>
+
+      <ol class="steps" id="steps">
+        <li><div><span data-i18n="step1">Ouvrez le fichier téléchargé, <span class="ui">Clarity-Setup.exe</span> — dans le panneau des téléchargements de votre navigateur, ou dans votre dossier Téléchargements.</span><div class="frame frames-only" data-frame="2.2"></div></div></li>
+        <li><div><span data-i18n="step2">Windows affiche « Windows a protégé votre ordinateur ». Cliquez sur <span class="ui">Informations complémentaires</span>, puis sur <span class="ui">Exécuter quand même</span>.</span><div class="frame frames-only" data-frame="5.9"></div></div></li>
+        <li><div><span data-i18n="step3">L’installation de Clarity s’ouvre. Gardez les choix proposés : <span class="ui">Suivant</span>, puis <span class="ui">Installer</span>, puis <span class="ui">Fermer</span>, avec « Lancer Clarity » coché.</span><div class="frame frames-only" data-frame="10.1"></div></div></li>
+        <li><div><span data-i18n="step4">Clarity s’ouvre. Il est aussi dans le menu Démarrer, et sur le bureau.</span><div class="frame frames-only" data-frame="12.2"></div></div></li>
+      </ol>
+
+      <p class="why" data-i18n="why"><strong>Pourquoi cet avertissement ?</strong> Clarity est une application nouvelle, pas encore signée avec un certificat payant : Windows ne la connaît donc pas encore, et le dit. Si c’est Raphaël qui vous a envoyé ce lien, vous pouvez continuer.</p>
+    </section>
+
+    <section id="maj" aria-labelledby="h-updates">
+      <h2 id="h-updates" data-i18n="updates.title">Mises à jour</h2>
+      <p data-i18n="updates.body">Rien à retélécharger : Clarity se met à jour tout seul. Quand une nouvelle version est prête, un bouton <span class="update-pill">Mise à jour prête · Redémarrer</span> apparaît en haut de la fenêtre — un clic, et c’est fait. Si vous ne cliquez pas, elle s’installe la prochaine fois que vous quittez Clarity.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span data-i18n="footer">Clarity est un projet personnel de Raphaël, partagé avec quelques amis.</span>
+    <a href="https://github.com/princeraph/clarity-releases/releases" data-i18n="allVersions">Toutes les versions</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Langue ──────────────────────────────────────────────────────────────
+  // Le français est écrit dans la page ; l'anglais vit ici. Les textes français
+  // sont relus depuis la page au chargement, pour pouvoir y revenir.
+  var EN = {
+    pitch: 'A personal task manager with an AI assistant that runs on your computer. Your tasks stay with you: nothing goes online unless you choose it.',
+    download: 'Download for Windows',
+    'meta.windows': 'Windows 10 and 11',
+    'meta.free': 'Free',
+    'meta.mac': 'Mac version coming',
+    'install.title': 'Installing Clarity',
+    'install.lede': 'The first time, Windows shows a blue warning. That is expected — here is exactly what to do.',
+    'install.alt': 'Animation of the installation in four steps: open the downloaded file; in Windows’ blue warning, click “More info”, then “Run anyway”; follow the installer to “Finish”; Clarity opens.',
+    'a.downloads': 'Downloads',
+    'a.openFile': 'Open file',
+    'a.shieldTitle': 'Windows protected your PC',
+    'a.shieldBody': 'SmartScreen prevented an app it does not recognise yet from starting.',
+    'a.more': 'More info',
+    'a.app': 'App:',
+    'a.publisher': 'Publisher: Unknown publisher',
+    'a.runAnyway': 'Run anyway',
+    'a.dontRun': 'Don’t run',
+    'a.setupTitle': 'Clarity Setup',
+    'a.installing': 'Installing',
+    'a.done': 'Setup complete',
+    'a.launch': 'Run Clarity',
+    'a.cancel': 'Cancel',
+    'a.next': 'Next ›',
+    'a.install': 'Install',
+    'a.close': 'Finish',
+    'a.hello': 'Hello.',
+    'a.helloSub': 'What matters today?',
+    step1: 'Open the downloaded file, <span class="ui">Clarity-Setup.exe</span> — from your browser’s downloads panel, or from your Downloads folder.',
+    step2: 'Windows shows “Windows protected your PC”. Click <span class="ui">More info</span>, then <span class="ui">Run anyway</span>.',
+    step3: 'Clarity Setup opens. Keep the suggested choices: <span class="ui">Next</span>, then <span class="ui">Install</span>, then <span class="ui">Finish</span>, with “Run Clarity” ticked.',
+    step4: 'Clarity opens. It is also in the Start menu, and on your desktop.',
+    why: '<strong>Why the warning?</strong> Clarity is a new app, not yet signed with a paid certificate, so Windows does not know it yet — and says so. If Raphaël sent you this link, it is safe to continue.',
+    'updates.title': 'Updates',
+    'updates.body': 'Nothing to download again: Clarity updates itself. When a new version is ready, an <span class="update-pill">Update ready · Restart</span> button appears at the top of the window — one click and it is done. If you don’t click it, the update installs the next time you quit Clarity.',
+    footer: 'Clarity is a personal project by Raphaël, shared with a few friends.',
+    allVersions: 'All versions'
+  };
+  var FR = {};
+  var TITLE = { fr: 'Clarity — Télécharger', en: 'Clarity — Download' };
+
+  function store(key, value) { try { if (value === undefined) return localStorage.getItem(key); localStorage.setItem(key, value); } catch (e) { return null; } }
+
+  function collectFrench() {
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n');
+      if (!(k in FR)) FR[k] = el.innerHTML;
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n-aria');
+      if (!(k in FR)) FR[k] = el.getAttribute('aria-label');
+    });
+  }
+
+  var lang = 'fr';
+  function apply(next) {
+    lang = next;
+    var dict = lang === 'en' ? EN : FR;
+    document.documentElement.lang = lang;
+    document.title = TITLE[lang];
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var v = dict[el.getAttribute('data-i18n')];
+      if (v != null) el.innerHTML = v;
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+      var v = dict[el.getAttribute('data-i18n-aria')];
+      if (v != null) el.setAttribute('aria-label', v);
+    });
+    var btn = document.getElementById('lang');
+    btn.textContent = lang === 'en' ? 'Français' : 'English';
+    btn.lang = lang === 'en' ? 'fr' : 'en';
+  }
+
+  // ── Animation ───────────────────────────────────────────────────────────
+  // One timeline, in seconds. fade() shows an element inside its intervals;
+  // the cursor and the clicks have their own keyframes. All are generated
+  // here so that every time in this file is a second, not a percentage.
+  var LOOP = 13;
+  var pct = function (s) { return +(s / LOOP * 100).toFixed(3); };
+  var css = [];
+
+  function fade(name, intervals, hidden, lo) {
+    var r = 0.25;
+    lo = lo || 0;
+    var off = 'opacity:' + lo + ';' + (hidden ? 'transform:' + hidden + ';' : '');
+    var on = 'opacity:1;' + (hidden ? 'transform:none;' : '');
+    var inside = function (s) { return intervals.some(function (iv) { return s >= iv[0] && s <= iv[1]; }); };
+    var pts = [[0, inside(0)]];
+    intervals.forEach(function (iv) {
+      if (iv[0] > 0) { pts.push([iv[0] - r, false], [iv[0], true]); }
+      if (iv[1] < LOOP) { pts.push([iv[1], true], [iv[1] + r, false]); }
+    });
+    pts.push([LOOP, inside(LOOP)]);
+    pts.sort(function (a, b) { return a[0] - b[0]; });
+    css.push('@keyframes ' + name + '{' + pts.map(function (p) { return pct(p[0]) + '%{' + (p[1] ? on : off) + '}'; }).join('') + '}');
+    return name;
+  }
+
+  var P = { start: [600, 352], open: [455, 142], more: [220, 168], run: [292, 302], setup: [420, 276], rest: [560, 330] };
+  var CURSOR = [
+    [0, 'start', 0, 1], [0.4, 'start', 1, 1], [2.0, 'open', 1, 1], [2.15, 'open', 1, 0.8], [2.3, 'open', 1, 1],
+    [3.5, 'open', 1, 1], [4.3, 'more', 1, 1], [4.45, 'more', 1, 0.8], [4.6, 'more', 1, 1],
+    [5.0, 'more', 1, 1], [5.75, 'run', 1, 1], [5.9, 'run', 1, 0.8], [6.05, 'run', 1, 1],
+    [6.7, 'run', 1, 1], [7.1, 'setup', 1, 1], [7.25, 'setup', 1, 0.8], [7.4, 'setup', 1, 1],
+    [7.9, 'setup', 1, 1], [8.05, 'setup', 1, 0.8], [8.2, 'setup', 1, 1],
+    [9.9, 'setup', 1, 1], [10.05, 'setup', 1, 0.8], [10.2, 'setup', 1, 1],
+    [10.8, 'rest', 1, 1], [11.2, 'rest', 0, 1], [LOOP, 'rest', 0, 1]
+  ];
+  css.push('@keyframes ia-cursor{' + CURSOR.map(function (k) {
+    var p = P[k[1]];
+    return pct(k[0]) + '%{left:' + p[0] + 'px;top:' + p[1] + 'px;opacity:' + k[2] + ';transform:scale(' + k[3] + ')}';
+  }).join('') + '}');
+
+  var CLICKS = [[2.15, 'open'], [4.45, 'more'], [5.9, 'run'], [7.25, 'setup'], [8.05, 'setup'], [10.05, 'setup']];
+  CLICKS.forEach(function (c, i) {
+    var s = c[0], p = P[c[1]];
+    css.push('@keyframes ia-r' + (i + 1) + '{0%,' + pct(s - 0.01) + '%{opacity:0;transform:scale(.3)}' +
+      pct(s) + '%{opacity:.6;transform:scale(.3)}' + pct(s + 0.7) + '%,100%{opacity:0;transform:scale(1.6)}}');
+    css.push('[data-a="r' + (i + 1) + '"]{left:' + (p[0] - 17) + 'px;top:' + (p[1] - 17) + 'px}');
+  });
+
+  var A = {
+    cursor: 'ia-cursor',
+    flyout: fade('ia-flyout', [[0.6, 3.6]], 'translateY(-6px)'),
+    shield: fade('ia-shield', [[3.0, 6.3]], 'scale(.97)'),
+    more: fade('ia-more', [[0, 4.6], [12.9, LOOP]], null, 0.0),
+    details: fade('ia-details', [[4.8, LOOP]]),
+    runAnyway: fade('ia-run', [[4.8, LOOP]]),
+    setup: fade('ia-setup', [[6.6, 10.4]], 'scale(.97)'),
+    pageA: fade('ia-pa', [[0, 7.4], [12.9, LOOP]]),
+    pageB: fade('ia-pb', [[7.6, 8.2]]),
+    pageC: fade('ia-pc', [[8.4, 9.6]]),
+    pageD: fade('ia-pd', [[9.8, LOOP]]),
+    lblNext: fade('ia-ln', [[0, 7.4], [12.9, LOOP]]),
+    lblInstall: fade('ia-li', [[7.6, 9.6]]),
+    lblClose: fade('ia-lc', [[9.8, LOOP]]),
+    setupBtn: fade('ia-sb', [[0, 8.2], [9.8, LOOP]], null, 0.35),
+    app: fade('ia-app', [[10.6, 12.6]], 'scale(.97)'),
+    row1: fade('ia-row1', [[11.0, LOOP]], 'translateY(6px)'),
+    row2: fade('ia-row2', [[11.2, LOOP]], 'translateY(6px)'),
+    row3: fade('ia-row3', [[11.4, LOOP]], 'translateY(6px)'),
+    bar1: fade('ia-b1', [[0, 3.0], [12.8, LOOP]]),
+    bar2: fade('ia-b2', [[3.2, 6.4]]),
+    bar3: fade('ia-b3', [[6.6, 10.4]]),
+    bar4: fade('ia-b4', [[10.6, 12.6]])
+  };
+  css.push('@keyframes ia-progress{0%,' + pct(8.4) + '%{transform:scaleX(0)}' + pct(9.5) + '%,100%{transform:scaleX(1)}}');
+  A.progress = 'ia-progress';
+  for (var i = 1; i <= 6; i++) A['r' + i] = 'ia-r' + i;
+
+  Object.keys(A).forEach(function (k) {
+    var ease = /^r\d$/.test(k) ? 'ease-out' : (k === 'progress' ? 'linear' : 'ease-in-out');
+    css.push('[data-a="' + k + '"]{animation:' + A[k] + ' ' + LOOP + 's ' + ease + ' infinite}');
+  });
+  // A frozen frame: the same drawing, every animation paused at one instant.
+  css.push('.frozen [data-a]{animation-play-state:paused!important;animation-delay:var(--at)!important}');
+
+  var style = document.createElement('style');
+  style.textContent = css.join('\n');
+  document.head.appendChild(style);
+
+  // Scale each 640 × 360 drawing to its box.
+  var ro = 'ResizeObserver' in window ? new ResizeObserver(function (entries) {
+    entries.forEach(function (e) { e.target.style.setProperty('--k', e.contentRect.width / 640); });
+  }) : null;
+  function fit(box) {
+    if (ro) ro.observe(box);
+    else box.style.setProperty('--k', box.clientWidth / 640);
+  }
+
+  // Reduced motion: the moving picture gives way to one frozen frame per step.
+  var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var framesBuilt = false;
+  function buildFrames() {
+    if (framesBuilt) return;
+    framesBuilt = true;
+    var source = document.getElementById('stage');
+    document.querySelectorAll('[data-frame]').forEach(function (slot) {
+      var box = document.createElement('div');
+      box.className = 'stage-box frozen';
+      box.setAttribute('aria-hidden', 'true');
+      box.style.setProperty('--at', '-' + slot.getAttribute('data-frame') + 's');
+      var copy = source.cloneNode(true);
+      copy.removeAttribute('id');
+      box.appendChild(copy);
+      slot.appendChild(box);
+      fit(box);
+    });
+  }
+  function motion() {
+    var reduce = !!(mq && mq.matches);
+    document.body.classList.toggle('reduce', reduce);
+    if (reduce) { buildFrames(); apply(lang); }
+  }
+
+  collectFrench();
+  var saved = store('clarity-site-lang');
+  var initial = saved === 'fr' || saved === 'en' ? saved
+    : (String(navigator.language || 'fr').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en');
+  fit(document.querySelector('.stage-box'));
+  motion();
+  if (mq && mq.addEventListener) mq.addEventListener('change', motion);
+  apply(initial);
+
+  document.getElementById('lang').addEventListener('click', function () {
+    var next = lang === 'en' ? 'fr' : 'en';
+    store('clarity-site-lang', next);
+    apply(next);
+  });
+})();
+</script>
+</body>
+</html>

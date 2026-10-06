@@ -115,7 +115,7 @@ jobs:
       - name: installer en silence
         shell: pwsh
         run: |
-          $setup = Get-ChildItem app/dist-electron -Filter 'Clarity Setup *.exe' | Select-Object -First 1
+          $setup = Get-ChildItem app/dist-electron -Filter 'Clarity-Setup.exe' | Select-Object -First 1
           Start-Process -Wait -FilePath $setup.FullName -ArgumentList '/S'
           $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe | Select-Object -First 1
           if (-not $exe) { Write-Error "Clarity.exe introuvable après installation"; exit 1 }

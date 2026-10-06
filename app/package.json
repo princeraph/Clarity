@@ -1,7 +1,7 @@
 {
   "name": "clarity",
   "productName": "Clarity",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "AI-powered personal task manager",
   "author": "Clarity",
   "main": "electron/main.js",
@@ -9,11 +9,15 @@
     "start": "electron .",
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run build:frontend && npm run package",
-    "package": "node tools/preparer-backend.mjs && electron-builder",
+    "package": "node tools/preparer-backend.mjs && electron-builder --publish never",
+    "release": "node tools/preparer-backend.mjs && electron-builder --publish always",
     "prepare:backend": "node tools/preparer-backend.mjs",
     "generate-icons": "node scripts/generate-icon.js",
     "setup": "npm install && npx install-electron && cd backend && npm install && cd ../frontend && npm install",
     "test": "cd backend && npm test"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   },
   "devDependencies": {
     "electron": "44.5.1",
@@ -48,7 +52,8 @@
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico"
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "Clarity-Setup.${ext}"
     },
     "mac": {
       "target": "dmg",
@@ -60,6 +65,6 @@
       "icon": "build/icon.png",
       "category": "Utility"
     },
-    "publish": null
+    "publish": [{ "provider": "github", "owner": "princeraph", "repo": "clarity-releases", "releaseType": "release" }]
   }
 }

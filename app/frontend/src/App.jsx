@@ -23,6 +23,7 @@ import FocusMode from './components/FocusMode.jsx';
 import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TutorialOverlay from './components/TutorialOverlay.jsx';
 import SuggestionCard from './components/SuggestionCard.jsx';
+import FeedbackDialog from './components/FeedbackDialog.jsx';
 import { useLocale } from './contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -418,6 +419,48 @@ function AppInner() {
     const timer = setInterval(ask, 5 * 60000);
     return () => { live = false; clearTimeout(first); clearInterval(timer); };
   }, [showOnboarding]);
+
+  // Feedback from testers. Whether it is on, and whether it is time to ask (a
+  // week of use, five finished tasks, "later", "never"), is the backend's call;
+  // this only decides WHEN to show it: at most once per launch, never over
+  // onboarding, the tutorial or another open dialog.
+  const [feedbackEnabled, setFeedbackEnabled] = useState(false);
+  const [feedbackMode, setFeedbackMode] = useState(null);   // null | 'manual' | 'prompt'
+  const closeFeedback = useCallback(() => setFeedbackMode(null), []);
+  const openFeedback = useCallback(() => setFeedbackMode('manual'), []);
+  const feedbackAsked = useRef(false);
+  const busyRef = useRef(false);
+  busyRef.current = showOnboarding || showTutorial || showForm || showCapture || showChat || showExport
+    || !!focusTask || !!detailTask || !!suggestion || !!feedbackMode;
+  useEffect(() => {
+    let live = true;
+    fetch(`${API}/feedback`).then(r => (r.ok ? r.json() : null))
+      .then(body => { if (live && body) setFeedbackEnabled(!!body.enabled); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+  useEffect(() => {
+    if (showOnboarding || showTutorial) return undefined;
+    let live = true;
+    const ask = async () => {
+      if (!live || feedbackAsked.current || busyRef.current) return;
+      try {
+        const resp = await fetch(`${API}/feedback`);
+        if (!resp.ok) return;
+        const body = await resp.json();
+        if (!live) return;
+        setFeedbackEnabled(!!body.enabled);
+        if (!body.prompt?.due) { feedbackAsked.current = true; return; }
+        if (busyRef.current) return;          // due, but something is open: next tick
+        feedbackAsked.current = true;
+        setFeedbackMode('prompt');
+      } catch { /* backend not up yet: next tick */ }
+    };
+    const first = setTimeout(ask, 20000);       // let the person start working first
+    const timer = setInterval(ask, 60000);
+    return () => { live = false; clearTimeout(first); clearInterval(timer); };
+  }, [showOnboarding, showTutorial]);
+
   function openContextMenu(e, task) { setContextMenu({ task, x: e.clientX, y: e.clientY }); }
   function openScheduling(task, x, y) { setScheduling({ task, x, y }); setContextMenu(null); }
   function enterFocusMode(task) { setFocusTask(task); setDetailTask(null); setContextMenu(null); }
@@ -491,6 +534,7 @@ function AppInner() {
           view={view} setView={setView} health={health}
           analyzing={data.analyzing} onAddTask={openAddTask}
           onChat={() => setShowChat(true)} onExport={() => setShowExport(true)}
+          onFeedback={feedbackEnabled ? openFeedback : null}
           onReanalyze={handleReanalyze}
           onOpenSettings={() => setView('settings')}
           onOpenAiSettings={openAiSettings}
@@ -524,6 +568,7 @@ function AppInner() {
           )}
           {view === 'settings' && (
             <SettingsView key={settingsSection} initialSection={settingsSection}
+              onFeedback={feedbackEnabled ? openFeedback : null}
               onSaved={() => { checkHealth(); showToast(t('toast.settingsSaved')); }} />
           )}
           {view === 'history' && (
@@ -645,6 +690,7 @@ function AppInner() {
       )}
       {showChat   && <ChatPanel onClose={() => setShowChat(false)} taskCount={data.tasks.length} />}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+      {feedbackMode && <FeedbackDialog mode={feedbackMode} onClose={closeFeedback} />}
       {detailTask && (
         <TaskDetailPanel
           task={detailTask}

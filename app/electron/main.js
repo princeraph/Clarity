@@ -42,6 +42,7 @@ function startBackend() {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
       CLARITY_DATA_DIR: path.join(app.getPath('userData'), 'data'),
+      CLARITY_VERSION: app.getVersion(),
     },
   });
   backendProcess.stdout?.on('data', (d) => process.stdout.write('[Backend] ' + d));
@@ -217,7 +218,7 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = app.getVersion();   // app/package.json — the one place the version lives
 
 async function checkForUpdates() {
   try {
@@ -266,6 +267,7 @@ if (!gotTheLock) {
     createWindow();
     createTray();
     checkForUpdates();
+    startUpdateChecks();
   });
 }
 
@@ -365,6 +367,34 @@ ipcMain.handle('connector:open-claude', () => {
 ipcMain.handle('connector:get-claude', () => {
   require('electron').shell.openExternal('https://claude.ai/download');
 });
+
+// ─── Updates ─────────────────────────────────────────────────────────────────
+// Friends testing Clarity have no Git and no Node: Update.bat is not for them.
+// The installed app looks for a newer version in the public clarity-releases
+// repository (installers only — the source stays private, and no token is
+// needed to read a public release), downloads it in the background, and
+// offers to restart. If nobody restarts, it installs on the next quit.
+let updateReady = null;
+function startUpdateChecks() {
+  if (!app.isPackaged) return;   // a development copy updates through Git
+  let autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReady = { version: info.version };
+    mainWindow?.webContents.send('update-ready', updateReady);
+  });
+  autoUpdater.on('error', (err) => console.error('[update]', err?.message || err));
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 15000);                     // after startup, not during it
+  setInterval(check, 6 * 60 * 60 * 1000).unref?.();
+  ipcMain.handle('update:install', () => {
+    quittingForReal = true;
+    autoUpdater.quitAndInstall(true, true);     // silent, then reopen Clarity
+  });
+}
+ipcMain.handle('update:status', () => updateReady);
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 ipcMain.on('show-notification', (event, { title, body }) => {

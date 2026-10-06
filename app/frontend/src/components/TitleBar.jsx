@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
@@ -25,6 +25,31 @@ function WinBtn({ onClick, hoverBg, hoverColor, children, title }) {
     >
       {children}
     </button>
+  );
+}
+
+// A new version, downloaded in the background by the main process: one quiet
+// pill, never a dialog. Ignored, it installs on the next quit anyway.
+function UpdatePill({ T, t }) {
+  const [ready, setReady] = useState(null);
+  useEffect(() => {
+    const u = window.clarity?.updates;
+    if (!u) return undefined;
+    u.status().then(r => { if (r) setReady(r); }).catch(() => {});
+    return u.onReady(setReady);
+  }, []);
+  if (!ready) return null;
+  return (
+    <button
+      className="titlebar-no-drag"
+      onClick={() => window.clarity.updates.install()}
+      title={t('update.readyHint', { version: ready.version })}
+      style={{
+        fontFamily: T.fontUI, fontSize: 11.5, fontWeight: 500, color: T.paper,
+        background: T.accent, border: 'none', borderRadius: 999,
+        padding: '3px 10px', marginRight: 6, cursor: 'pointer',
+      }}
+    >{t('update.ready')}</button>
   );
 }
 
@@ -65,6 +90,7 @@ export default function TitleBar({ isDark, toggleTheme }) {
 
       {/* Right: theme toggle + Win11 window controls */}
       <div className="titlebar-no-drag flex items-center h-full">
+        <UpdatePill T={T} t={t} />
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
