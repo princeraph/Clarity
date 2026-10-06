@@ -71,28 +71,49 @@ jobs:
           cd backend && call npm install --no-audit --no-fund || exit /b 1
 
       # frontend/dist est versionné et déjà vérifié par la CI : pas de rebuild.
-      - name: fabriquer et publier l'installateur
+      # Fabriqué sans publier : electron-builder créait la release lui-même et
+      # GitHub la refusait (« Published releases must have a valid tag »,
+      # 6 octobre). La release est créée plus bas, avec un tag explicite.
+      - name: fabriquer l'installateur
         if: steps.version.outputs.publier == 'oui'
         working-directory: app
         shell: cmd
-        env:
-          GH_TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
-        run: call npm run release
+        run: call npm run package
 
+      - name: les fichiers de la mise à jour sont là
+        if: steps.version.outputs.publier == 'oui'
+        shell: pwsh
+        run: |
+          foreach ($f in 'Clarity-Setup.exe', 'Clarity-Setup.exe.blockmap', 'latest.yml') {
+            if (-not (Test-Path "app/dist-electron/$f")) { Write-Error "manque app/dist-electron/$f"; exit 1 }
+          }
+          Get-Content app/dist-electron/latest.yml
+
+      # La page d'abord : elle donne au dépôt (vide au départ) le commit sur
+      # lequel poser le tag de la release.
       - name: mettre à jour la page de téléchargement
         if: steps.version.outputs.publier == 'oui'
         shell: pwsh
         env:
           TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
         run: |
-          if (-not (Test-Path app/release-site)) { "pas de page à publier"; exit 0 }
           git clone "https://x-access-token:$env:TOKEN@github.com/princeraph/clarity-releases.git" rel
           Copy-Item -Recurse -Force app/release-site/* rel/
           Set-Location rel
           git config user.name "Claude"
           git config user.email "noreply@anthropic.com"
+          git checkout -B main
           git add -A
           git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) { "page inchangée"; exit 0 }
-          git commit -m "Page de téléchargement : v${{ steps.version.outputs.version }}"
-          git push
+          if ($LASTEXITCODE -eq 0) { "page inchangée" } else { git commit -m "Page de téléchargement : v${{ steps.version.outputs.version }}" }
+          git push -u origin main
+
+      - name: publier la version
+        if: steps.version.outputs.publier == 'oui'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
+        run: |
+          $v = "v${{ steps.version.outputs.version }}"
+          gh release create $v --repo princeraph/clarity-releases --target main --title "Clarity ${{ steps.version.outputs.version }}" --notes "Téléchargez Clarity-Setup.exe ci-dessous, ou passez par la page : https://princeraph.github.io/clarity-releases/" app/dist-electron/Clarity-Setup.exe app/dist-electron/Clarity-Setup.exe.blockmap app/dist-electron/latest.yml
+          gh release view $v --repo princeraph/clarity-releases
