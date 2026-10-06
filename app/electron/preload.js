@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('clarity', {
   connector: {
     install: () => ipcRenderer.invoke('connector:install'),
     getClaude: () => ipcRenderer.invoke('connector:get-claude'),
+    showFile: () => ipcRenderer.invoke('connector:show-file'),
+    openClaude: () => ipcRenderer.invoke('connector:open-claude'),
   },
   isElectron: true,
 });
