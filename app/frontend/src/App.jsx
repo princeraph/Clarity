@@ -24,6 +24,8 @@ import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TutorialOverlay from './components/TutorialOverlay.jsx';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
+import UpdateDialog from './components/UpdateDialog.jsx';
+import { useUpdates } from './updates.js';
 import { useLocale } from './contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -430,8 +432,10 @@ function AppInner() {
   const openFeedback = useCallback(() => setFeedbackMode('manual'), []);
   const feedbackAsked = useRef(false);
   const busyRef = useRef(false);
+  const updateWindow = useUpdates();
   busyRef.current = showOnboarding || showTutorial || showForm || showCapture || showChat || showExport
-    || !!focusTask || !!detailTask || !!suggestion || !!feedbackMode;
+    || !!focusTask || !!detailTask || !!suggestion || !!feedbackMode
+    || updateWindow.open || !!updateWindow.updated;
   useEffect(() => {
     let live = true;
     fetch(`${API}/feedback`).then(r => (r.ok ? r.json() : null))
@@ -691,6 +695,7 @@ function AppInner() {
       {showChat   && <ChatPanel onClose={() => setShowChat(false)} taskCount={data.tasks.length} />}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {feedbackMode && <FeedbackDialog mode={feedbackMode} onClose={closeFeedback} />}
+      <UpdateDialog />
       {detailTask && (
         <TaskDetailPanel
           task={detailTask}

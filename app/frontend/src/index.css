@@ -28,6 +28,9 @@
   .titlebar-no-drag { -webkit-app-region: no-drag; }
 }
 
+/* The update window's bar while Clarity installs (UpdateDialog.jsx). */
+@keyframes clarityUpdateSlide { 0% { left: -35%; } 100% { left: 100%; } }
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(5px); }
   to   { opacity: 1; transform: translateY(0); }

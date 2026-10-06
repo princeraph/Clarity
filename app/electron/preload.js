@@ -25,14 +25,15 @@ contextBridge.exposeInMainWorld('clarity', {
     showFile: () => ipcRenderer.invoke('connector:show-file'),
     openClaude: () => ipcRenderer.invoke('connector:open-claude'),
   },
-  // Updates: a new version downloaded in the background, ready on restart
+  // Updates: announced as Clarity opens, "now" or "later" (updateFlow.js)
   updates: {
     status: () => ipcRenderer.invoke('update:status'),
-    install: () => ipcRenderer.invoke('update:install'),
-    onReady: (cb) => {
-      const handler = (_e, info) => cb(info);
-      ipcRenderer.on('update-ready', handler);
-      return () => ipcRenderer.removeListener('update-ready', handler);
+    now: (words) => ipcRenderer.invoke('update:now', words),
+    later: () => ipcRenderer.invoke('update:later'),
+    onState: (cb) => {
+      const handler = (_e, state) => cb(state);
+      ipcRenderer.on('update-state', handler);
+      return () => ipcRenderer.removeListener('update-state', handler);
     },
   },
   isElectron: true,

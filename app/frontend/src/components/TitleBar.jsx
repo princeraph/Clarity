@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { useUpdates, updates } from '../updates.js';
 
 const isElectron = !!window.clarity?.isElectron;
 
@@ -30,26 +31,22 @@ function WinBtn({ onClick, hoverBg, hoverColor, children, title }) {
 
 // A new version, downloaded in the background by the main process: one quiet
 // pill, never a dialog. Ignored, it installs on the next quit anyway.
+// A version found while Clarity was already open: the pill, which opens the
+// update window. One found as Clarity opens is announced by the window itself.
 function UpdatePill({ T, t }) {
-  const [ready, setReady] = useState(null);
-  useEffect(() => {
-    const u = window.clarity?.updates;
-    if (!u) return undefined;
-    u.status().then(r => { if (r) setReady(r); }).catch(() => {});
-    return u.onReady(setReady);
-  }, []);
-  if (!ready) return null;
+  const { state, open } = useUpdates();
+  if (!state || open || !['downloading', 'ready'].includes(state.phase)) return null;
   return (
     <button
       className="titlebar-no-drag"
-      onClick={() => window.clarity.updates.install()}
-      title={t('update.readyHint', { version: ready.version })}
+      onClick={updates.open}
+      title={t('update.offer', { version: state.version })}
       style={{
         fontFamily: T.fontUI, fontSize: 11.5, fontWeight: 500, color: T.paper,
         background: T.accent, border: 'none', borderRadius: 999,
         padding: '3px 10px', marginRight: 6, cursor: 'pointer',
       }}
-    >{t('update.ready')}</button>
+    >{state.phase === 'ready' ? t('update.ready') : t('update.pill', { version: state.version })}</button>
   );
 }
 
