@@ -309,27 +309,57 @@ ipcMain.handle('login-item:set', (_event, enabled) => {
 
 // ─── AI connector: one click ─────────────────────────────────────────────────
 // Downloading a file, finding it, double-clicking it: three steps a new user
-// got lost in. Here Clarity writes Clarity.mcpb to Downloads and opens it
-// itself, so Claude Desktop's own "Install?" dialog is the only thing left.
-// When nothing on Windows opens .mcpb files, Claude Desktop is missing (or too
-// old for extensions): say so before turning anything on.
-function mcpbHandled() {
-  if (process.platform !== 'win32') return Promise.resolve(process.platform === 'darwin' ? null : false);
+// got lost in. Here Clarity writes Clarity.mcpb to Downloads and, when Windows
+// knows what opens .mcpb files, opens it itself — Claude Desktop's own
+// "Install?" dialog is then the only step left.
+//
+// Never a gate. The first version refused to go on when one registry key was
+// missing, and told a person who HAD Claude Desktop that it was not installed
+// (6 October): some installs do not register .mcpb at all. Now every signal is
+// only a hint for the wording, and the file is always prepared.
+function regHas(key) {
   return new Promise((resolve) => {
-    require('child_process').execFile('reg', ['query', 'HKCR\\.mcpb'], { windowsHide: true }, (err) => resolve(!err));
+    require('child_process').execFile('reg', ['query', key], { windowsHide: true }, (err) => resolve(!err));
   });
 }
 
+async function claudeDesktopSignals() {
+  const env = process.env;
+  const has = (...parts) => parts.every(Boolean) && fs.existsSync(path.join(...parts));
+  let protocol = '';
+  try { protocol = app.getApplicationNameForProtocol('claude://') || ''; } catch {}
+  const opensMcpb = process.platform === 'win32'
+    ? (await regHas('HKCR\\.mcpb')) || (await regHas('HKCU\\Software\\Classes\\.mcpb'))
+    : process.platform === 'darwin';
+  return {
+    opensMcpb,
+    found: !!protocol || opensMcpb
+      || has(env.APPDATA, 'Claude')                 // its settings folder, once it has run
+      || has(env.LOCALAPPDATA, 'AnthropicClaude')   // its program folder
+      || (process.platform === 'darwin' && fs.existsSync('/Applications/Claude.app')),
+  };
+}
+
+let lastConnectorFile = null;
+
 ipcMain.handle('connector:install', async () => {
-  const handled = await mcpbHandled();
-  if (handled === false) return { claudeFound: false };
   const resp = await fetch('http://127.0.0.1:3001/api/connector/bundle', { method: 'POST' });
   if (!resp.ok) return { error: `HTTP ${resp.status}` };
   const file = path.join(app.getPath('downloads'), 'Clarity.mcpb');
   fs.writeFileSync(file, Buffer.from(await resp.arrayBuffer()));
-  const { shell } = require('electron');
-  const failure = await shell.openPath(file);
-  return { claudeFound: handled !== false, opened: !failure, file };
+  lastConnectorFile = file;
+  const claude = await claudeDesktopSignals();
+  let opened = false;
+  if (claude.opensMcpb) opened = !(await require('electron').shell.openPath(file));
+  return { file, opened, claudeFound: claude.found };
+});
+
+ipcMain.handle('connector:show-file', () => {
+  if (lastConnectorFile && fs.existsSync(lastConnectorFile)) require('electron').shell.showItemInFolder(lastConnectorFile);
+});
+
+ipcMain.handle('connector:open-claude', () => {
+  require('electron').shell.openExternal('claude://');
 });
 
 ipcMain.handle('connector:get-claude', () => {
