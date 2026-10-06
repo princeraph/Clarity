@@ -211,6 +211,7 @@ function getUserName() {
 export default function Sidebar({
   view, setView, health, analyzing, onAddTask, onChat, onExport, onReanalyze,
   taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings, onOpenAiSettings,
+  onFeedback,   // null while no feedback form is configured: nothing is shown
 }) {
   const { T } = useTheme();
   const { t } = useLocale();
@@ -330,6 +331,7 @@ export default function Sidebar({
               boxShadow: health.ollama ? `0 0 0 3px ${T.done}30` : 'none',
             }} />
           </div>
+          {onFeedback && <FeedbackBtn onClick={onFeedback} T={T} />}
           <SettingsGearBtn onClick={onOpenSettings} T={T} />
           <div style={{
             width: 26, height: 26, borderRadius: '50%',
@@ -483,6 +485,24 @@ export default function Sidebar({
           </div>
         </div>
 
+        {onFeedback && (
+          <button
+            onClick={onFeedback}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 10px', width: '100%',
+              fontSize: 12.5, color: T.ink60,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              fontFamily: T.fontUI, borderRadius: T.r6, textAlign: 'left',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = T.ink; e.currentTarget.style.background = T.paperMuted; }}
+            onMouseLeave={e => { e.currentTarget.style.color = T.ink60; e.currentTarget.style.background = 'transparent'; }}
+          >
+            <FeedbackIcon />
+            <span>{t('feedback.give')}</span>
+          </button>
+        )}
+
         {/* User + Settings row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -498,6 +518,38 @@ export default function Sidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+function FeedbackIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function FeedbackBtn({ onClick, T }) {
+  const { t } = useLocale();
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={t('feedback.give')}
+      aria-label={t('feedback.give')}
+      style={{
+        width: 26, height: 26, borderRadius: T.r6, flexShrink: 0,
+        background: hov ? T.paperMuted : 'transparent',
+        border: 'none', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: hov ? T.ink60 : T.ink40,
+        transition: 'background 0.1s, color 0.1s',
+      }}
+    >
+      <FeedbackIcon />
+    </button>
   );
 }
 
