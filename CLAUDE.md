@@ -236,10 +236,11 @@ source, never data). To publish:
 1. Bump `version` in `app/package.json` — the only place the version lives
    (Electron reads it and passes it to the backend as `CLARITY_VERSION`).
 2. Merge into `main` once CI is green, as for any change.
-3. Tag that `main` commit `vX.Y.Z` and push the tag. The `publication`
-   workflow checks the tag matches the version, builds, publishes the release
-   to `clarity-releases` with the secret `CLARITY_RELEASES_TOKEN`, and copies
-   `app/release-site/` to that repo (GitHub Pages serves it).
+3. That is all: when `app/package.json` changes on `main`, the `publication`
+   workflow checks whether `clarity-releases` already has that version, and if
+   not builds, publishes the release with the secret `CLARITY_RELEASES_TOKEN`,
+   and copies `app/release-site/` to that repo (GitHub Pages serves it). No
+   tag to push — this session's git proxy refuses tag pushes.
 
 A version must be higher than the testers' or electron-updater ignores it.
 
