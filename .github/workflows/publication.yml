@@ -56,6 +56,10 @@ jobs:
             "v$version est complète sur clarity-releases : rien à faire."
             "publier=non" >> $env:GITHUB_OUTPUT
           }
+          # Sinon l'étape hérite du code 1 de « gh release view » quand la
+          # release n'existe pas encore — le cas normal d'une nouvelle version
+          # (échec du 6 octobre sur la v1.3.1 ; la v1.3.0 existait déjà).
+          exit 0
 
       - name: le jeton de publication est configuré
         if: steps.version.outputs.publier == 'oui'
