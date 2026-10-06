@@ -11,8 +11,34 @@
 ; A first install is untouched: its wizard is the one on the download page.
 
 !macro customInit
+  !insertmacro clarityLanguage
   ${if} ${isUpdated}
     SetSilent normal
+  ${endif}
+!macroend
+
+; The installer speaks the language chosen in Clarity: the app writes it to
+; locale.txt in its profile folder on every change (electron/main.js). With no
+; such file — a first install — it follows Windows' language, and English when
+; Windows speaks neither (the first language in package.json's
+; installerLanguages). Read from the current user's profile even for an
+; installation for everyone, which switches $APPDATA to ProgramData.
+!macro clarityLanguage
+  SetShellVarContext current
+  ClearErrors
+  FileOpen $0 "$APPDATA\${PRODUCT_NAME}\locale.txt" r
+  ${ifNot} ${Errors}
+    FileRead $0 $1 5
+    FileClose $0
+    StrCpy $1 $1 2
+    ${if} $1 == "fr"
+      StrCpy $LANGUAGE 1036
+    ${elseif} $1 == "en"
+      StrCpy $LANGUAGE 1033
+    ${endif}
+  ${endif}
+  ${if} $installMode == "all"
+    SetShellVarContext all
   ${endif}
 !macroend
 

@@ -687,7 +687,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'During an update, a window shows the installation, then closes by itself when Clarity reopens.\nNew versions are announced as Clarity opens: “Update now” or “Later”.\nWhat’s new is shown as a bulleted list, like this one.',
+  'update.news': 'The installer speaks the language chosen in Clarity (Settings › Language), no longer Windows’ language.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

@@ -328,20 +328,25 @@ jobs:
           Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 2
           $setup = (Get-ChildItem app/dist-electron -Filter 'Clarity-Setup.exe' | Select-Object -First 1).FullName
+          # La langue choisie dans Clarity (ici le français, sur un Windows
+          # anglais) : l'installateur doit la parler, pas celle de Windows.
+          New-Item -ItemType Directory -Force -Path "$env:APPDATA\Clarity" | Out-Null
+          Set-Content -NoNewline -Encoding ascii -Path "$env:APPDATA\Clarity\locale.txt" -Value 'fr-FR'
           $debut = Get-Date
           $p = Start-Process -PassThru -FilePath $setup -ArgumentList '--updated', '/S', '--force-run'
-          $fenetre = $null
+          $titres = @()
           while (-not $p.HasExited -and ((Get-Date) - $debut).TotalSeconds -lt 300) {
             $p.Refresh()
-            if (-not $fenetre -and $p.MainWindowHandle -ne 0) {
-              $fenetre = $p.MainWindowTitle
-              "fenêtre de l'installateur après $([int]((Get-Date) - $debut).TotalSeconds) s : « $fenetre »"
+            if ($p.MainWindowHandle -ne 0 -and $p.MainWindowTitle -and $titres -notcontains $p.MainWindowTitle) {
+              $titres += $p.MainWindowTitle
+              "fenêtre de l'installateur après $([int]((Get-Date) - $debut).TotalSeconds) s : « $($p.MainWindowTitle) »"
             }
             Start-Sleep -Milliseconds 200
           }
           if (-not $p.HasExited) { Write-Error "l'installateur attend encore après 300 s : une page demande un clic ?"; exit 1 }
           "installateur fermé seul après $([int]((Get-Date) - $debut).TotalSeconds) s"
-          if (-not $fenetre) { Write-Error "aucune fenêtre pendant la mise à jour : elle est restée silencieuse"; exit 1 }
+          if (-not $titres) { Write-Error "aucune fenêtre pendant la mise à jour : elle est restée silencieuse"; exit 1 }
+          if (-not ($titres -match '^Installation de ')) { Write-Error "l'installateur n'a pas parlé français : $($titres -join ' | ')"; exit 1 }
           $rouvert = $null
           for ($i = 0; $i -lt 60 -and -not $rouvert; $i++) {
             $rouvert = Get-Process Clarity -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt $debut } | Select-Object -First 1

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import en from '../locales/en.js';
 import fr from '../locales/fr.js';
 
@@ -52,6 +52,10 @@ export function LocaleProvider({ children }) {
     setLocaleState(id);
     try { localStorage.setItem(STORAGE_KEY, id); } catch {}
   }, []);
+
+  // Told to the app at every launch and every change: the installer of the
+  // next update reads it, since it runs while Clarity is closed.
+  useEffect(() => { window.clarity?.setLocale?.(locale)?.catch?.(() => {}); }, [locale]);
 
   const value = useMemo(() => {
     const dict = DICTIONARIES[locale] ?? DICTIONARIES[DEFAULT_LOCALE];
