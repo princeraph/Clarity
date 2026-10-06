@@ -906,7 +906,7 @@ async function triggerExport(fmt, t) {
   } catch {}
 }
 
-export default function SettingsView({ onSaved, initialSection = 'appearance' }) {
+export default function SettingsView({ onSaved, onFeedback = null, initialSection = 'appearance' }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
   const { t, locale, setLocale, fmtDate } = useLocale();
   const [form, setForm] = useState({
@@ -1698,6 +1698,17 @@ export default function SettingsView({ onSaved, initialSection = 'appearance' })
                 </div>
               ))}
             </Section>
+
+            {onFeedback && (
+              <Section title={t('settings.about.feedbackTitle')} subtitle={t('settings.about.feedbackBody')} T={T}>
+                <div>
+                  <button onClick={onFeedback} style={{
+                    padding: '8px 16px', fontSize: 13, fontWeight: 500, fontFamily: T.fontUI,
+                    color: T.paper, background: T.ink, border: 'none', borderRadius: T.r6, cursor: 'pointer',
+                  }}>{t('feedback.give')}</button>
+                </div>
+              </Section>
+            )}
           </div>
         )}
       </main>

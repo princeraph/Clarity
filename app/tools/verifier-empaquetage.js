@@ -20,7 +20,9 @@ exports.default = async function verifierEmpaquetage(context) {
   const backend = path.join(resources, 'backend');
   const manques = [];
 
-  for (const f of ['server.js', 'package.json', 'src']) {
+  // feedback.json: without it the app still starts, but a configured feedback
+  // form would silently be off in the installed app — and only there.
+  for (const f of ['server.js', 'package.json', 'src', 'feedback.json']) {
     if (!fs.existsSync(path.join(backend, f))) manques.push(`backend/${f}`);
   }
   // Every runtime dependency the backend declares — read, not copied by hand.

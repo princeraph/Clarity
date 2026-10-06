@@ -22,9 +22,10 @@ import { createSecretStore, probeBox } from './src/security/secrets.js';
 import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads.js';
 import { unloadAll } from './src/llm/LocalProvider.js';
 import { createOllamaInstaller, recommendedOllamaModel, ENDPOINT as OLLAMA_ENDPOINT } from './src/ollama/install.js';
-import { totalmem } from 'os';
+import { totalmem, platform, release } from 'os';
 import { createConnector, findByRef, findSubtask, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES, LIST_FILTERS as CONNECTOR_LISTS } from './src/connector/connector.js';
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
+import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -62,6 +63,11 @@ const DEFAULT_SETTINGS = {
   tunnelSecret:       '',
   apiKey:             '',
   onboardingComplete: false,
+  // When Clarity asks for feedback on its own (src/feedback/feedback.js).
+  // Changed only through POST /api/feedback and /api/feedback/prompt.
+  feedbackPromptState: 'pending',     // 'pending' | 'snoozed' | 'done' | 'never'
+  feedbackSnoozeUntil: null,          // ISO, while snoozed
+  firstUseAt:          null,          // ISO, set at the first start that lacks it
 };
 
 // settings.json as stored: the API key and the tunnel secret are encrypted
@@ -647,6 +653,59 @@ cv1.post('/tasks/:ref/timer', (req, res) => {
 });
 
 app.use('/api/connector/v1', cv1);
+
+// ── Feedback from testers ─────────────────────────────────────────────────────
+// Posted to the owner's Google Form. Off until feedback.json (next to this file,
+// written by tools/configurer-avis.mjs) names a form. What is sent is fixed in
+// src/feedback/feedback.js: the rating, the message, the version, the system.
+
+function readFeedbackConfig() {
+  try { return JSON.parse(readFileSync(join(__dirname, 'feedback.json'), 'utf8')); }
+  catch { return {}; }
+}
+const feedback = createFeedback({ config: readFeedbackConfig(), version: VERSION, system: `${platform()} ${release()}` });
+console.log(`[feedback] ${feedback.enabled ? 'form configured — testers can send feedback' : 'no form configured — feedback is off'}`);
+
+// "A week of use" needs a start. Set once; a factory reset starts it again.
+async function ensureFirstUse() {
+  const s = readSettings();
+  if (s.firstUseAt) return s;
+  const next = { ...s, firstUseAt: new Date().toISOString() };
+  try { await saveSettings(next); } catch (err) { console.warn('[feedback] could not record the first use:', err.message); }
+  return next;
+}
+
+const feedbackFailure = (res, err) => {
+  if (!(err instanceof FeedbackError)) throw err;
+  res.status(err.status).json({ error: err.message, code: err.code });
+};
+
+app.get('/api/feedback', asyncRoute(async (req, res) => {
+  const settings = await ensureFirstUse();
+  res.json({ enabled: feedback.enabled, prompt: { due: feedback.isDue(settings, readData().tasks) } });
+}));
+
+app.post('/api/feedback', asyncRoute(async (req, res) => {
+  let out;
+  try { out = await feedback.send(req.body || {}); }
+  catch (err) { return feedbackFailure(res, err); }
+  console.log('[feedback] sent');
+  // Whoever has given an opinion, from the prompt or not, is not asked again.
+  const s = readSettings();
+  if (s.feedbackPromptState !== 'never') {
+    try { await saveSettings({ ...s, ...promptPatch('done', new Date()) }); }
+    catch (err) { console.warn('[feedback] could not record the answer:', err.message); }
+  }
+  res.json(out);
+}));
+
+app.post('/api/feedback/prompt', asyncRoute(async (req, res) => {
+  let patch;
+  try { patch = promptPatch(req.body?.action, new Date()); }
+  catch (err) { return feedbackFailure(res, err); }
+  await saveSettings({ ...readSettings(), ...patch });
+  res.json({ ok: true, state: patch.feedbackPromptState });
+}));
 
 app.get('/api/settings', (req, res) => {
   const { connectorTokenHash, ...s } = readSettings();   // not even the hash leaves
@@ -1578,6 +1637,7 @@ const server = app.listen(PORT, BIND_HOST, () => {
   const s = readSettings();
   console.log(`[Clarity v${VERSION}] Backend on ${BIND_HOST}:${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
   warmModel();
+  ensureFirstUse();
   runDailyBackup();
   // Once at startup was not enough: a machine left running for days never took a
   // second snapshot, so the day's work had no backup behind it.
