@@ -413,6 +413,17 @@ ipcMain.handle('update:status', () => {
   return { state: updateFlow?.status() || null, updated };
 });
 ipcMain.handle('update:now', (_e, words) => updateFlow?.now(words));
+
+// The installer speaks the language chosen in Clarity: it reads this file
+// (build/installer.nsh), since it runs while Clarity is closed.
+const LOCALE_FILE = 'locale.txt';
+ipcMain.handle('locale:set', (_e, locale) => {
+  if (typeof locale !== 'string' || !/^[a-z]{2}-[A-Z]{2}$/.test(locale)) return;
+  try {
+    fs.mkdirSync(app.getPath('userData'), { recursive: true });
+    fs.writeFileSync(path.join(app.getPath('userData'), LOCALE_FILE), locale);
+  } catch { /* the installer then follows Windows' language */ }
+});
 ipcMain.handle('update:later', () => updateFlow?.later());
 
 // ─── Notifications ────────────────────────────────────────────────────────────

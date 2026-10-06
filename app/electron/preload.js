@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('clarity', {
     showFile: () => ipcRenderer.invoke('connector:show-file'),
     openClaude: () => ipcRenderer.invoke('connector:open-claude'),
   },
+  // The language chosen in Clarity, for the installer of the next update
+  setLocale: (locale) => ipcRenderer.invoke('locale:set', locale),
   // Updates: announced as Clarity opens, "now" or "later" (updateFlow.js)
   updates: {
     status: () => ipcRenderer.invoke('update:status'),

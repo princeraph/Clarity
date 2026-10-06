@@ -591,6 +591,16 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   contournement de la stratégie d'exécution. La CI Windows rejoue une vraie
   mise à jour et exige la fenêtre, la fermeture sans clic, et Clarity rouvert.
   Les puces des nouveautés manquaient : un `<ul>` en flex perd ses puces.
+- **1.3.4 : l'installateur parle la langue de Clarity.** Il embarquait déjà
+  toutes les langues (réglage par défaut d'electron-builder) et suivait celle
+  de Windows, d'où l'anglais sur la CI. Il suit désormais la langue choisie
+  dans Clarity, que l'app écrit dans `locale.txt` (dossier du profil) à chaque
+  lancement et changement ; sans ce fichier — première installation — celle
+  de Windows, l'anglais à défaut. Même décalage d'une version que pour la
+  fenêtre : la mise à jour vers 1.3.4 ne trouve pas encore le fichier (1.3.3
+  ne l'écrivait pas) et suit Windows ; les suivantes suivront Clarity. Un
+  test lie les trois fichiers ; la CI rejoue une mise à jour sur un Windows
+  anglais avec Clarity en français et exige une fenêtre « Installation de ».
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "clarity",
   "productName": "Clarity",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "AI-powered personal task manager",
   "author": "Clarity",
   "main": "electron/main.js",
@@ -52,7 +52,8 @@
       "deleteAppDataOnUninstall": false,
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
-      "artifactName": "Clarity-Setup.${ext}"
+      "artifactName": "Clarity-Setup.${ext}",
+      "installerLanguages": ["en_US", "fr_FR"]
     },
     "mac": {
       "target": "dmg",
