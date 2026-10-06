@@ -4,6 +4,7 @@ import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
 import ApertureMark from '../ApertureMark.jsx';
 import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 import OllamaSetup from '../OllamaSetup.jsx';
+import ConnectorAnimation from '../ConnectorAnimation.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -657,6 +658,8 @@ function ConnectorSettings({ T }) {
 
       {!enabled ? (
         <div style={card}>
+          {/* Shown before the button: what the click will do, then what to do in Claude. */}
+          <ConnectorAnimation />
           <div>
             <button type="button" disabled={busy} onClick={download} style={btn(true)}>
               {busy ? t('settings.connector.preparing') : t('settings.connector.connect')}
