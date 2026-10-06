@@ -657,7 +657,7 @@ app.use('/api/connector/v1', cv1);
 // ── Feedback from testers ─────────────────────────────────────────────────────
 // Posted to the owner's Google Form. Off until feedback.json (next to this file,
 // written by tools/configurer-avis.mjs) names a form. What is sent is fixed in
-// src/feedback/feedback.js: the rating, the message, the version, the system.
+// src/feedback/feedback.js: the stars, the comments, the version, the system.
 
 function readFeedbackConfig() {
   try { return JSON.parse(readFileSync(join(__dirname, 'feedback.json'), 'utf8')); }

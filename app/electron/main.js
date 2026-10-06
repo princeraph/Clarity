@@ -3,6 +3,14 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// Windows identifies an app by its AppUserModelID. The installer's shortcuts
+// carry build.appId (package.json); the running window carried none, so for
+// Windows the pinned shortcut and the open window were two different apps —
+// a pinned Clarity came unpinned after closing it or after an update
+// (reported 6 October). Must match build.appId: tests/identite-windows.test.js.
+const APP_USER_MODEL_ID = 'com.clarity.app';
+if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
+
 let mainWindow;
 let trayWindow;
 let tray;

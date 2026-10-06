@@ -122,6 +122,21 @@ jobs:
           "installé : $($exe.FullName)"
           "CLARITY_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
 
+      # L'épingle de la barre des tâches tient à l'identité Windows de l'app
+      # (AppUserModelID) : celle du raccourci installé doit être celle que la
+      # fenêtre déclare (electron/main.js, vérifié par un test). Sans elle, une
+      # Clarity épinglée se désépinglait à chaque fermeture ou mise à jour.
+      - name: le raccourci installé porte l'identité de l'app
+        shell: pwsh
+        run: |
+          $lnk = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter 'Clarity.lnk' | Select-Object -First 1
+          if (-not $lnk) { Write-Error "raccourci Clarity.lnk introuvable dans le menu Démarrer"; exit 1 }
+          $item = (New-Object -ComObject Shell.Application).Namespace($lnk.DirectoryName).ParseName($lnk.Name)
+          $aumid = $item.ExtendedProperty('System.AppUserModel.ID')
+          $attendu = (Get-Content app/package.json -Raw | ConvertFrom-Json).build.appId
+          "raccourci : $($lnk.FullName) — AppUserModelID : '$aumid'"
+          if ($aumid -ne $attendu) { Write-Error "le raccourci porte '$aumid', l'app déclare '$attendu'"; exit 1 }
+
       # Le backend installé, lancé par le binaire installé — sans Node du système.
       - name: l'app installée sert les tâches et refuse un Host étranger
         shell: pwsh
