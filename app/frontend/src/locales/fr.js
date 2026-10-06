@@ -670,6 +670,8 @@ export default {
   // Built-in assistant
   'settings.provider.localLabel': 'Assistant intégré',
   'settings.provider.local': 'Rien d’autre à installer — tourne sur votre ordinateur, fonctionne hors ligne',
+  'update.ready': 'Mise à jour prête · Redémarrer',
+  'update.readyHint': 'Clarity {version} est téléchargé. Redémarrez maintenant pour l’utiliser — sinon il s’installera la prochaine fois que vous quitterez.',
   'onboarding.off': 'Désactivée',
   'onboarding.modelPending': 'pas encore installé',
   'onboarding.assistantOffer': 'L’assistant de Clarity se télécharge une seule fois. Lancez-le maintenant et continuez — ou plus tard, dans les Réglages.',

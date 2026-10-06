@@ -28,7 +28,12 @@ import { buildBundle, manualConfig } from './src/connector/bundle.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
-const VERSION = '1.2.0';
+// The app passes its version (app/package.json); a backend started by hand
+// reads the same file, so the number is never written twice.
+const VERSION = process.env.CLARITY_VERSION || (() => {
+  try { return JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).version; }
+  catch { return '0.0.0'; }
+})();
 
 const DATA_DIR      = process.env.CLARITY_DATA_DIR || join(__dirname, 'data');
 const DATA_FILE     = join(DATA_DIR, 'tasks.json');

@@ -25,5 +25,15 @@ contextBridge.exposeInMainWorld('clarity', {
     showFile: () => ipcRenderer.invoke('connector:show-file'),
     openClaude: () => ipcRenderer.invoke('connector:open-claude'),
   },
+  // Updates: a new version downloaded in the background, ready on restart
+  updates: {
+    status: () => ipcRenderer.invoke('update:status'),
+    install: () => ipcRenderer.invoke('update:install'),
+    onReady: (cb) => {
+      const handler = (_e, info) => cb(info);
+      ipcRenderer.on('update-ready', handler);
+      return () => ipcRenderer.removeListener('update-ready', handler);
+    },
+  },
   isElectron: true,
 });

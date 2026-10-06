@@ -669,6 +669,8 @@ export default {
   // Built-in assistant
   'settings.provider.localLabel': 'Built-in assistant',
   'settings.provider.local': 'Nothing else to install — runs on your computer, works offline',
+  'update.ready': 'Update ready · Restart',
+  'update.readyHint': 'Clarity {version} is downloaded. Restart now to use it — or it installs the next time you quit.',
   'onboarding.off': 'Off',
   'onboarding.modelPending': 'not installed yet',
   'onboarding.assistantOffer': 'Clarity’s assistant is a one-time download. You can start it now and keep going — or do it later in Settings.',

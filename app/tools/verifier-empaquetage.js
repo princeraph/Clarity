@@ -45,6 +45,13 @@ exports.default = async function verifierEmpaquetage(context) {
     throw new Error(`[verifier-empaquetage] CUDA engines were packaged (${cuda.join(', ')}) — hundreds of MB nobody needs`);
   }
 
+  // Updates: electron-builder writes app-update.yml from build.publish. Without
+  // it the installed app has nowhere to look, and friends stay on their first
+  // version forever without anything saying so.
+  const updateYml = path.join(resources, 'app-update.yml');
+  if (!fs.existsSync(updateYml)) manques.push('app-update.yml (automatic updates)');
+  else if (!/repo:\s*clarity-releases/.test(fs.readFileSync(updateYml, 'utf8'))) manques.push('app-update.yml does not point at clarity-releases');
+
   if (manques.length) {
     throw new Error(`[verifier-empaquetage] the packaged app is incomplete — it would not start:\n  ${manques.join('\n  ')}`);
   }

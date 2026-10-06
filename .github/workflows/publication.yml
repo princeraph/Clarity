@@ -1,0 +1,80 @@
+# Portée : ce dépôt. Publie une version de Clarity pour les testeurs.
+#
+# Déclenché par un tag vX.Y.Z poussé sur un commit de main — donc un commit
+# que la CI (qualite) a déjà validé, Windows compris. Ce workflow ne refait
+# pas ces contrôles : il fabrique l'installateur et le publie.
+#
+# Où : le dépôt PUBLIC princeraph/clarity-releases, qui ne contient que des
+# installateurs et la page de téléchargement. Le code reste ici, privé. Les
+# applis installées y lisent leurs mises à jour sans jeton (latest.yml).
+#
+# Prérequis, une fois : le secret CLARITY_RELEASES_TOKEN (jeton GitHub
+# « fine-grained » limité à clarity-releases, droit Contents en écriture).
+name: publication
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: le tag correspond à la version de l'app
+        shell: pwsh
+        run: |
+          $version = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") {
+            Write-Error "Le tag $env:GITHUB_REF_NAME ne correspond pas à app/package.json ($version). Mettre la version à jour, puis taguer v$version."
+            exit 1
+          }
+          "version $version"
+
+      - name: le jeton de publication est configuré
+        shell: pwsh
+        env:
+          TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
+        run: |
+          if (-not $env:TOKEN) {
+            Write-Error "Secret CLARITY_RELEASES_TOKEN absent : Settings → Secrets and variables → Actions du dépôt clarity."
+            exit 1
+          }
+
+      - name: dépendances
+        working-directory: app
+        shell: cmd
+        run: |
+          call npm install --no-audit --no-fund || exit /b 1
+          call npx install-electron || exit /b 1
+          cd backend && call npm install --no-audit --no-fund || exit /b 1
+
+      # frontend/dist est versionné et déjà vérifié par la CI : pas de rebuild.
+      - name: fabriquer et publier l'installateur
+        working-directory: app
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
+        run: call npm run release
+
+      - name: mettre à jour la page de téléchargement
+        shell: pwsh
+        env:
+          TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
+        run: |
+          if (-not (Test-Path app/release-site)) { "pas de page à publier"; exit 0 }
+          git clone "https://x-access-token:$env:TOKEN@github.com/princeraph/clarity-releases.git" rel
+          Copy-Item -Recurse -Force app/release-site/* rel/
+          Set-Location rel
+          git config user.name "Claude"
+          git config user.email "noreply@anthropic.com"
+          git add -A
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { "page inchangée"; exit 0 }
+          git commit -m "Page de téléchargement : $env:GITHUB_REF_NAME"
+          git push
