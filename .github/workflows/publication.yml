@@ -34,20 +34,27 @@ jobs:
         with:
           node-version: '22'
 
+      # Publiée = la release existe ET porte les trois fichiers dont la mise à
+      # jour a besoin. Le premier essai (6 octobre) a laissé une release v1.3.0
+      # sans latest.yml : « elle existe » ne suffisait pas, et la vérification
+      # précédente concluait à tort qu'il n'y avait rien à faire.
       - name: cette version est-elle déjà publiée ?
         id: version
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
         run: |
           $version = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
           "version=$version" >> $env:GITHUB_OUTPUT
-          try {
-            Invoke-WebRequest -UseBasicParsing "https://api.github.com/repos/princeraph/clarity-releases/releases/tags/v$version" | Out-Null
-            "v$version est déjà publiée : rien à faire."
-            "publier=non" >> $env:GITHUB_OUTPUT
-          } catch {
-            if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw }
-            "v$version n'est pas encore publiée : on la publie."
+          $assets = gh release view "v$version" --repo princeraph/clarity-releases --json assets --jq '.assets[].name' 2>$null
+          if ($LASTEXITCODE -ne 0) { "existe=non" >> $env:GITHUB_OUTPUT; $assets = @() } else { "existe=oui" >> $env:GITHUB_OUTPUT }
+          $manque = @('Clarity-Setup.exe', 'Clarity-Setup.exe.blockmap', 'latest.yml') | Where-Object { $assets -notcontains $_ }
+          if ($manque) {
+            "v$version à publier — manque : $($manque -join ', ')"
             "publier=oui" >> $env:GITHUB_OUTPUT
+          } else {
+            "v$version est complète sur clarity-releases : rien à faire."
+            "publier=non" >> $env:GITHUB_OUTPUT
           }
 
       - name: le jeton de publication est configuré
@@ -115,5 +122,16 @@ jobs:
           GH_TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
         run: |
           $v = "v${{ steps.version.outputs.version }}"
-          gh release create $v --repo princeraph/clarity-releases --target main --title "Clarity ${{ steps.version.outputs.version }}" --notes "Téléchargez Clarity-Setup.exe ci-dessous, ou passez par la page : https://princeraph.github.io/clarity-releases/" app/dist-electron/Clarity-Setup.exe app/dist-electron/Clarity-Setup.exe.blockmap app/dist-electron/latest.yml
+          $files = 'app/dist-electron/Clarity-Setup.exe', 'app/dist-electron/Clarity-Setup.exe.blockmap', 'app/dist-electron/latest.yml'
+          if ('${{ steps.version.outputs.existe }}' -eq 'oui') {
+            # Une release incomplète est complétée, pas recréée : --clobber
+            # remplace un fichier du même nom.
+            gh release upload $v --repo princeraph/clarity-releases --clobber @files
+          } else {
+            gh release create $v --repo princeraph/clarity-releases --target main --title "Clarity ${{ steps.version.outputs.version }}" --notes "Téléchargez Clarity-Setup.exe ci-dessous, ou passez par la page : https://princeraph.github.io/clarity-releases/" @files
+          }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # Publiée et marquée « latest » : c'est ce que lisent le lien de la
+          # page (releases/latest/download/…) et la mise à jour automatique.
+          gh release edit $v --repo princeraph/clarity-releases --draft=false --latest
           gh release view $v --repo princeraph/clarity-releases
