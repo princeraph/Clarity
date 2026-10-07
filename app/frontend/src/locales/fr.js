@@ -472,6 +472,14 @@ export default {
   'tray.quickCapture': 'Saisie rapide',
   'tray.quitClarity': 'Quitter Clarity',
   'tray.openClarity': 'Ouvrir Clarity',
+  'wake.title': 'Bon retour',
+  'wake.remaining': 'Tâches en cours : {count}',
+  'wake.advice': 'Conseil de Clarity',
+  'wake.next': 'Ensuite',
+  'wake.hide': 'Ne plus afficher',
+  'wake.hideHint': 'Vous pourrez le réactiver dans Réglages › Assistant IA › Démarrage.',
+  'settings.wake.label': 'Résumé au réveil',
+  'settings.wake.hint': 'Quand l’ordinateur sort de veille ou de mise en veille prolongée, une petite fenêtre montre les tâches du moment. Clarity doit tourner en arrière-plan (option ci-dessus).',
   'tray.askClarity': 'Demander à Clarity',
   'tray.viewToday': 'Voir aujourd’hui',
 
@@ -688,7 +696,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Au premier lancement, Clarity s’ouvre dans la langue de votre ordinateur — français ou anglais — au lieu de toujours démarrer en anglais.',
+  'update.news': 'Au réveil de l’ordinateur, une petite fenêtre montre les tâches du moment : en retard, aujourd’hui, ensuite.\nElle se désactive d’un clic (« Ne plus afficher ») ou dans Réglages (« Résumé au réveil »).',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

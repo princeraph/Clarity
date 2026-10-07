@@ -607,6 +607,18 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   les langues du système, l'anglais à défaut ; un choix fait dans Réglages
   reste prioritaire. Vérifié dans le navigateur pour fr-FR, fr-CA, en-US et
   de-DE (anglais).
+- **1.3.6 : le résumé au réveil.** Demande : quand l'ordinateur sort de veille
+  ou de veille prolongée, une petite fenêtre avec les tâches du moment, qu'on
+  peut désactiver. Une carte en bas à droite (`WakeCard.jsx`) : en retard,
+  aujourd'hui, ensuite (cinq au plus), le conseil de la dernière analyse,
+  « Ouvrir Clarity », « Ne plus afficher ». Elle attend que la session soit
+  déverrouillée — affichée au réveil même, elle attendrait derrière l'écran
+  de verrouillage —, ne prend jamais le focus, se ferme seule après deux
+  minutes si on ne l'a pas survolée, et ne s'affiche pas s'il n'y a rien à
+  faire. Réglage `wakeSummary` (affiché sauf `false`), dans Réglages ›
+  Assistant IA › Démarrage. Ne marche que si Clarity tourne en arrière-plan.
+  La fenêtre est taillée à la carte : plus haute, sa partie transparente
+  capterait les clics destinés au bureau derrière elle.
 
 ---
 

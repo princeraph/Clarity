@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('clarity', {
     showFile: () => ipcRenderer.invoke('connector:show-file'),
     openClaude: () => ipcRenderer.invoke('connector:open-claude'),
   },
+  // The card shown when the computer wakes up (WakeCard.jsx)
+  wake: {
+    ready: (height) => ipcRenderer.send('wake:ready', height),
+    close: () => ipcRenderer.send('wake:close'),
+  },
   // The language chosen in Clarity, for the installer of the next update
   setLocale: (locale) => ipcRenderer.invoke('locale:set', locale),
   // Updates: announced as Clarity opens, "now" or "later" (updateFlow.js)
