@@ -666,6 +666,23 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   fenêtre blanche. Réglages › Confidentialité montre les derniers rapports
   envoyés. Vérifié de bout en bout contre un faux formulaire local.
 
+## 7 octobre — le panneau « Aujourd'hui »
+
+Demande : sur le laptop, l'équivalent du widget Todoist du téléphone. Une
+question a tranché la forme : le widget du téléphone marche parce que l'écran
+d'accueil est vu toute la journée ; le bureau d'un laptop est presque toujours
+couvert de fenêtres. Un widget de bureau y serait invisible. D'où un panneau
+qui vient **par-dessus** les fenêtres, à la demande : un clic sur l'icône près
+de l'horloge, ou Ctrl+Alt+Espace de n'importe où (`globalShortcut` ; si une
+autre app a pris la combinaison, le journal le dit et l'icône reste). Il
+remplace l'ancien menu de l'icône : en retard, aujourd'hui, ensuite (huit au
+plus), chaque tâche avec heure, durée, sous-tâches et sujets ; on coche sans
+ouvrir l'app, on déplie pour la description et les sous-tâches (cochables),
+« Ouvrir dans Clarity » mène à la fiche. Fenêtre taillée à la carte, fermée
+au clic ailleurs ou par Échap. La sélection des tâches est partagée avec la
+carte du réveil (`components/glance.js`). Le panneau Widgets de Windows
+(Win+W) reste possible plus tard, mais exige une app empaquetée et signée.
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

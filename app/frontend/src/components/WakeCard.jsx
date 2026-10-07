@@ -1,34 +1,10 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
-import { C } from './TrayMenu.jsx';
+import { C, tasksAtHand } from './glance.js';
 
 const API = 'http://localhost:3001/api';
-const MAX_TASKS = 5;
 const AUTO_CLOSE_MS = 2 * 60 * 1000;
-
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// What is at hand: overdue first, then today, then — if that leaves room —
-// what comes next, in the order of the latest analysis or else by deadline.
-export function tasksAtHand(tasks, analysis) {
-  const today = todayStr();
-  const live = tasks.filter(t => !t.archived && t.status !== 'done');
-  const rank = new Map((analysis?.taskAnalysis || []).map(a => [a.id, a.priority ?? 99]));
-  const byTime = (a, b) => (a.time || '99:99').localeCompare(b.time || '99:99');
-  const isOverdue = (t) => !!t.deadline && t.deadline.localeCompare(today) === -1;
-  const overdue = live.filter(isOverdue).sort((a, b) => a.deadline.localeCompare(b.deadline));
-  const dueToday = live.filter(t => t.deadline === today).sort(byTime);
-  const taken = new Set([...overdue, ...dueToday].map(t => t.id));
-  const next = live.filter(t => !taken.has(t.id)).sort((a, b) =>
-    (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99) || (a.deadline || '9999').localeCompare(b.deadline || '9999'));
-  let room = MAX_TASKS;
-  const take = (list) => { const out = list.slice(0, Math.max(0, room)); room -= out.length; return out; };
-  return { overdue: take(overdue), today: take(dueToday), next: take(next), total: live.length };
-}
 
 function Group({ label, tasks, dot, t }) {
   if (!tasks.length) return null;

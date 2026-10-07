@@ -1,183 +1,195 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { C, tasksAtHand, todayStr } from './glance.js';
 
 const API = 'http://localhost:3001/api';
+const PANEL_TASKS = 8;
 
-// Always-dark palette — the tray popup lives against the Windows taskbar,
-// which is dark regardless of the app theme. Values mirror system-tray.jsx.
-export const C = {
-  cardBg:      'rgba(28, 28, 34, 0.98)',
-  border:      'rgba(255,255,255,0.10)',
-  divider:     'rgba(255,255,255,0.07)',
-  tileBg:      'rgba(255,255,255,0.05)',
-  hoverBg:     'rgba(255,255,255,0.06)',
-  ink90:       'rgba(255,255,255,0.90)',
-  ink82:       'rgba(255,255,255,0.82)',
-  ink78:       'rgba(255,255,255,0.78)',
-  ink45:       'rgba(255,255,255,0.45)',
-  ink40:       'rgba(255,255,255,0.40)',
-  ink35:       'rgba(255,255,255,0.35)',
-  ink30:       'rgba(255,255,255,0.30)',
-  kbdBg:       'rgba(255,255,255,0.06)',
-  kbdBorder:   'rgba(255,255,255,0.08)',
-  accent:      'oklch(0.68 0.13 258)',
-  fontUI:      '"Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-  fontMono:    '"Geist Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace',
-};
+// Kept for older imports: the palette lives in glance.js.
+export { C };
 
-function isToday(iso) {
-  if (!iso) return false;
-  const d = new Date(iso);
-  const n = new Date();
-  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+// The "Today" panel — the laptop's answer to a phone's home-screen widget.
+// A widget on the desktop would sit under the windows all day; this comes up
+// over them, from the tray icon or Ctrl+Alt+Space anywhere, shows the day's
+// tasks with their details, lets them be ticked off, and goes away when the
+// person clicks elsewhere (electron/main.js).
+
+const isToday = (iso) => !!iso && new Date(iso).toDateString() === new Date().toDateString();
+
+async function saveTask(id, patch) {
+  try {
+    const r = await fetch(`${API}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    return r.ok;
+  } catch { return false; }
 }
 
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function nextTaskLabel(task, t, fmtDate) {
-  if (!task) return null;
-  if (task.time) return task.time;
-  if (task.deadline) {
-    const today = todayStr();
-    if (task.deadline < today) return t('capture.overdue');
-    if (task.deadline === today) return t('time.today');
-    return fmtDate(task.deadline + 'T00:00:00');
-  }
-  return null;
-}
-
-function ActionRow({ icon, label, kbd, muted, onClick }) {
-  const [hov, setHov] = useState(false);
+function Check({ done, onToggle, label, size = 16 }) {
   return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '9px 18px', cursor: 'pointer',
-        background: hov ? C.hoverBg : 'transparent',
-      }}
-    >
-      <span style={{ fontSize: 12, color: muted ? C.ink30 : C.ink40, width: 14, textAlign: 'center' }}>{icon}</span>
-      <span style={{ fontSize: 13, color: muted ? C.ink45 : C.ink78, flex: 1 }}>{label}</span>
-      {kbd && (
-        <span style={{
-          fontFamily: C.fontMono, fontSize: 10, color: C.ink30,
-          padding: '2px 5px', background: C.kbdBg, borderRadius: 3,
-          border: `1px solid ${C.kbdBorder}`,
-        }}>{kbd}</span>
+    <button type="button" role="checkbox" aria-checked={done} aria-label={label} onClick={onToggle} style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0, cursor: 'pointer', padding: 0,
+      border: `1.5px solid ${done ? C.accent : C.ink35}`, background: done ? C.accent : 'transparent',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#19191A', fontSize: size * 0.6, lineHeight: 1,
+    }}>{done ? '✓' : ''}</button>
+  );
+}
+
+function TaskRow({ task, dot, open, onOpen, onDone, onSubtask, t, fmtDuration, fmtHours }) {
+  const subs = task.subtasks || [];
+  const meta = [
+    task.time,
+    task.estimatedDuration ? (task.estimatedDuration >= 60 ? fmtHours(task.estimatedDuration) : fmtDuration(task.estimatedDuration)) : null,
+    subs.length ? t('panel.subtasks', { done: subs.filter(s => s.done).length, total: subs.length }) : null,
+    ...(task.tags || []).map(tag => `#${tag}`),
+  ].filter(Boolean);
+  const hasDetails = !!task.description || subs.length > 0;
+  return (
+    <div style={{ padding: '7px 0', borderTop: `1px solid ${C.divider}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ paddingTop: 1 }}>
+          <Check done={false} onToggle={() => onDone(task)} label={t('panel.markDone', { title: task.title })} />
+        </div>
+        <button type="button" onClick={() => onOpen(open ? null : task.id)} aria-expanded={hasDetails ? open : undefined} style={{
+          flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: C.ink90, overflow: 'hidden', textOverflow: open ? 'clip' : 'ellipsis', whiteSpace: open ? 'normal' : 'nowrap' }}>{task.title}</span>
+          </div>
+          {meta.length > 0 && (
+            <div style={{ fontFamily: C.fontMono, fontSize: 10.5, color: C.ink40, marginTop: 3, paddingLeft: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.join(' · ')}</div>
+          )}
+        </button>
+      </div>
+      {open && (
+        <div style={{ margin: '8px 0 2px 26px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {task.description && (
+            <div style={{ fontSize: 12, color: C.ink78, lineHeight: 1.45, whiteSpace: 'pre-wrap', maxHeight: 110, overflowY: 'auto' }}>{task.description}</div>
+          )}
+          {subs.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Check size={13} done={!!s.done} onToggle={() => onSubtask(task, i)} label={s.title} />
+              <span style={{ fontSize: 12, color: s.done ? C.ink40 : C.ink82, textDecoration: s.done ? 'line-through' : 'none' }}>{s.title}</span>
+            </div>
+          ))}
+          <button type="button" onClick={() => window.clarity?.trayAction?.(`task:${task.id}`)} style={{
+            alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 11.5, color: C.accent,
+          }}>{t('panel.openTask')}</button>
+        </div>
       )}
     </div>
   );
 }
 
+function Group({ label, tasks, dot, ...rest }) {
+  if (!tasks.length) return null;
+  return (
+    <div style={{ padding: '10px 16px 4px' }}>
+      <div style={{ fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: C.ink35, marginBottom: 2 }}>{label}</div>
+      {tasks.map(task => <TaskRow key={task.id} task={task} dot={dot} open={rest.openId === task.id} {...rest} />)}
+    </div>
+  );
+}
+
 export default function TrayMenu() {
-  const { t, fmtDate, fmtDuration } = useLocale();
-  const [tasks, setTasks] = useState([]);
+  const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
+  const [data, setData] = useState(null);
+  const [openId, setOpenId] = useState(null);
+  const [justDone, setJustDone] = useState(null);
+  const card = useRef(null);
+
+  const load = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API}/tasks`);
+      if (!resp.ok) return;
+      const body = await resp.json();
+      setData({ tasks: Array.isArray(body.tasks) ? body.tasks : [], analysis: body.analysis });
+    } catch { /* backend starting: next tick */ }
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    async function load() {
-      try {
-        const resp = await fetch(`${API}/tasks`);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (alive) setTasks(Array.isArray(data.tasks) ? data.tasks : []);
-      } catch {}
-    }
     load();
-    // Refresh whenever the popup regains focus (reopened) or on a light interval
     const onFocus = () => load();
     window.addEventListener('focus', onFocus);
     const iv = setInterval(load, 4000);
-    return () => { alive = false; window.removeEventListener('focus', onFocus); clearInterval(iv); };
+    return () => { window.removeEventListener('focus', onFocus); clearInterval(iv); };
+  }, [load]);
+
+  // The window is as tall as the card: an empty transparent band above it
+  // would catch clicks meant for what is behind.
+  useLayoutEffect(() => {
+    if (!card.current || !window.clarity?.trayResize) return undefined;
+    const send = () => window.clarity.trayResize(Math.ceil(card.current.getBoundingClientRect().height) + 16);
+    send();
+    const ro = new ResizeObserver(send);
+    ro.observe(card.current);
+    return () => ro.disconnect();
+  }, [data]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') window.clarity?.trayAction?.('hide'); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const remaining = tasks.filter(t => t.status !== 'done');
-  const doneToday = tasks.filter(t => t.status === 'done' && isToday(t.updatedAt)).length;
-  const focusLeftMin = remaining.reduce((sum, t) => sum + (t.estimatedDuration || 0), 0);
-
-  const nextTask = [...remaining].sort((a, b) => {
-    const ad = a.deadline || '9999-99-99';
-    const bd = b.deadline || '9999-99-99';
-    if (ad !== bd) return ad < bd ? -1 : 1;
-    const at = a.time || '99:99';
-    const bt = b.time || '99:99';
-    return at < bt ? -1 : at > bt ? 1 : 0;
-  })[0] || null;
-
-  const stats = [
-    { value: String(doneToday),          label: t('focus.stat.done') },
-    { value: String(remaining.length),   label: t('tray.remaining') },
-    { value: fmtDuration(Math.max(0, focusLeftMin || 0)), label: t('tray.focusLeft') },
-  ];
+  async function done(task) {
+    setJustDone(task.title);
+    if (await saveTask(task.id, { status: 'done' })) load();
+    setTimeout(() => setJustDone(j => (j === task.title ? null : j)), 2500);
+  }
+  async function toggleSubtask(task, i) {
+    const subtasks = (task.subtasks || []).map((s, k) => (k === i ? { ...s, done: !s.done } : s));
+    setData(d => ({ ...d, tasks: d.tasks.map(x => (x.id === task.id ? { ...x, subtasks } : x)) }));
+    if (!(await saveTask(task.id, { subtasks }))) load();
+  }
 
   const act = (name) => () => window.clarity?.trayAction?.(name);
+  const tasks = data?.tasks || [];
+  const atHand = tasksAtHand(tasks, data?.analysis, PANEL_TASKS);
+  const doneToday = tasks.filter(x => x.status === 'done' && isToday(x.updatedAt)).length;
+  const dueToday = tasks.filter(x => !x.archived && x.status !== 'done' && x.deadline === todayStr()).length;
+  const rowProps = { openId, onOpen: setOpenId, onDone: done, onSubtask: toggleSubtask, t, fmtDuration, fmtHours };
+  const shown = atHand.overdue.length + atHand.today.length + atHand.next.length;
+  const btn = { flex: 1, padding: '8px 10px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12.5, cursor: 'pointer' };
 
   return (
-    <div style={{
-      width: '100vw', height: '100vh',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      background: 'transparent', fontFamily: C.fontUI,
-      padding: 8, boxSizing: 'border-box',
-    }}>
-      <div style={{
-        width: '100%',
-        background: C.cardBg,
-        border: `1px solid ${C.border}`,
-        borderRadius: 10,
-        boxShadow: '0 16px 48px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.24)',
-        overflow: 'hidden',
+    <div style={{ padding: 8, fontFamily: C.fontUI, background: 'transparent' }}>
+      <div ref={card} style={{
+        background: C.cardBg, border: `1px solid ${C.border}`, borderRadius: 10,
+        boxShadow: '0 16px 48px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.24)', overflow: 'hidden',
       }}>
-        {/* Today summary header */}
-        <div style={{ padding: '16px 18px 14px', borderBottom: `1px solid ${C.divider}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <ApertureMark s={16} ink={C.ink90} accent={C.accent} />
-            <span style={{ fontSize: 13, fontWeight: 500, color: C.ink90 }}>clarity</span>
-            <span style={{
-              marginLeft: 'auto', fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.10em',
-              textTransform: 'uppercase', color: C.ink35,
-            }}>{t('tray.onDevice')}</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            {stats.map(s => (
-              <div key={s.label} style={{ padding: '8px 10px', background: C.tileBg, borderRadius: 6, textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 500, color: C.ink90, letterSpacing: '-0.02em' }}>{s.value}</div>
-                <div style={{ fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.06em', textTransform: 'uppercase', color: C.ink35, marginTop: 2 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Next task */}
-        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.divider}` }}>
-          <div style={{ fontFamily: C.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: C.ink35, marginBottom: 8 }}>{t('tray.upNext')}</div>
-          {nextTask ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 12, height: 12, borderRadius: '50%', border: `1.5px solid ${C.accent}`, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: C.ink82, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nextTask.title}</span>
-              {nextTaskLabel(nextTask, t, fmtDate) && (
-                <span style={{ fontFamily: C.fontMono, fontSize: 10.5, color: C.ink35, flexShrink: 0 }}>{nextTaskLabel(nextTask, t, fmtDate)}</span>
-              )}
+        <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.divider}` }}>
+          <ApertureMark s={16} ink={C.ink90} accent={C.accent} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500, color: C.ink90 }}>{t('panel.title')}</div>
+            <div style={{ fontSize: 11.5, color: C.ink45, marginTop: 1 }}>
+              {t('panel.subtitle', { date: fmtDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' }), due: dueToday, done: doneToday })}
             </div>
-          ) : (
-            <div style={{ fontSize: 13, color: C.ink45 }}>{t('tray.nothingLeft')}</div>
-          )}
+          </div>
         </div>
 
-        {/* Quick actions */}
-        <div style={{ padding: '6px 0' }}>
-          <ActionRow icon="⊕" label={t('tray.quickCapture')} kbd="Ctrl+K" onClick={act('capture')} />
-          <ActionRow icon="◎" label={t('tray.openClarity')}   kbd=""       onClick={act('open')} />
-          <ActionRow icon="◷" label={t('tray.viewToday')}     kbd="Ctrl+1" onClick={act('today')} />
-          <ActionRow icon="⊙" label={t('tray.askClarity')}    kbd="Ctrl+/" onClick={act('chat')} />
-          <div style={{ height: 1, background: C.divider, margin: '4px 0' }} />
-          <ActionRow icon="✕" label={t('tray.quitClarity')} muted onClick={act('quit')} />
+        <div style={{ maxHeight: 420, overflowY: 'auto', paddingBottom: 6 }}>
+          {data && shown === 0 && (
+            <div style={{ padding: '18px 16px', fontSize: 13, color: C.ink45 }}>{t('panel.empty')}</div>
+          )}
+          <Group label={t('capture.overdue')} tasks={atHand.overdue} dot="oklch(0.68 0.16 25)" {...rowProps} />
+          <Group label={t('time.today')} tasks={atHand.today} dot={C.accent} {...rowProps} />
+          <Group label={t('wake.next')} tasks={atHand.next} dot={C.ink35} {...rowProps} />
+        </div>
+
+        {justDone && (
+          <div role="status" style={{ padding: '6px 16px', fontSize: 12, color: C.ink78, borderTop: `1px solid ${C.divider}` }}>{t('panel.done', { title: justDone })}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderTop: `1px solid ${C.divider}` }}>
+          <button type="button" onClick={act('capture')} style={{ ...btn, background: C.tileBg, border: `1px solid ${C.border}`, color: C.ink90 }}>{t('panel.add')}</button>
+          <button type="button" onClick={act('open')} style={{ ...btn, background: C.ink90, border: 'none', color: '#19191A', fontWeight: 500 }}>{t('tray.openClarity')}</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px 10px', gap: 8 }}>
+          <span style={{ fontFamily: C.fontMono, fontSize: 10, color: C.ink30 }}>{t('panel.shortcut')}</span>
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={act('quit')} style={{ background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 11, color: C.ink35, cursor: 'pointer' }}>{t('tray.quitClarity')}</button>
         </div>
       </div>
     </div>

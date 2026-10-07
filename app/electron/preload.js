@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('clarity', {
   showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
   // Tray popup → main process
   trayAction: (action) => ipcRenderer.send('tray-action', action),
+  trayResize: (height) => ipcRenderer.send('tray:resize', height),
   // Main process → main window (tray command forwarding)
   onTrayCommand: (cb) => {
     const handler = (_e, action) => cb(action);
