@@ -718,7 +718,10 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary } = req.body;
+  if (wakeSummary !== undefined && typeof wakeSummary !== 'boolean') {
+    return res.status(400).json({ error: 'wakeSummary must be true or false', code: 'invalid-setting' });
+  }
   if (llmEndpoint && providerType === 'ollama') {
     try { new URL(llmEndpoint); } catch {
       return res.status(400).json({ error: 'Invalid URL format', code: 'invalid-url' });
@@ -739,6 +742,7 @@ app.post('/api/settings', async (req, res) => {
     ...(apiKey              !== undefined && apiKey       !== '••••••••' && { apiKey }),
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
     ...(localModel          !== undefined && { localModel }),
+    ...(wakeSummary         !== undefined && { wakeSummary }),
   };
   try { await saveSettings(next); }
   catch (err) {

@@ -471,6 +471,14 @@ export default {
   'tray.quickCapture': 'Quick capture',
   'tray.quitClarity': 'Quit Clarity',
   'tray.openClarity': 'Open Clarity',
+  'wake.title': 'Welcome back',
+  'wake.remaining': 'Tasks in progress: {count}',
+  'wake.advice': 'Clarity suggests',
+  'wake.next': 'Up next',
+  'wake.hide': 'Don’t show again',
+  'wake.hideHint': 'You can turn it back on in Settings › AI assistant › Startup.',
+  'settings.wake.label': 'Summary on wake',
+  'settings.wake.hint': 'When the computer wakes from sleep or hibernation, a small window shows the tasks at hand. Clarity must be running in the background (option above).',
   'tray.askClarity': 'Ask Clarity',
   'tray.viewToday': 'View today',
 
@@ -687,7 +695,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'At first launch, Clarity opens in your computer’s language — English or French — instead of always starting in English.',
+  'update.news': 'When the computer wakes up, a small window shows the tasks at hand: overdue, today, up next.\nTurn it off in one click (“Don’t show again”) or in Settings (“Summary on wake”).',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

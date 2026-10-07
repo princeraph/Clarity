@@ -6,7 +6,7 @@ const API = 'http://localhost:3001/api';
 
 // Always-dark palette — the tray popup lives against the Windows taskbar,
 // which is dark regardless of the app theme. Values mirror system-tray.jsx.
-const C = {
+export const C = {
   cardBg:      'rgba(28, 28, 34, 0.98)',
   border:      'rgba(255,255,255,0.10)',
   divider:     'rgba(255,255,255,0.07)',

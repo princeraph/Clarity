@@ -829,7 +829,38 @@ function StartWithSystem({ T }) {
       <SettingRow label={t('settings.startup.label')} hint={t('settings.startup.hint')} T={T}>
         <Toggle on={!!state.enabled} onChange={change} T={T} />
       </SettingRow>
+      <WakeSummarySetting T={T} />
     </Section>
+  );
+}
+
+// The card shown when the computer wakes from sleep (WakeCard.jsx): on unless
+// turned off, here or from the card's own "Don't show again".
+function WakeSummarySetting({ T }) {
+  const { t } = useLocale();
+  const [on, setOn] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/settings`).then(r => r.json())
+      .then(s => { if (!cancelled) setOn(s.wakeSummary !== false); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  async function change(v) {
+    setOn(v);
+    try {
+      const r = await fetch(`${API}/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wakeSummary: v }) });
+      if (!r.ok) setOn(!v);
+    } catch { setOn(!v); }
+  }
+
+  if (on === null) return null;
+  return (
+    <SettingRow label={t('settings.wake.label')} hint={t('settings.wake.hint')} T={T}>
+      <Toggle on={on} onChange={change} T={T} />
+    </SettingRow>
   );
 }
 

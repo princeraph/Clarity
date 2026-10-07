@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen, safeStorage, powerMonitor } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -268,6 +268,7 @@ if (!gotTheLock) {
     createWindow();
     createTray();
     startUpdateChecks();
+    watchForWake();
   });
 }
 
@@ -431,9 +432,78 @@ ipcMain.on('show-notification', (event, { title, body }) => {
   if (Notification.isSupported()) new Notification({ title, body }).show();
 });
 
+// ─── Back from sleep ──────────────────────────────────────────────────────────
+// When the computer wakes from sleep or hibernation, a small card in the
+// bottom-right corner shows the tasks at hand (WakeCard.jsx). It waits for the
+// session to be unlocked (wake.js), never takes the focus from what the person
+// is typing, and is turned off in Settings or from the card itself
+// (`wakeSummary` in settings.json, on unless set to false).
+const { whenUnlocked, placement, WIDTH: WAKE_WIDTH } = require('./wake');
+let wakeWindow = null;
+let cancelWakeWait = null;
+
+async function wakeSummaryWanted() {
+  try {
+    const s = await (await fetch('http://localhost:3001/api/settings')).json();
+    return s.wakeSummary !== false;
+  } catch { return false; }   // no backend: nothing to show
+}
+
+function showWakeSummary() {
+  if (wakeWindow) wakeWindow.close();
+  wakeWindow = new BrowserWindow({
+    width: WAKE_WIDTH,
+    height: 200,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    focusable: true,
+    fullscreenable: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  lockNavigation(wakeWindow);
+  wakeWindow.loadFile(getFrontendPath(), { hash: 'wake' });
+  wakeWindow.on('closed', () => { wakeWindow = null; });
+  // The card says when it is drawn, and how tall (wake:ready); a card that
+  // never does is closed rather than left invisible on top of the desktop.
+  const win = wakeWindow;
+  setTimeout(() => { if (win === wakeWindow && !win.isDestroyed() && !win.isVisible()) win.close(); }, 15000);
+}
+
+ipcMain.on('wake:ready', (event, height) => {
+  if (!wakeWindow || event.sender !== wakeWindow.webContents) return;
+  const { workArea } = screen.getPrimaryDisplay();
+  wakeWindow.setBounds(placement(workArea, Number(height) || 300));
+  wakeWindow.setAlwaysOnTop(true, 'floating');
+  wakeWindow.showInactive();
+});
+ipcMain.on('wake:close', (event) => {
+  if (wakeWindow && event.sender === wakeWindow.webContents) wakeWindow.close();
+});
+
+function watchForWake() {
+  powerMonitor.on('resume', () => {
+    cancelWakeWait?.();
+    cancelWakeWait = whenUnlocked({
+      idleState: () => powerMonitor.getSystemIdleState(1),
+      onReady: async () => { if (await wakeSummaryWanted()) showWakeSummary(); },
+    });
+  });
+}
+
 // ─── System tray actions ────────────────────────────────────────────────────────
 ipcMain.on('tray-action', (event, action) => {
   if (trayWindow) trayWindow.hide();
+  if (wakeWindow && event.sender === wakeWindow.webContents) wakeWindow.close();
   if (action === 'quit') {
     quittingForReal = true;
     app.quit();
