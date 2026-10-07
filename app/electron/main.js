@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen, safeStorage, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen, safeStorage, powerMonitor, globalShortcut } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -198,7 +198,7 @@ function createWindow() {
 // ─── System tray (Windows 11 taskbar popup) ────────────────────────────────────
 function createTrayWindow() {
   trayWindow = new BrowserWindow({
-    width: 336,
+    width: 380,
     height: 420,
     show: false,
     frame: false,
@@ -243,6 +243,29 @@ function positionTrayWindow() {
   }
   trayWindow.setPosition(x, y, false);
 }
+
+// The "Today" panel (TrayMenu.jsx) says how tall its card is; the window
+// follows, keeping its bottom edge above the taskbar.
+ipcMain.on('tray:resize', (event, height) => {
+  if (!trayWindow || event.sender !== trayWindow.webContents) return;
+  const h = Math.max(160, Math.min(Math.round(Number(height) || 420), 760));
+  const [w] = trayWindow.getSize();
+  if (trayWindow.getSize()[1] === h) return;
+  trayWindow.setSize(w, h);
+  if (trayWindow.isVisible()) positionTrayWindow();
+});
+
+// From anywhere, over any window: the phone's home-screen widget, for a laptop
+// whose desktop is always covered (JOURNAL, 7 October).
+const PANEL_SHORTCUT = 'CommandOrControl+Alt+Space';
+function registerPanelShortcut() {
+  try {
+    if (!globalShortcut.register(PANEL_SHORTCUT, toggleTrayWindow)) {
+      console.warn(`[Clarity] ${PANEL_SHORTCUT} is taken by another app — the panel stays on the tray icon`);
+    }
+  } catch (err) { console.warn('[Clarity] shortcut not registered:', err.message); }
+}
+app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
 
 function toggleTrayWindow() {
   if (!trayWindow) createTrayWindow();
@@ -320,6 +343,7 @@ if (!gotTheLock) {
     await waitForBackend();
     createWindow();
     createTray();
+    registerPanelShortcut();
     startUpdateChecks();
     watchForWake();
   });
@@ -556,6 +580,7 @@ function watchForWake() {
 // ─── System tray actions ────────────────────────────────────────────────────────
 ipcMain.on('tray-action', (event, action) => {
   if (trayWindow) trayWindow.hide();
+  if (action === 'hide') return;
   if (wakeWindow && event.sender === wakeWindow.webContents) wakeWindow.close();
   if (action === 'quit') {
     quittingForReal = true;

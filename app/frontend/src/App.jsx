@@ -89,6 +89,8 @@ function AppInner() {
   const { t } = useLocale();
   const { T, isDark, toggleTheme } = useTheme();
   const [data, setData]         = useState({ tasks: [], archivedTasks: [], analysis: null, weeklySummary: null, analyzing: false, analysisError: null });
+  const dataRef = useRef(data);   // for handlers registered once (tray commands)
+  dataRef.current = data;
   const [health, setHealth]     = useState({ ollama: false, model: '', analyzing: false });
   const [view, setView]         = useState('focus');
   // Which Settings page opens. "The AI isn't available" leads straight to the
@@ -244,7 +246,13 @@ function AppInner() {
   useEffect(() => {
     if (!window.clarity?.onTrayCommand) return;
     const off = window.clarity.onTrayCommand(action => {
-      if (action === 'capture')   setShowCapture(true);
+      if (typeof action === 'string' && action.startsWith('task:')) {
+        // "Open in Clarity" from the Today panel: that task's details.
+        const id = action.slice(5);
+        const task = dataRef.current?.tasks?.find(x => x.id === id);
+        if (task) setDetailTask(task);
+      }
+      else if (action === 'capture')   setShowCapture(true);
       else if (action === 'chat') setShowChat(true);
       else if (action === 'today') setView('focus');
     });
