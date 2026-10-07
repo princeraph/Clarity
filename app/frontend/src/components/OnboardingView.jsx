@@ -3,6 +3,7 @@ import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { useAssistant, AssistantModels, formatSize } from './AssistantSetup.jsx';
+import { parseInput } from '../lib/saisie.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -76,11 +77,103 @@ function Cta({ label, onClick, disabled, T }) {
   );
 }
 
+// Saves one line of the first screen as a task, understood the way the quick
+// capture understands it (lib/saisie.js). Returns the task, or null.
+async function addTask(text) {
+  const p = parseInput(text);
+  if (!p.title.trim()) return null;
+  try {
+    const r = await fetch(`${API}/tasks`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null }),
+    });
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+// The last screen. It used to be a picture of a capture box — "Try it now",
+// then "Save", and nothing was saved: the person landed on an empty Today.
+// Now it is the real thing, and what is typed here is what Clarity starts from.
+function FirstCapture({ T, t, added, setAdded, draft, setDraft, cta }) {
+  const { fmtDate, fmtDuration, fmtHours } = useLocale();
+  const [failed, setFailed] = useState(false);
+  const p = parseInput(draft);
+  const understood = p.tags.length > 0 || p.deadline || p.estimatedDuration;
+
+  async function add() {
+    if (!draft.trim()) return;
+    const task = await addTask(draft);
+    if (!task) { setFailed(true); return; }
+    setFailed(false);
+    setAdded(list => [...list, task.task || task]);
+    setDraft('');
+  }
+
+  return (
+    <div style={{ width: '100%', maxWidth: 600 }}>
+      <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 12, textAlign: 'center' }}>{t('onboarding.tryItNow')}</div>
+      <h2 style={{ margin: '0 0 10px', fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', textAlign: 'center', lineHeight: 1.15 }}>
+        {t('onboarding.captureTitle')}
+      </h2>
+      <p style={{ margin: '0 auto 24px', maxWidth: 480, textAlign: 'center', fontSize: 14, color: T.ink60, lineHeight: 1.5 }}>{t('onboarding.captureHelp')}</p>
+      <div style={{
+        background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: 14,
+        boxShadow: '0 24px 60px -20px rgba(25,25,26,0.18)', overflow: 'hidden',
+      }}>
+        <div style={{ padding: '16px 22px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.accent, boxShadow: `0 0 0 4px ${T.accentSoft}`, flexShrink: 0 }} />
+          <input
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+            placeholder={t('onboarding.sample.input')}
+            aria-label={t('onboarding.captureTitle')}
+            style={{ flex: 1, fontSize: 18, color: T.ink, letterSpacing: '-0.01em', border: 'none', outline: 'none', background: 'transparent', fontFamily: T.fontUI }}
+          />
+          <button onClick={add} disabled={!draft.trim()} style={{
+            fontFamily: T.fontUI, fontSize: 12.5, padding: '6px 12px', borderRadius: T.r6, cursor: draft.trim() ? 'pointer' : 'default',
+            border: `1px solid ${T.hairline}`, background: T.paperSubtle, color: draft.trim() ? T.ink : T.ink40,
+          }}>{t('onboarding.add')}</button>
+        </div>
+        {understood && (
+          <div style={{ padding: '10px 22px', borderTop: `1px solid ${T.hairlineSoft}`, background: T.paperSubtle, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
+            {p.deadline && <Pill label={t('onboarding.when')} value={fmtDate(p.deadline + 'T00:00:00', { weekday: 'long', day: 'numeric', month: 'long' })} T={T} />}
+            {p.tags.map(tag => <Pill key={tag} label={t('capture.area')} value={tag} T={T} />)}
+            {p.estimatedDuration && <Pill label={t('onboarding.duration')} value={p.estimatedDuration >= 60 ? fmtHours(p.estimatedDuration) : fmtDuration(p.estimatedDuration)} T={T} />}
+          </div>
+        )}
+        {added.length > 0 && (
+          <ul style={{ listStyle: 'none', margin: 0, padding: '8px 22px 12px', borderTop: `1px solid ${T.hairlineSoft}` }}>
+            {added.map(task => (
+              <li key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', fontSize: 14, color: T.ink80 }}>
+                <span aria-hidden="true" style={{ color: T.done }}>✓</span>
+                <span style={{ flex: 1 }}>{task.title}</span>
+                {task.deadline && <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>{fmtDate(task.deadline + 'T00:00:00')}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {failed && <div role="alert" style={{ marginTop: 10, fontSize: 13, color: T.danger, textAlign: 'center' }}>{t('onboarding.addFailed')}</div>}
+      <div style={{ textAlign: 'center', marginTop: 28 }}>
+        {cta}
+        <div style={{ marginTop: 10, fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>
+          {t('onboarding.captureHint')}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OnboardingView({ onComplete }) {
   const { t, locale } = useLocale();
   const { T } = useTheme();
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
+  const [added, setAdded] = useState([]);    // tasks saved on the last screen
+  const [draft, setDraft] = useState('');
   // This screen used to announce "llama-3 8b · 4.2 GB" on every machine,
   // installed or not. It now says what is there, and offers the download when
   // nothing is — which can run while the person carries on.
@@ -95,6 +188,8 @@ export default function OnboardingView({ onComplete }) {
 
   async function finish() {
     setCompleting(true);
+    // A line typed but not yet added is what the person meant to keep.
+    if (draft.trim()) await addTask(draft);
     try {
       await fetch(`${API}/settings`, {
         method: 'POST',
@@ -108,7 +203,9 @@ export default function OnboardingView({ onComplete }) {
   const isLast = step === SCREENS.length - 1;
   const s = SCREENS[step];
   const advance = isLast ? finish : () => setStep(n => n + 1);
-  const ctaLabel = isLast && completing ? t('onboarding.opening') : t(s.ctaKey);
+  const ctaLabel = isLast && completing ? t('onboarding.opening')
+    : isLast ? t(added.length || draft.trim() ? 'onboarding.cta.open' : 'onboarding.cta.skip')
+    : t(s.ctaKey);
 
   return (
     <div style={{
@@ -189,37 +286,8 @@ export default function OnboardingView({ onComplete }) {
           )}
 
           {step === 2 && (
-            <div style={{ width: '100%', maxWidth: 600 }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 12, textAlign: 'center' }}>{t('onboarding.tryItNow')}</div>
-              <h2 style={{ margin: '0 0 28px', fontSize: 28, fontWeight: 500, letterSpacing: '-0.03em', textAlign: 'center', lineHeight: 1.15 }}>
-                {t('onboarding.captureTitle')}
-              </h2>
-              <div style={{
-                background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: 14,
-                boxShadow: '0 24px 60px -20px rgba(25,25,26,0.18)', overflow: 'hidden',
-              }}>
-                <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: T.accent, boxShadow: `0 0 0 4px ${T.accentSoft}` }} />
-                  <span style={{ fontSize: 18, color: T.ink, letterSpacing: '-0.01em', flex: 1 }}>{t('onboarding.sample.input')}</span>
-                </div>
-                <div style={{
-                  padding: '12px 22px', borderTop: `1px solid ${T.hairlineSoft}`,
-                  background: T.paperSubtle,
-                  display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-                }}>
-                  <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
-                  <Pill label={t('onboarding.when')} value={t('onboarding.sample.when')} T={T} />
-                  <Pill label={t('onboarding.task')} value={t('onboarding.sample.task')} T={T} />
-                  <Pill label={t('onboarding.duration')} value="≈ 10 min" subtle T={T} />
-                </div>
-              </div>
-              <div style={{ textAlign: 'center', marginTop: 28 }}>
-                <Cta label={ctaLabel} onClick={advance} disabled={completing} T={T} />
-                <div style={{ marginTop: 10, fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>
-                  {t('onboarding.captureHint')}
-                </div>
-              </div>
-            </div>
+            <FirstCapture T={T} t={t} added={added} setAdded={setAdded} draft={draft} setDraft={setDraft}
+              cta={<Cta label={ctaLabel} onClick={advance} disabled={completing} T={T} />} />
           )}
 
         </div>

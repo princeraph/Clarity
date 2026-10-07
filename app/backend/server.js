@@ -425,6 +425,10 @@ const downloader = createDownloader({
       await saveSettings({ ...readSettings(), providerType: 'local', localModel: m.file });
       console.log(`[assistant] ${m.file} ready — the built-in assistant is on`);
       warmModel();
+      // The tasks typed while it downloaded — the first ones, often — are
+      // analysed now, not at the next edit.
+      const { tasks } = readData();
+      if (tasks.some(t => !t.archived && t.status !== 'done')) scheduleAnalysis(tasks);
     } catch (err) {
       console.error('[assistant] model ready, but settings could not be saved:', err.message);
     }

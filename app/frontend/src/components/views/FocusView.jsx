@@ -329,7 +329,9 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       {/* Analyzing / analysis staleness banner */}
       {analyzing ? (
         <AnalysisBanner state="analyzing" T={T} />
-      ) : analysisError ? (
+      ) : analysisError && health.ollama ? (
+        // Without an AI the card above already says why there is no analysis;
+        // a red "analysis failed" under it read as a second, scarier problem.
         <AnalysisBanner state="error" T={T} onReanalyze={handlers.onReanalyze} />
       ) : analysis?.analyzedAt && (
         <AnalysisBanner state="stale" time={relativeTime(analysis.analyzedAt, t)} T={T} onReanalyze={handlers.onReanalyze} />

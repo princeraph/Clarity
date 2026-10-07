@@ -175,6 +175,9 @@ export function dueThreads(threads, now = new Date()) {
 
 // ─── which tasks deserve a thread at all ──────────────────────────────────────
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const localDay = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
 // Not every task is a conversation. Opening a thread on all of them would turn
 // a to-do list into an interrogation. These are the ones where something has
 // visibly failed to happen — derived from history the app already records, with
@@ -185,13 +188,17 @@ export function stalledTasks(tasks, { now = new Date(), stallDays = STALL_DAYS, 
     if (!t || t.archived || t.status === 'done') continue;
     if (hasThread(t.id)) continue;
 
+    // A move made by auto-reschedule is not the person postponing (src/reschedule.js).
     const slips = (Array.isArray(t.history) ? t.history : [])
-      .filter(h => h?.type === 'deadline' && h.from && h.to && Date.parse(h.to) > Date.parse(h.from)).length;
+      .filter(h => h?.type === 'deadline' && !h.auto && h.from && h.to && Date.parse(h.to) > Date.parse(h.from)).length;
 
     const lastTouch = parse(t.updatedAt) ?? parse(t.createdAt);
     const idleDays = lastTouch === null ? null : Math.floor((now.getTime() - lastTouch) / DAY);
 
-    const overdue = t.deadline && Date.parse(t.deadline) < now.getTime() && t.status !== 'done';
+    // By local calendar day. Date.parse('2026-10-07') is midnight UTC, so a
+    // task due today read as overdue from that hour on — all evening in
+    // Montréal, from the first minute of the day further east.
+    const overdue = t.deadline && String(t.deadline).slice(0, 10) < localDay(now) && t.status !== 'done';
 
     // `why` is the English sentence; `code` is what an interface translates
     // from. The UI must not parse the sentence to find out which one it is.

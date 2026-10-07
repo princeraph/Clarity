@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import ApertureMark from './ApertureMark.jsx';
+import { useAssistantDownload } from '../assistantDownload.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 
@@ -213,6 +214,9 @@ export default function Sidebar({
   taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings, onOpenAiSettings,
   onFeedback,   // null while no feedback form is configured: nothing is shown
 }) {
+  // While the built-in assistant downloads, say so: a new tester's first
+  // minutes otherwise showed "AI offline" in orange, as if something had broken.
+  const downloading = useAssistantDownload(!health.ollama);
   const { T } = useTheme();
   const { t } = useLocale();
   const userName = getUserName();
@@ -479,8 +483,10 @@ export default function Sidebar({
             <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink60 }}>
               {analyzing ? t('sidebar.analyzing') : t('tray.onDevice')}
             </span>
-            <span style={{ fontSize: 11.5, color: health.ollama ? T.ink80 : T.warn, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {health.ollama ? (health.model ? t('sidebar.clarityAiModel', { model: health.model }) : t('sidebar.clarityAiLocal')) : t('sidebar.aiOffline')}
+            <span style={{ fontSize: 11.5, color: health.ollama || downloading !== null ? T.ink80 : T.warn, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {health.ollama ? (health.model ? t('sidebar.clarityAiModel', { model: health.model }) : t('sidebar.clarityAiLocal'))
+                : downloading !== null ? t('sidebar.aiDownloading', { percent: downloading })
+                : t('sidebar.aiOffline')}
             </span>
           </div>
         </div>

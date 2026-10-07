@@ -639,6 +639,19 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   il efface désormais les conversations du journal, et elles seules. Couper
   l'historique empêche aussi de l'écrire. « 18,4 Mo » est remplacé par la
   taille mesurée.
+- **1.3.9 : un premier lancement qui montre la valeur.** Parcouru comme un
+  nouveau venu, profil vide. Le dernier écran, « Essayez maintenant », était
+  une image : « Enregistrer » n'enregistrait rien, et on arrivait sur un
+  Aujourd'hui vide, avec « IA hors ligne » en orange. C'est maintenant une vraie
+  saisie (plusieurs tâches, comprises comme Ctrl+K) ; pendant le téléchargement
+  de l'assistant, la barre latérale et la carte le disent ; le téléchargement
+  fini lance l'analyse des tâches déjà notées ; le bandeau rouge « L'analyse a
+  échoué » ne double plus la carte quand il n'y a pas d'IA. Le tutoriel
+  promettait ce que l'app ne fait pas (« l'IA extrait la personne », « un plan
+  chaque matin », « groupé par énergie ») : réécrit sur ce qui existe.
+  Trouvé en passant : une tâche due aujourd'hui apparaissait « en retard » le
+  soir — `Date.parse('2026-10-07')` est minuit UTC. Comparée en jour local,
+  testée sous trois fuseaux, et la régression vérifiée.
 
 ---
 
