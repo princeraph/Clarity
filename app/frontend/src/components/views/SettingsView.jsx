@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
+import { useFeatures, setFeature } from '../../features.js';
 import ApertureMark from '../ApertureMark.jsx';
 import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 import OllamaSetup from '../OllamaSetup.jsx';
@@ -165,12 +166,14 @@ const SAVE_ERROR_KEY = {
   'store-failed':  'settings.saveError.storeFailed',
 };
 
-function Toggle({ on, onChange, T }) {
+// A real switch: it was a clickable <span>, out of reach of the keyboard and
+// silent to a screen reader.
+function Toggle({ on, onChange, T, label }) {
   return (
-    <span onClick={() => onChange(!on)} style={{
-      width: 32, height: 18, borderRadius: 999,
+    <button type="button" role="switch" aria-checked={!!on} aria-label={label} onClick={() => onChange(!on)} style={{
+      width: 32, height: 18, borderRadius: 999, border: 'none', padding: 0,
       background: on ? T.accent : T.ink20,
-      position: 'relative', display: 'inline-block',
+      position: 'relative', display: 'inline-block', verticalAlign: 'middle',
       cursor: 'pointer', transition: 'background 200ms', flexShrink: 0,
     }}>
       <span style={{
@@ -179,7 +182,7 @@ function Toggle({ on, onChange, T }) {
         background: T.paper, boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
         transition: 'left 200ms',
       }} />
-    </span>
+    </button>
   );
 }
 
@@ -834,6 +837,39 @@ function StartWithSystem({ T }) {
   );
 }
 
+// Settings › AI assistant › Features, saved (src/features.js). These four
+// switches used to be state of this screen only: saved nowhere, read by
+// nothing, back to their defaults at every launch. "Smart area detection" had
+// nothing behind it at all and is gone (BACKLOG.md).
+function FeatureSettings({ T, onTasksChanged }) {
+  const { t } = useLocale();
+  const features = useFeatures();
+  const [moved, setMoved] = useState(0);
+  if (!features) return null;
+
+  async function change(key, v) {
+    const answer = await setFeature(key, v);
+    if (answer?.rescheduled) { setMoved(answer.rescheduled); onTasksChanged?.(); }
+  }
+
+  return (
+    <Section title={t('settings.ai.features')} subtitle={t('settings.ai.featuresHint')} T={T}>
+      <SettingRow label={t('settings.dailyPlanStrip')} hint={t('settings.showAiGeneratedDailyPlan')} T={T}>
+        <Toggle on={features.dailyPlan} onChange={v => change('dailyPlan', v)} T={T} label={t('settings.dailyPlanStrip')} />
+      </SettingRow>
+      <SettingRow label={t('settings.autoRescheduleStaleTasks')} hint={t('settings.moveOverdueTasksAutomatically')} T={T}>
+        <Toggle on={features.autoReschedule} onChange={v => change('autoReschedule', v)} T={T} label={t('settings.autoRescheduleStaleTasks')} />
+      </SettingRow>
+      {moved > 0 && features.autoReschedule && (
+        <div role="status" style={{ fontSize: 12.5, color: T.ink60, padding: '0 14px' }}>{t('settings.rescheduledNow', { count: moved })}</div>
+      )}
+      <SettingRow label={t('settings.conversationHistory')} hint={t('settings.aiRemembersContextAcrossSessions')} T={T}>
+        <Toggle on={features.convHistory} onChange={v => change('convHistory', v)} T={T} label={t('settings.conversationHistory')} />
+      </SettingRow>
+    </Section>
+  );
+}
+
 // The card shown when the computer wakes from sleep (WakeCard.jsx): on unless
 // turned off, here or from the card's own "Don't show again".
 function WakeSummarySetting({ T }) {
@@ -962,9 +998,6 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
     try { return localStorage.getItem('clarity-userName') || ''; } catch { return ''; }
   });
 
-  const [aiToggles, setAiToggles] = useState({
-    dailyPlan: true, autoReschedule: false, smartArea: true, convHistory: true,
-  });
   const [captureToggles, setCaptureToggles] = useState({
     parsePreview: true, autoArea: true, detectRecur: true, parseDuration: false, chime: false,
   });
@@ -1398,20 +1431,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
 
             <StartWithSystem T={T} />
 
-            <Section title={t('settings.ai.features')} subtitle={t('settings.ai.featuresHint')} T={T}>
-              <SettingRow label={t('settings.dailyPlanStrip')} hint={t('settings.showAiGeneratedDailyPlan')} T={T}>
-                <Toggle on={aiToggles.dailyPlan} onChange={v => setAiToggles(t => ({ ...t, dailyPlan: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.autoRescheduleStaleTasks')} hint={t('settings.moveOverdueTasksAutomatically')} T={T}>
-                <Toggle on={aiToggles.autoReschedule} onChange={v => setAiToggles(t => ({ ...t, autoReschedule: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.smartAreaDetection')} hint={t('settings.autoAssignTasksToAreas')} T={T}>
-                <Toggle on={aiToggles.smartArea} onChange={v => setAiToggles(t => ({ ...t, smartArea: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.conversationHistory')} hint={t('settings.aiRemembersContextAcrossSessions')} T={T}>
-                <Toggle on={aiToggles.convHistory} onChange={v => setAiToggles(t => ({ ...t, convHistory: v }))} T={T} />
-              </SettingRow>
-            </Section>
+            <FeatureSettings T={T} onTasksChanged={onSaved} />
 
             {status && (
               <div style={{

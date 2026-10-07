@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useFeatures } from '../features.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 
@@ -28,7 +29,12 @@ export default function ChatPanel({ onClose, taskCount }) {
   // The conversation used to start over every time this panel closed, because it
   // lived only in React state. It is now kept in the local journal, so pick it
   // back up — the greeting above is only what a first-ever conversation opens with.
+  // Settings › AI assistant › Features › Conversation history: off, every
+  // opening starts a new conversation, and the assistant sees only that one.
+  const features = useFeatures();
+  const keepsHistory = features ? features.convHistory !== false : null;
   useEffect(() => {
+    if (!keepsHistory) return undefined;   // off, or not read yet
     let cancelled = false;
     (async () => {
       try {
@@ -40,7 +46,7 @@ export default function ChatPanel({ onClose, taskCount }) {
       } catch { /* a fresh conversation is a fine fallback */ }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [keepsHistory]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);

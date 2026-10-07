@@ -363,3 +363,27 @@ deux stockages pendant la transition.
 **Si « Clarity Cloud » (voie 4 du § 5) se fait un jour,** son serveur prendra
 PostgreSQL — une décision distincte de l'app de bureau, et toujours pas MySQL,
 MongoDB ni Oracle.
+
+## 7. Les interrupteurs de Réglages qui ne font rien — relevé le 7 octobre
+
+Retour de test : « Replanifier automatiquement les tâches oubliées » revenait
+éteint à chaque lancement. En cherchant pourquoi : **seize** interrupteurs de
+Réglages étaient de l'état d'écran, enregistrés nulle part et lus par rien,
+hérités de la maquette. Comme l'ancien sélecteur de huit langues, ils
+promettent ce que l'app ne fait pas.
+
+**Fait en 1.3.7** — Assistant IA › Fonctions : le bandeau du plan du jour et
+l'historique des conversations agissent vraiment, la replanification existe
+(`backend/src/reschedule.js`), les trois sont enregistrés. « Détection
+automatique du sujet » est retirée : rien ne l'implémentait, et aucune
+détection de sujet par l'IA n'existe. À reprendre seulement comme vraie
+fonction (l'IA propose un sujet à la création, la personne accepte).
+
+**Reste — un par un, brancher ou retirer :**
+
+| Section | Interrupteur | Ce qui existe derrière |
+|---|---|---|
+| Saisie | Aperçu de l'analyse, sujet auto, récurrence, durée, son | à vérifier dans `SearchCapture.jsx` et le parseur de saisie |
+| Confidentialité | Statistiques anonymes, rapports de plantage, mesures de performance | rien n'est jamais envoyé : à remplacer par une phrase qui le dit |
+| Confidentialité | Conserver / utiliser l'historique | le journal de discussion existe : à brancher |
+| Données | Sauvegarde automatique | les sauvegardes existent : vérifier si elles dépendent de quoi que ce soit |
