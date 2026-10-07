@@ -830,7 +830,7 @@ function StartWithSystem({ T }) {
   return (
     <Section title={t('settings.startup.title')} T={T}>
       <SettingRow label={t('settings.startup.label')} hint={t('settings.startup.hint')} T={T}>
-        <Toggle on={!!state.enabled} onChange={change} T={T} />
+        <Toggle on={!!state.enabled} onChange={change} T={T} label={t('settings.startup.label')} />
       </SettingRow>
       <WakeSummarySetting T={T} />
     </Section>
@@ -863,10 +863,71 @@ function FeatureSettings({ T, onTasksChanged }) {
       {moved > 0 && features.autoReschedule && (
         <div role="status" style={{ fontSize: 12.5, color: T.ink60, padding: '0 14px' }}>{t('settings.rescheduledNow', { count: moved })}</div>
       )}
-      <SettingRow label={t('settings.conversationHistory')} hint={t('settings.aiRemembersContextAcrossSessions')} T={T}>
-        <Toggle on={features.convHistory} onChange={v => change('convHistory', v)} T={T} label={t('settings.conversationHistory')} />
-      </SettingRow>
     </Section>
+  );
+}
+
+// One saved switch of src/features.js, in a settings row.
+function FeatureRow({ k, label, hint, T }) {
+  const { t } = useLocale();
+  const features = useFeatures();
+  if (!features) return null;
+  return (
+    <SettingRow label={t(label)} hint={t(hint)} T={T}>
+      <Toggle on={features[k]} onChange={v => setFeature(k, v)} T={T} label={t(label)} />
+    </SettingRow>
+  );
+}
+
+// "Clear history": the conversations leave the journal for good, after a
+// second click that says so.
+function ClearChatHistory({ T }) {
+  const { t } = useLocale();
+  const [phase, setPhase] = useState('idle');   // idle | confirm | done | error
+  async function clear() {
+    try {
+      const r = await fetch(`${API}/chat/history`, { method: 'DELETE' });
+      setPhase(r.ok ? 'done' : 'error');
+    } catch { setPhase('error'); }
+  }
+  const btn = { padding: '8px 16px', background: 'transparent', border: `1px solid ${T.hairline}`, borderRadius: T.r6, fontSize: 13, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      {phase === 'confirm' ? (
+        <>
+          <button style={{ ...btn, color: T.danger, borderColor: T.dangerBorder }} onClick={clear}>{t('settings.privacy.clearConfirm')}</button>
+          <button style={{ ...btn, border: 'none' }} onClick={() => setPhase('idle')}>{t('common.cancel')}</button>
+        </>
+      ) : (
+        <button style={btn} onClick={() => setPhase('confirm')}>{t('settings.privacy.clearHistory')}</button>
+      )}
+      {phase === 'done' && <span role="status" style={{ fontSize: 12.5, color: T.ink60 }}>{t('settings.privacy.cleared')}</span>}
+      {phase === 'error' && <span role="alert" style={{ fontSize: 12.5, color: T.danger }}>{t('settings.privacy.clearFailed')}</span>}
+    </div>
+  );
+}
+
+// Settings › Data › Storage, measured (the screen printed "18.4 MB").
+function StorageInfo({ T }) {
+  const { t, fmtNumber } = useLocale();
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`${API}/storage`).then(r => (r.ok ? r.json() : null)).then(b => { if (live) setInfo(b); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const size = !info ? '—'
+    : info.bytes < 1024 * 1024 ? t('settings.sizeKB', { n: fmtNumber(info.bytes / 1024, 0) })
+    : t('settings.sizeMB', { n: fmtNumber(info.bytes / (1024 * 1024), 1) });
+  return (
+    <>
+      <SettingRow label={t('settings.dataDirectory')} hint="" T={T}>
+        <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60, wordBreak: 'break-all' }}>{info?.dir || '—'}</span>
+      </SettingRow>
+      <SettingRow label={t('settings.databaseSize')} hint={t('settings.dataSizeHint')} T={T}>
+        <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{size}</span>
+      </SettingRow>
+    </>
   );
 }
 
@@ -895,7 +956,7 @@ function WakeSummarySetting({ T }) {
   if (on === null) return null;
   return (
     <SettingRow label={t('settings.wake.label')} hint={t('settings.wake.hint')} T={T}>
-      <Toggle on={on} onChange={change} T={T} />
+      <Toggle on={on} onChange={change} T={T} label={t('settings.wake.label')} />
     </SettingRow>
   );
 }
@@ -998,13 +1059,6 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
     try { return localStorage.getItem('clarity-userName') || ''; } catch { return ''; }
   });
 
-  const [captureToggles, setCaptureToggles] = useState({
-    parsePreview: true, autoArea: true, detectRecur: true, parseDuration: false, chime: false,
-  });
-  const [privacyToggles, setPrivacyToggles] = useState({
-    anonUsage: false, crashReports: false, perfMetrics: false, storeHistory: true, useHistory: true,
-  });
-  const [backupToggles, setBackupToggles] = useState({ autoBackup: true });
 
   useEffect(() => {
     async function load() {
@@ -1478,26 +1532,14 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             </Section>
 
             <Section title={t('settings.capture.parsing')} subtitle={t('settings.capture.parsingHint')} T={T}>
-              <SettingRow label={t('settings.showParsePreview')} hint={t('settings.displayParsedFieldsBelowInput')} T={T}>
-                <Toggle on={captureToggles.parsePreview} onChange={v => setCaptureToggles(t => ({ ...t, parsePreview: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.autoAssignArea')} hint={t('settings.detectAndApplyAreaFrom')} T={T}>
-                <Toggle on={captureToggles.autoArea} onChange={v => setCaptureToggles(t => ({ ...t, autoArea: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.detectRecurrence')} hint={t('settings.parseEveryMondayEtc')} T={T}>
-                <Toggle on={captureToggles.detectRecur} onChange={v => setCaptureToggles(t => ({ ...t, detectRecur: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.parseDuration')} hint={t('settings.extractTimeEstimatesFromText')} T={T}>
-                <Toggle on={captureToggles.parseDuration} onChange={v => setCaptureToggles(t => ({ ...t, parseDuration: v }))} T={T} />
-              </SettingRow>
+              <FeatureRow k="capturePreview" label="settings.showParsePreview" hint="settings.displayParsedFieldsBelowInput" T={T} />
+              <FeatureRow k="captureTags" label="settings.autoAssignArea" hint="settings.detectAndApplyAreaFrom" T={T} />
+              <FeatureRow k="captureDuration" label="settings.parseDuration" hint="settings.extractTimeEstimatesFromText" T={T} />
             </Section>
 
             <Section title={t('settings.capture.after')} T={T}>
               <SettingRow label={t('settings.onSave')} hint={t('settings.whatHappensAfterSaving')} T={T}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('settings.closeAndReturn')}</span>
-              </SettingRow>
-              <SettingRow label={t('settings.captureChime')} hint={t('settings.playASoundOnSave')} T={T}>
-                <Toggle on={captureToggles.chime} onChange={v => setCaptureToggles(t => ({ ...t, chime: v }))} T={T} />
               </SettingRow>
             </Section>
           </div>
@@ -1517,33 +1559,13 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
               <OutboundPreview T={T} />
             </Section>
 
-            <Section title={t('settings.privacy.diagnostics')} subtitle={t('settings.privacy.diagnosticsHint')} T={T}>
-              <SettingRow label={t('settings.anonymousUsageData')} hint={t('settings.appFeatureUsageNoTask')} T={T}>
-                <Toggle on={privacyToggles.anonUsage} onChange={v => setPrivacyToggles(t => ({ ...t, anonUsage: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.crashReports')} hint={t('settings.automaticErrorReporting')} T={T}>
-                <Toggle on={privacyToggles.crashReports} onChange={v => setPrivacyToggles(t => ({ ...t, crashReports: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.performanceMetrics')} hint={t('settings.latencyAndRenderingStats')} T={T}>
-                <Toggle on={privacyToggles.perfMetrics} onChange={v => setPrivacyToggles(t => ({ ...t, perfMetrics: v }))} T={T} />
-              </SettingRow>
+            <Section title={t('settings.privacy.diagnostics')} T={T}>
+              <p style={{ margin: 0, fontSize: 13, color: T.ink60, lineHeight: 1.55 }}>{t('settings.privacy.nothingSent')}</p>
             </Section>
 
             <Section title={t('settings.privacy.conversation')} T={T}>
-              <SettingRow label={t('settings.storeHistory')} hint={t('settings.keepChatHistoryBetweenSessions')} T={T}>
-                <Toggle on={privacyToggles.storeHistory} onChange={v => setPrivacyToggles(t => ({ ...t, storeHistory: v }))} T={T} />
-              </SettingRow>
-              <SettingRow label={t('settings.useHistoryToImprovePlans')} hint={t('settings.letAiReferencePastConversations')} T={T}>
-                <Toggle on={privacyToggles.useHistory} onChange={v => setPrivacyToggles(t => ({ ...t, useHistory: v }))} T={T} />
-              </SettingRow>
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <button style={{
-                  padding: '8px 16px',
-                  background: 'transparent', border: `1px solid ${T.hairline}`,
-                  borderRadius: T.r6, fontSize: 13, color: T.ink60,
-                  cursor: 'pointer', fontFamily: T.fontUI,
-                }}>{t('settings.privacy.clearHistory')}</button>
-              </div>
+              <FeatureRow k="convHistory" label="settings.conversationHistory" hint="settings.aiRemembersContextAcrossSessions" T={T} />
+              <ClearChatHistory T={T} />
             </Section>
           </div>
 
@@ -1552,17 +1574,12 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             <PageHeader section={t('settings.section.data')} title={t('settings.section.data')} T={T} />
 
             <Section title={t('settings.data.storage')} T={T}>
-              <SettingRow label={t('settings.dataDirectory')} hint={t('settings.localStoragePath')} T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink60 }}>APPDATA/Clarity/data/</span>
-              </SettingRow>
-              <SettingRow label={t('settings.databaseSize')} hint={t('settings.approximate')} T={T}>
-                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>18.4 MB</span>
-              </SettingRow>
+              <StorageInfo T={T} />
             </Section>
 
             <Section title={t('settings.data.backup')} subtitle={t('settings.data.backupHint')} T={T}>
               <SettingRow label={t('settings.autoBackup')} hint={t('settings.createDailySnapshots')} T={T}>
-                <Toggle on={backupToggles.autoBackup} onChange={v => setBackupToggles(t => ({ ...t, autoBackup: v }))} T={T} />
+                <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('settings.alwaysOn')}</span>
               </SettingRow>
               <SettingRow label={t('settings.backupFrequency')} hint="" T={T}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t('form.daily')}</span>

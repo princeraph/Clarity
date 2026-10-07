@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { parseInput } from '../lib/saisie.js';
+import { useFeatures } from '../features.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -184,7 +185,11 @@ export default function SearchCapture({
     ];
   }, [mode, query, recentTasks, searchResults, commands]);
 
-  const parsed = mode === 'capture' ? parseInput(query) : null;
+  // Settings › Capture: what the line understands, and whether it shows it.
+  const features = useFeatures();
+  const parsed = mode === 'capture'
+    ? parseInput(query, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false })
+    : null;
 
   function handleKeyDown(e) {
     if (e.key === 'Escape') {
@@ -243,7 +248,8 @@ export default function SearchCapture({
     }
   }
 
-  const hasParseResult = parsed && (parsed.tags?.length > 0 || parsed.deadline || parsed.estimatedDuration);
+  const hasParseResult = features?.capturePreview !== false
+    && parsed && (parsed.tags?.length > 0 || parsed.deadline || parsed.estimatedDuration);
 
   return (
     <div

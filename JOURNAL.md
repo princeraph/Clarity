@@ -632,6 +632,13 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   à 4. « Détection automatique du sujet » est retirée. Douze autres
   interrupteurs factices relevés dans BACKLOG § 7. `Toggle` devient un vrai
   interrupteur (`role="switch"`), atteignable au clavier.
+- **1.3.8 : plus aucun réglage factice.** Les douze autres interrupteurs, et
+  trois valeurs affichées en dur, traités un par un (BACKLOG § 7) : branchés
+  quand la fonction existait, retirés sinon, avec une phrase vraie à la
+  place. « Effacer l'historique des conversations » n'avait aucune action ;
+  il efface désormais les conversations du journal, et elles seules. Couper
+  l'historique empêche aussi de l'écrire. « 18,4 Mo » est remplacé par la
+  taille mesurée.
 
 ---
 

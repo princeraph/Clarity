@@ -379,11 +379,15 @@ automatique du sujet » est retirée : rien ne l'implémentait, et aucune
 détection de sujet par l'IA n'existe. À reprendre seulement comme vraie
 fonction (l'IA propose un sujet à la création, la personne accepte).
 
-**Reste — un par un, brancher ou retirer :**
+**Fait en 1.3.8 — les douze autres :**
 
-| Section | Interrupteur | Ce qui existe derrière |
+| Section | Avant | Maintenant |
 |---|---|---|
-| Saisie | Aperçu de l'analyse, sujet auto, récurrence, durée, son | à vérifier dans `SearchCapture.jsx` et le parseur de saisie |
-| Confidentialité | Statistiques anonymes, rapports de plantage, mesures de performance | rien n'est jamais envoyé : à remplacer par une phrase qui le dit |
-| Confidentialité | Conserver / utiliser l'historique | le journal de discussion existe : à brancher |
-| Données | Sauvegarde automatique | les sauvegardes existent : vérifier si elles dépendent de quoi que ce soit |
+| Saisie | 5 interrupteurs décoratifs | aperçu, `#sujet` et durée branchés sur `saisie.js` (un réglage éteint laisse le texte dans le titre) ; récurrence et son retirés — l'analyseur ne détecte aucune récurrence, et aucun son n'existait |
+| Confidentialité | statistiques, plantages, performances | retirés : rien n'est collecté, une phrase le dit, avec ce qui part réellement |
+| Confidentialité | conserver / utiliser l'historique | un seul interrupteur, « Historique des conversations » : désactivé, rien n'est conservé ; « Effacer l'historique » efface vraiment (il n'avait aucune action) |
+| Données | sauvegarde automatique, « 18,4 Mo », chemin figé | la sauvegarde est toujours active et le dit ; dossier et taille mesurés (`/api/storage`) |
+
+À reprendre comme vraies fonctions, si on les veut : la détection de
+récurrence dans la saisie (« tous les lundis »), le son à l'enregistrement,
+l'export CSV (bouton affiché désactivé).

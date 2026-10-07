@@ -72,17 +72,20 @@ function dateISO(d) {
 
 // `maintenant` est un paramètre, jamais un new Date() caché : c'est ce qui rend
 // l'analyseur vérifiable sans attendre mardi.
-export function parseInput(texte, maintenant = new Date()) {
+// `options` : les réglages de Réglages › Saisie. Un réglage éteint laisse le
+// texte tel quel — « #travail » ou « 2h » restent dans le titre — plutôt que de
+// l'avaler sans rien en faire.
+export function parseInput(texte, maintenant = new Date(), { tags = true, duration = true } = {}) {
   const etiquettes = new Set();
   let echeance = null;
   let duree = null;
   let titre = String(texte ?? '');
 
-  titre = titre.replace(/#([\p{L}\d-]+)/gu, (_, e) => { etiquettes.add(e.toLowerCase()); return ''; }).trim();
+  if (tags) titre = titre.replace(/#([\p{L}\d-]+)/gu, (_, e) => { etiquettes.add(e.toLowerCase()); return ''; }).trim();
 
   // Ordre important : la forme « 2h30 » avant la forme à unité, sinon « 2h »
   // est consommé et « 30 » reste collé au titre.
-  for (const re of [RE_DUREE_HM, RE_DUREE, RE_DUREE_NUE]) {
+  for (const re of duration ? [RE_DUREE_HM, RE_DUREE, RE_DUREE_NUE] : []) {
     if (duree !== null) break;
     titre = titre.replace(re, (...m) => {
       if (re === RE_DUREE_HM) {

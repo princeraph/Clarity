@@ -60,8 +60,15 @@ const cas = [
 ];
 
 const ecarts = [];
-for (const [entree, attendu] of cas) {
-  const r = parseInput(entree, MARDI);
+// Réglages › Saisie : un réglage éteint laisse le texte dans le titre au lieu
+// de l'avaler. Troisième élément d'un cas : les options passées à parseInput.
+cas.push(
+  ['Rendre le rapport #travail pour 2h demain', { title: 'Rendre le rapport #travail', tags: [], deadline: '2026-09-16', estimatedDuration: 120 }, { tags: false }],
+  ['Rendre le rapport #travail pour 2h demain', { title: 'Rendre le rapport pour 2h', tags: ['travail'], deadline: '2026-09-16', estimatedDuration: null }, { duration: false }],
+);
+
+for (const [entree, attendu, options] of cas) {
+  const r = parseInput(entree, MARDI, options);
   for (const [champ, valeur] of Object.entries(attendu)) {
     const obtenu = champ === 'tags' ? JSON.stringify(r.tags) : r[champ];
     const vise   = champ === 'tags' ? JSON.stringify(valeur) : valeur;

@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID as uuidv4 } from 'node:crypto';
@@ -1508,8 +1508,10 @@ ${ctx.text}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analys
     // The conversation used to live only in React state and vanish with the
     // panel. It is the raw material for understanding the person, so it is
     // kept — locally, and never sent back out as history.
+    // Unless the person turned the history off (Settings › Privacy): then
+    // nothing of the conversation is kept.
     try {
-      profileStore.appendEntry({ kind: 'exchange', message, reply });
+      if (featuresOf(readSettings()).convHistory) profileStore.appendEntry({ kind: 'exchange', message, reply });
     } catch (err) {
       console.error('[Clarity] could not journal the exchange:', err.message);
     }
@@ -1530,6 +1532,29 @@ app.get('/api/chat/history', (req, res) => {
       { role: 'assistant', content: e.reply, at: e.at },
     ])).filter(m => typeof m.content === 'string' && m.content.length > 0),
   });
+});
+
+// "Clear history" in Settings › Privacy. Removes the conversations, and only
+// them: the journal's other entries (corrections, observations) stay.
+app.delete('/api/chat/history', (req, res) => {
+  try { res.json({ ok: true, removed: profileStore.removeEntries(['exchange']) }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Settings › Data › Storage: where the data is and how much of it, measured —
+// the screen used to print "18.4 MB" whatever was on disk.
+app.get('/api/storage', (req, res) => {
+  const sizeOf = (dir) => {
+    let total = 0;
+    try {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        total += e.isDirectory() ? sizeOf(p) : (statSync(p).size || 0);
+      }
+    } catch { /* unreadable: counted as nothing */ }
+    return total;
+  };
+  res.json({ dir: DATA_DIR, bytes: sizeOf(DATA_DIR) });
 });
 
 // ── Subtask breakdown (streaming) ─────────────────────────────────────────────
