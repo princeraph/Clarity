@@ -26,6 +26,7 @@ import { totalmem, platform, release } from 'os';
 import { createConnector, findByRef, findSubtask, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES, LIST_FILTERS as CONNECTOR_LISTS } from './src/connector/connector.js';
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
+import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS } from './src/reschedule.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -711,6 +712,7 @@ app.get('/api/settings', (req, res) => {
   const { connectorTokenHash, ...s } = readSettings();   // not even the hash leaves
   res.json({
     ...s,
+    features: featuresOf(s),
     tunnelSecret: s.tunnelSecret ? '••••••••' : '',
     apiKey:       s.apiKey       ? '••••••••' : '',
   });
@@ -718,9 +720,14 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features } = req.body;
   if (wakeSummary !== undefined && typeof wakeSummary !== 'boolean') {
     return res.status(400).json({ error: 'wakeSummary must be true or false', code: 'invalid-setting' });
+  }
+  // Only the known features, only booleans: the section is saved field by field.
+  if (features !== undefined && (typeof features !== 'object' || features === null
+      || Object.entries(features).some(([k, v]) => !(k in FEATURE_DEFAULTS) || typeof v !== 'boolean'))) {
+    return res.status(400).json({ error: 'Unknown feature or value', code: 'invalid-setting' });
   }
   if (llmEndpoint && providerType === 'ollama') {
     try { new URL(llmEndpoint); } catch {
@@ -743,6 +750,7 @@ app.post('/api/settings', async (req, res) => {
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
+    ...(features            !== undefined && { features: { ...featuresOf(current), ...features } }),
   };
   try { await saveSettings(next); }
   catch (err) {
@@ -750,8 +758,28 @@ app.post('/api/settings', async (req, res) => {
     console.error('[secrets] could not store settings:', err.message);
     return res.status(500).json({ error: 'Could not store the settings securely', code: 'store-failed' });
   }
-  res.json({ ok: true });
+  // Turned on: overdue tasks move now, not at the next check.
+  const rescheduled = features?.autoReschedule ? autoReschedule() : 0;
+  res.json({ ok: true, ...(rescheduled ? { rescheduled } : {}) });
 });
+
+// ─── Auto-reschedule ──────────────────────────────────────────────────────────
+// When the feature is on, overdue unfinished tasks move to today: at startup,
+// when it is turned on, and every half hour — which also catches midnight for
+// a Clarity left open in the tray. src/reschedule.js says why the move is
+// marked as automatic.
+function autoReschedule() {
+  if (!featuresOf(readSettings()).autoReschedule) return 0;
+  const data = readData();
+  const { tasks, moved } = rescheduleOverdue(data.tasks);
+  if (!moved.length) return 0;
+  data.tasks = tasks;
+  saveData(data);
+  scheduleProfileRecompute(data.tasks);
+  console.log(`[Clarity] auto-reschedule: ${moved.length} overdue task(s) moved to today`);
+  return moved.length;
+}
+setInterval(() => { try { autoReschedule(); } catch (err) { console.error('[Clarity] auto-reschedule failed:', err.message); } }, 30 * 60 * 1000).unref();
 
 app.get('/api/backups', (req, res) => {
   try {
@@ -1638,6 +1666,7 @@ function warmModel() {
 }
 
 const server = app.listen(PORT, BIND_HOST, () => {
+  try { autoReschedule(); } catch (err) { console.error('[Clarity] auto-reschedule failed:', err.message); }
   const s = readSettings();
   console.log(`[Clarity v${VERSION}] Backend on ${BIND_HOST}:${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
   warmModel();

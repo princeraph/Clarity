@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
 import AiOfflineNotice from '../AiOfflineNotice.jsx';
 import TimeBlockingStrip from '../TimeBlockingStrip.jsx';
+import { useFeatures } from '../../features.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -244,6 +245,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       return { type: 'focus', label: t.title, start, end };
     });
   const timelineBlocks = [...taskBlocks, ...calendarBlocks].sort((a, b) => a.start - b.start);
+  const features = useFeatures();
 
   const now = new Date();
   const dateStr = fmtDate(now, { weekday: 'long', day: 'numeric', month: 'long' });
@@ -277,8 +279,8 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       {/* Time blocking strip */}
       <TimeBlockingStrip blocks={timelineBlocks} />
 
-      {/* AI Plan strip */}
-      {analysis?.whatToDoNext && (
+      {/* AI Plan strip — Settings › AI assistant › Features › Daily plan strip */}
+      {analysis?.whatToDoNext && features?.dailyPlan !== false && (
         <div style={{
           display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 16,
           padding: '14px 18px',

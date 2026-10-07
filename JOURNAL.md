@@ -619,6 +619,19 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   Assistant IA › Démarrage. Ne marche que si Clarity tourne en arrière-plan.
   La fenêtre est taillée à la carte : plus haute, sa partie transparente
   capterait les clics destinés au bureau derrière elle.
+- **1.3.7 : les fonctions de l'assistant IA enregistrées et branchées.**
+  Retour de test : « Replanifier automatiquement les tâches oubliées »
+  revenait éteint à chaque lancement. La cause était pire qu'un oubli
+  d'enregistrement : les quatre interrupteurs n'étaient lus par rien, et la
+  replanification n'existait pas. Ils sont enregistrés (`features` dans
+  settings.json), le bandeau et l'historique obéissent, la replanification
+  déplace une tâche en retard à aujourd'hui (heure conservée) au lancement,
+  à l'activation et toutes les 30 minutes. Ses déplacements sont marqués
+  `auto` et exclus des glissements d'échéance du profil — sinon une tâche
+  oubliée trois jours comptait trois glissements ; `OBSERVED_VERSION` passe
+  à 4. « Détection automatique du sujet » est retirée. Douze autres
+  interrupteurs factices relevés dans BACKLOG § 7. `Toggle` devient un vrai
+  interrupteur (`role="switch"`), atteignable au clavier.
 
 ---
 

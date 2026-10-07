@@ -19,7 +19,7 @@ export const MIN_SAMPLES = 5;
 //   1 — first version
 //   2 — the window falls back to all history when it would hold almost nothing
 //   3 — estimation.pending: what is one step away from counting
-export const OBSERVED_VERSION = 3;
+export const OBSERVED_VERSION = 4;   // 4: slips made by auto-reschedule are not the person's
 
 // Estimate/actual ratios cluster near 1. These bounds are deliberately wide:
 // being 10% out is noise, being 2× out is a pattern worth naming.
@@ -162,6 +162,7 @@ export function computeSlippage(tasks) {
     let totalDays = 0;
     for (const h of historyOf(t)) {
       if (h?.type !== 'deadline') continue;
+      if (h.auto) continue;                    // moved by auto-reschedule, not by the person (src/reschedule.js)
       const from = localDate(h.from);
       const to   = localDate(h.to);
       if (!from || !to) continue;              // first deadline, or cleared
