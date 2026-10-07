@@ -16,6 +16,8 @@ export const localDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pa
 export const FEATURE_DEFAULTS = {
   dailyPlan: true, autoReschedule: false, convHistory: true,
   capturePreview: true, captureTags: true, captureDuration: true,
+  // Crash reports: off until the person says yes; asked once (src/crash/crash.js).
+  crashReports: false, crashAsked: false,
 };
 
 export function featuresOf(settings) {

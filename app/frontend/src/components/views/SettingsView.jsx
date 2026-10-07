@@ -879,6 +879,38 @@ function FeatureRow({ k, label, hint, T }) {
   );
 }
 
+// Crash reports (backend/src/crash/crash.js): the switch, what it sends, and
+// the last reports that left — so "what was sent" is never a matter of trust.
+function CrashSettings({ T }) {
+  const { t, fmtDateTime } = useLocale();
+  const features = useFeatures();
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`${API}/crash`).then(r => (r.ok ? r.json() : null)).then(b => { if (live) setInfo(b); }).catch(() => {});
+    return () => { live = false; };
+  }, [features?.crashReports]);
+  if (!info?.available || !features) return null;   // no form configured: nothing could be sent
+  return (
+    <>
+      <SettingRow label={t('settings.crashReports')} hint={t('settings.crashReportsHint')} T={T}>
+        <Toggle on={features.crashReports} onChange={v => { setFeature('crashReports', v); setFeature('crashAsked', true); }} T={T} label={t('settings.crashReports')} />
+      </SettingRow>
+      {info.recent?.length > 0 && (
+        <div style={{ padding: '10px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: T.ink60, marginBottom: 6 }}>{t('settings.crashRecent')}</div>
+          {info.recent.map(r => (
+            <div key={r.at + r.message} style={{ fontSize: 12, color: T.ink60, padding: '2px 0', display: 'flex', gap: 10 }}>
+              <span style={{ fontFamily: T.fontMono, flexShrink: 0 }}>{fmtDateTime(r.at)}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 // "Clear history": the conversations leave the journal for good, after a
 // second click that says so.
 function ClearChatHistory({ T }) {
@@ -1561,6 +1593,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
 
             <Section title={t('settings.privacy.diagnostics')} T={T}>
               <p style={{ margin: 0, fontSize: 13, color: T.ink60, lineHeight: 1.55 }}>{t('settings.privacy.nothingSent')}</p>
+              <CrashSettings T={T} />
             </Section>
 
             <Section title={t('settings.privacy.conversation')} T={T}>

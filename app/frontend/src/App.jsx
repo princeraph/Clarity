@@ -25,6 +25,7 @@ import TutorialOverlay from './components/TutorialOverlay.jsx';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
 import UpdateDialog from './components/UpdateDialog.jsx';
+import CrashConsent from './components/CrashConsent.jsx';
 import { useUpdates } from './updates.js';
 import { useLocale } from './contexts/LocaleContext.jsx';
 
@@ -433,9 +434,26 @@ function AppInner() {
   const feedbackAsked = useRef(false);
   const busyRef = useRef(false);
   const updateWindow = useUpdates();
+  const [askCrash, setAskCrash] = useState(false);
   busyRef.current = showOnboarding || showTutorial || showForm || showCapture || showChat || showExport
     || !!focusTask || !!detailTask || !!suggestion || !!feedbackMode
-    || updateWindow.open || !!updateWindow.updated;
+    || updateWindow.open || !!updateWindow.updated || askCrash;
+
+  // Crash reports: asked once, a little after the person has started — not
+  // during the welcome, and never over another dialog (components/CrashConsent).
+  useEffect(() => {
+    if (showOnboarding || showTutorial) return undefined;
+    let live = true;
+    const ask = async () => {
+      if (!live || busyRef.current) return;
+      try {
+        const r = await (await fetch(`${API}/crash`)).json();
+        if (live && r.available && !r.asked && !busyRef.current) setAskCrash(true);
+      } catch { /* backend not up yet: next launch */ }
+    };
+    const first = setTimeout(ask, 8000);
+    return () => { live = false; clearTimeout(first); };
+  }, [showOnboarding, showTutorial]);
   useEffect(() => {
     let live = true;
     fetch(`${API}/feedback`).then(r => (r.ok ? r.json() : null))
@@ -696,6 +714,7 @@ function AppInner() {
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {feedbackMode && <FeedbackDialog mode={feedbackMode} onClose={closeFeedback} />}
       <UpdateDialog />
+      {askCrash && <CrashConsent onClose={() => setAskCrash(false)} />}
       {detailTask && (
         <TaskDetailPanel
           task={detailTask}

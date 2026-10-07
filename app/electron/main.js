@@ -54,10 +54,63 @@ function startBackend() {
     },
   });
   backendProcess.stdout?.on('data', (d) => process.stdout.write('[Backend] ' + d));
-  backendProcess.stderr?.on('data', (d) => process.stderr.write('[Backend] ' + d));
+  backendProcess.stderr?.on('data', (d) => {
+    process.stderr.write('[Backend] ' + d);
+    backendErrTail.push(...String(d).split('\n').filter(Boolean));
+    backendErrTail.splice(0, Math.max(0, backendErrTail.length - 40));
+  });
+  backendProcess.on('exit', (code, signal) => {
+    // Stopped on its own, not by quitting: the crash that leaves nothing alive
+    // to report it. Written down; the next launch sends it (if reports are on).
+    if (quittingForReal || code === 0) return;
+    const message = backendErrTail.filter(l => /Error|exception|rejection/i.test(l)).at(-1) || '';
+    queueCrash('service', {
+      message: `background service stopped (code ${code}, signal ${signal || 'none'})${message ? ` — ${message}` : ''}`,
+      stack: backendErrTail.filter(l => /^\s*at /.test(l)).join('\n'),
+    });
+  });
   backendProcess.on('error', (err) => console.error('[Backend] Failed to start:', err.message));
   backendProcess.on('message', answerSecretRequest);
 }
+
+// ─── Crash reports ────────────────────────────────────────────────────────────
+// What the backend cannot see: errors of this process, a window that crashed,
+// the backend itself stopping. Sent through the backend
+// (backend/src/crash/crash.js decides what leaves, and cleans it), or written
+// to its queue when it is down. Nothing at all while reports are off.
+const backendErrTail = [];
+function crashReportsOn() {
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'data', 'settings.json'), 'utf8'));
+    return s?.features?.crashReports === true;
+  } catch { return false; }
+}
+function queueCrash(where, err) {
+  if (!crashReportsOn()) return;
+  try {
+    fs.appendFileSync(path.join(app.getPath('userData'), 'data', 'crash-pending.jsonl'),
+      JSON.stringify({ at: new Date().toISOString(), where, message: String(err?.message || err), stack: String(err?.stack || '') }) + '\n');
+  } catch { /* reporting must never be the next crash */ }
+}
+function reportCrash(where, err) {
+  if (!crashReportsOn()) return;
+  fetch('http://localhost:3001/api/crash', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ where, message: String(err?.message || err), stack: String(err?.stack || '') }),
+  }).catch(() => queueCrash(where, err));
+}
+process.on('uncaughtException', (err) => {
+  console.error('[Clarity] uncaught exception in the shell:', err?.stack || err);
+  reportCrash('app', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Clarity] unhandled rejection in the shell:', reason?.stack || reason);
+  reportCrash('app', reason);
+});
+app.on('render-process-gone', (_e, _wc, details) => {
+  if (details?.reason === 'clean-exit') return;
+  reportCrash('window', { message: `window ${details?.reason} (exit code ${details?.exitCode})`, stack: '' });
+});
 
 // Encryption that only this process can do: safeStorage uses the OS store
 // (DPAPI on Windows, Keychain on macOS), tied to the user's account.

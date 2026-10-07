@@ -652,6 +652,19 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   Trouvé en passant : une tâche due aujourd'hui apparaissait « en retard » le
   soir — `Date.parse('2026-10-07')` est minuit UTC. Comparée en jour local,
   testée sous trois fuseaux, et la régression vérifiée.
+- **1.4.0 : les rapports de plantage.** Demandés une fois, après les premières
+  secondes d'usage ; désactivés tant que la personne n'a pas dit oui, et rien
+  n'est même écrit tant qu'ils le sont. Ils passent par le formulaire des
+  avis, avec leur propre quota (3/h). Ce qui part : où (fenêtre, application,
+  service), le message, la pile d'appels, la version, le système — le dossier
+  de l'utilisateur et les courriels effacés (`src/crash/crash.js`, le seul
+  endroit qui compose le rapport). Sources : erreurs non rattrapées du
+  service, réponses 500 (motif de la route, sans identifiants), erreurs de la
+  fenêtre, du processus Electron, une fenêtre qui plante, et le service qui
+  s'arrête — ce dernier écrit dans la file par Electron et envoyé au lancement
+  suivant. Une erreur de rendu affiche désormais « Recharger » au lieu d'une
+  fenêtre blanche. Réglages › Confidentialité montre les derniers rapports
+  envoyés. Vérifié de bout en bout contre un faux formulaire local.
 
 ---
 
