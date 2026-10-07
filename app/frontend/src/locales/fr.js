@@ -688,7 +688,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'L’installateur parle la langue choisie dans Clarity (Réglages › Langue), et plus celle de Windows.',
+  'update.news': 'Au premier lancement, Clarity s’ouvre dans la langue de votre ordinateur — français ou anglais — au lieu de toujours démarrer en anglais.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

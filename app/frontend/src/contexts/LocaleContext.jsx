@@ -26,13 +26,28 @@ const STORAGE_KEY = 'clarity-locale';
 
 const LocaleContext = createContext(null);
 
+// Until the person picks a language, the system's: a friend on a French
+// Windows got Clarity in English at first launch, since nothing had been
+// stored yet — after a French installer and a French download page.
+function systemLocale() {
+  try {
+    const wanted = navigator.languages?.length ? navigator.languages : [navigator.language];
+    for (const tag of wanted) {
+      const lang = String(tag || '').slice(0, 2).toLowerCase();
+      const hit = Object.keys(DICTIONARIES).find(id => id.slice(0, 2) === lang);
+      if (hit) return hit;
+    }
+  } catch { /* no navigator: English */ }
+  return DEFAULT_LOCALE;
+}
+
 function readStored() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     // A locale the app no longer ships must not leave the UI keyless. The old
     // picker could have stored any of eight ids, six of which never existed.
-    return saved && DICTIONARIES[saved] ? saved : DEFAULT_LOCALE;
-  } catch { return DEFAULT_LOCALE; }
+    return saved && DICTIONARIES[saved] ? saved : systemLocale();
+  } catch { return systemLocale(); }
 }
 
 // Fill {placeholders}. A missing variable leaves the placeholder visible rather
