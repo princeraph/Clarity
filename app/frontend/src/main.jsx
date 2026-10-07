@@ -4,6 +4,7 @@ import App from './App.jsx';
 import TrayMenu from './components/TrayMenu.jsx';
 import WakeCard from './components/WakeCard.jsx';
 import { LocaleProvider } from './contexts/LocaleContext.jsx';
+import { ErrorBoundary, watchWindowErrors } from './crash.jsx';
 // Fonts ship inside the app. They used to come from fonts.googleapis.com, so
 // every launch sent the user's IP address to Google — while the first screen
 // promises "no cloud, no spying". Same families, weights and subsets as before
@@ -33,12 +34,16 @@ const isTray = hash === 'tray';
 const isWake = hash === 'wake';
 const Root = isTray ? TrayMenu : isWake ? WakeCard : App;
 
+watchWindowErrors();
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     {/* Both windows, not just the main one: the tray popup shows text too, and
         it carries its own palette but not its own language. */}
     <LocaleProvider>
-      <Root />
+      <ErrorBoundary>
+        <Root />
+      </ErrorBoundary>
     </LocaleProvider>
   </React.StrictMode>
 );

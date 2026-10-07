@@ -1,5 +1,6 @@
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { useAssistantDownload } from '../assistantDownload.js';
 
 // What to say when the AI is not there. It used to tell everyone to run
 // `ollama serve` — a command, for a program most people have never installed.
@@ -21,8 +22,11 @@ export default function AiOfflineNotice({ health, onOpenSettings, style }) {
     }}>{label}</button>
   );
 
+  const downloading = useAssistantDownload(!CLOUD[provider]);
   let body;
-  if (CLOUD[provider]) {
+  if (downloading !== null) {
+    body = <>{t('ai.offline.downloading', { percent: downloading })}</>;
+  } else if (CLOUD[provider]) {
     body = <>{t('ai.offline.cloud', { provider: CLOUD[provider] })} {link(t('ai.offline.settings'))}</>;
   } else if (provider === 'local') {
     body = <>{t('ai.offline.localNoModel')} {link(t('ai.offline.localCta'))}</>;
@@ -41,9 +45,9 @@ export default function AiOfflineNotice({ health, onOpenSettings, style }) {
       border: `1px solid ${T.hairline}`, borderRadius: T.r10,
       display: 'flex', alignItems: 'flex-start', gap: 12, ...style,
     }}>
-      <span style={{ color: T.warn, fontSize: 16, lineHeight: 1.3 }}>⚠</span>
+      <span aria-hidden="true" style={{ color: downloading !== null ? T.accent : T.warn, fontSize: 16, lineHeight: 1.3 }}>{downloading !== null ? '↓' : '⚠'}</span>
       <div style={{ flex: 1 }}>
-        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t('focus.aiOffline')}</p>
+        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t(downloading !== null ? 'ai.offline.downloadingTitle' : 'focus.aiOffline')}</p>
         <p style={{ margin: '3px 0 0', fontSize: 12.5, color: T.ink60, lineHeight: 1.5 }}>{body}</p>
       </div>
     </div>

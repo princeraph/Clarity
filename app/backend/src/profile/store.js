@@ -11,7 +11,7 @@
 // why profile.json joins the backup rotation.
 
 import { join } from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { writeJSONAtomic, quarantine, appendJSONL, readJSONL } from '../storage.js';
 import { computeObserved } from './metrics.js';
 import { deriveInsights, mergeInsights, setInsightStatus, addInsight, pushRecord } from './insights.js';
@@ -145,6 +145,27 @@ export function createProfileStore({ dataDir, log = console }) {
     return { entries: filtered.slice(-limit), skipped };
   }
 
+  // "Clear history" in Settings › Privacy: the entries of these kinds leave the
+  // journal for good. Everything else stays, and so does a line that does not
+  // parse — deleting what cannot be read would be deleting blind.
+  function removeEntries(kinds) {
+    if (!existsSync(JOURNAL_FILE)) return 0;
+    const lines = readFileSync(JOURNAL_FILE, 'utf8').split('\n').filter(Boolean);
+    let removed = 0;
+    const kept = lines.filter(line => {
+      try {
+        if (kinds.includes(JSON.parse(line).kind)) { removed++; return false; }
+      } catch { /* unreadable: keep it */ }
+      return true;
+    });
+    if (removed) {
+      const tmp = `${JOURNAL_FILE}.tmp`;
+      writeFileSync(tmp, kept.map(l => l + '\n').join(''));
+      renameSync(tmp, JOURNAL_FILE);
+    }
+    return removed;
+  }
+
   // ─── Proposals (Stage 2b) ───────────────────────────────────────────────────
 
   function addProposals(incoming) {
@@ -193,7 +214,7 @@ export function createProfileStore({ dataDir, log = console }) {
   return {
     PROFILE_FILE, JOURNAL_FILE,
     readProfile, saveProfile, recompute, judgeInsight,
-    appendEntry, readEntries,
+    appendEntry, readEntries, removeEntries,
     addProposals, readProposals, acceptProposal, declineProposal,
   };
 }

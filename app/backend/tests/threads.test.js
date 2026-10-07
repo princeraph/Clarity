@@ -210,6 +210,26 @@ describe('stalledTasks — not every task is a conversation', () => {
     expect(out[0].why).toBe('postponed 2 times');
   });
 
+  // Seen in the onboarding: a task due today, created in the evening, came up
+  // as "past its deadline". Date.parse read the date as midnight UTC.
+  test('a task due today is not overdue, at any hour of the day', () => {
+    for (const hour of [0, 9, 20, 23]) {
+      const evening = new Date(2026, 9, 7, hour, 30);
+      const out = stalledTasks([task({ deadline: '2026-10-07', updatedAt: evening.toISOString() })], { now: evening });
+      expect(out).toHaveLength(0);
+    }
+    const nextDay = new Date(2026, 9, 8, 0, 30);
+    expect(stalledTasks([task({ deadline: '2026-10-07', updatedAt: nextDay.toISOString() })], { now: nextDay })[0].code).toBe('overdue');
+  });
+
+  test('moves made by auto-reschedule are not postponements', () => {
+    const auto = (from, to) => ({ ...slip(from, to), auto: true });
+    const out = stalledTasks(
+      [task({ updatedAt: plus(5).toISOString(), history: [auto('2026-09-10', '2026-09-11'), auto('2026-09-11', '2026-09-12')] })],
+      { now: plus(5) });
+    expect(out.filter(o => o.code === 'postponed')).toHaveLength(0);
+  });
+
   test('a deadline pulled earlier is not a postponement', () => {
     const out = stalledTasks(
       [task({ updatedAt: plus(5).toISOString(), history: [slip('2026-09-20', '2026-09-10')] })],

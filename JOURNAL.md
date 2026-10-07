@@ -632,6 +632,39 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   à 4. « Détection automatique du sujet » est retirée. Douze autres
   interrupteurs factices relevés dans BACKLOG § 7. `Toggle` devient un vrai
   interrupteur (`role="switch"`), atteignable au clavier.
+- **1.3.8 : plus aucun réglage factice.** Les douze autres interrupteurs, et
+  trois valeurs affichées en dur, traités un par un (BACKLOG § 7) : branchés
+  quand la fonction existait, retirés sinon, avec une phrase vraie à la
+  place. « Effacer l'historique des conversations » n'avait aucune action ;
+  il efface désormais les conversations du journal, et elles seules. Couper
+  l'historique empêche aussi de l'écrire. « 18,4 Mo » est remplacé par la
+  taille mesurée.
+- **1.3.9 : un premier lancement qui montre la valeur.** Parcouru comme un
+  nouveau venu, profil vide. Le dernier écran, « Essayez maintenant », était
+  une image : « Enregistrer » n'enregistrait rien, et on arrivait sur un
+  Aujourd'hui vide, avec « IA hors ligne » en orange. C'est maintenant une vraie
+  saisie (plusieurs tâches, comprises comme Ctrl+K) ; pendant le téléchargement
+  de l'assistant, la barre latérale et la carte le disent ; le téléchargement
+  fini lance l'analyse des tâches déjà notées ; le bandeau rouge « L'analyse a
+  échoué » ne double plus la carte quand il n'y a pas d'IA. Le tutoriel
+  promettait ce que l'app ne fait pas (« l'IA extrait la personne », « un plan
+  chaque matin », « groupé par énergie ») : réécrit sur ce qui existe.
+  Trouvé en passant : une tâche due aujourd'hui apparaissait « en retard » le
+  soir — `Date.parse('2026-10-07')` est minuit UTC. Comparée en jour local,
+  testée sous trois fuseaux, et la régression vérifiée.
+- **1.4.0 : les rapports de plantage.** Demandés une fois, après les premières
+  secondes d'usage ; désactivés tant que la personne n'a pas dit oui, et rien
+  n'est même écrit tant qu'ils le sont. Ils passent par le formulaire des
+  avis, avec leur propre quota (3/h). Ce qui part : où (fenêtre, application,
+  service), le message, la pile d'appels, la version, le système — le dossier
+  de l'utilisateur et les courriels effacés (`src/crash/crash.js`, le seul
+  endroit qui compose le rapport). Sources : erreurs non rattrapées du
+  service, réponses 500 (motif de la route, sans identifiants), erreurs de la
+  fenêtre, du processus Electron, une fenêtre qui plante, et le service qui
+  s'arrête — ce dernier écrit dans la file par Electron et envoyé au lancement
+  suivant. Une erreur de rendu affiche désormais « Recharger » au lieu d'une
+  fenêtre blanche. Réglages › Confidentialité montre les derniers rapports
+  envoyés. Vérifié de bout en bout contre un faux formulaire local.
 
 ---
 

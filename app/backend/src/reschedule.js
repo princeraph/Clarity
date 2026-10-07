@@ -10,8 +10,15 @@
 const pad = (n) => String(n).padStart(2, '0');
 export const localDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-// The features of that settings section, and what they are until changed.
-export const FEATURE_DEFAULTS = { dailyPlan: true, autoReschedule: false, convHistory: true };
+// The switches of Settings saved in settings.json, and what they are until
+// changed. Not only the AI ones: the quick-capture parsing switches live here
+// too (their screen was as decorative as this one).
+export const FEATURE_DEFAULTS = {
+  dailyPlan: true, autoReschedule: false, convHistory: true,
+  capturePreview: true, captureTags: true, captureDuration: true,
+  // Crash reports: off until the person says yes; asked once (src/crash/crash.js).
+  crashReports: false, crashAsked: false,
+};
 
 export function featuresOf(settings) {
   const saved = settings?.features && typeof settings.features === 'object' ? settings.features : {};

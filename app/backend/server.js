@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID as uuidv4 } from 'node:crypto';
@@ -22,11 +22,12 @@ import { createSecretStore, probeBox } from './src/security/secrets.js';
 import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads.js';
 import { unloadAll } from './src/llm/LocalProvider.js';
 import { createOllamaInstaller, recommendedOllamaModel, ENDPOINT as OLLAMA_ENDPOINT } from './src/ollama/install.js';
-import { totalmem, platform, release } from 'os';
+import { totalmem, platform, release, homedir } from 'os';
 import { createConnector, findByRef, findSubtask, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES, LIST_FILTERS as CONNECTOR_LISTS } from './src/connector/connector.js';
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS } from './src/reschedule.js';
+import { createCrashReporter, WHERE as CRASH_WHERE } from './src/crash/crash.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -349,10 +350,21 @@ function scheduleAnalysis(tasks) {
 // A local single-user app is better off logging and staying up.
 process.on('unhandledRejection', (reason) => {
   console.error('[Clarity] unhandled rejection:', reason?.stack || reason);
+  reportCrash('service', reason);
 });
 process.on('uncaughtException', (err) => {
   console.error('[Clarity] uncaught exception:', err?.stack || err);
+  reportCrash('service', err);
 });
+
+// Kept up, but not unseen: with the person's yes, the error goes into a crash
+// report (src/crash/crash.js says exactly what leaves, and what never does).
+function reportCrash(where, err) {
+  try {
+    crashReporter?.record({ where, message: err?.message || String(err), stack: err?.stack || '' });
+    crashReporter?.flush().catch(() => {});
+  } catch { /* reporting must never be the next crash */ }
+}
 
 const app = express();
 
@@ -425,6 +437,10 @@ const downloader = createDownloader({
       await saveSettings({ ...readSettings(), providerType: 'local', localModel: m.file });
       console.log(`[assistant] ${m.file} ready — the built-in assistant is on`);
       warmModel();
+      // The tasks typed while it downloaded — the first ones, often — are
+      // analysed now, not at the next edit.
+      const { tasks } = readData();
+      if (tasks.some(t => !t.archived && t.status !== 'done')) scheduleAnalysis(tasks);
     } catch (err) {
       console.error('[assistant] model ready, but settings could not be saved:', err.message);
     }
@@ -665,6 +681,38 @@ function readFeedbackConfig() {
   catch { return {}; }
 }
 const feedback = createFeedback({ config: readFeedbackConfig(), version: VERSION, system: `${platform()} ${release()}` });
+
+// Crash reports ride the feedback form, with their own budget: a burst of
+// errors must not use up a tester's feedback, nor flood the form.
+const crashSender = createFeedback({ config: readFeedbackConfig(), version: VERSION, system: `${platform()} ${release()}`, limit: 3 });
+var crashReporter = createCrashReporter({
+  dataDir: DATA_DIR,
+  enabled: () => crashSender.enabled && featuresOf(readSettings()).crashReports,
+  send: (text) => crashSender.send({ bugs: text }),
+  version: VERSION, system: `${platform()} ${release()}`, home: homedir(),
+});
+
+// GET: for Settings and the one-time question. POST: an error from the window
+// or the Electron shell. POST /flush: the shell wrote a report while this
+// process was down (it crashed); send it now.
+app.get('/api/crash', (req, res) => {
+  const f = featuresOf(readSettings());
+  res.json({ available: crashSender.enabled, enabled: f.crashReports, asked: f.crashAsked, recent: crashReporter.recent() });
+});
+app.post('/api/crash', (req, res) => {
+  const { where, message, stack } = req.body || {};
+  if (!CRASH_WHERE.includes(where) || typeof message !== 'string' || (stack !== undefined && typeof stack !== 'string')
+      || message.length > 5000 || (stack || '').length > 20000) {
+    return res.status(400).json({ error: 'invalid report', code: 'invalid-report' });
+  }
+  const recorded = crashReporter.record({ where, message, stack: stack || '' });
+  crashReporter.flush().catch(() => {});
+  res.json({ ok: true, recorded: !!recorded });
+});
+app.post('/api/crash/flush', async (req, res) => {
+  try { res.json(await crashReporter.flush()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
 console.log(`[feedback] ${feedback.enabled ? 'form configured — testers can send feedback' : 'no form configured — feedback is off'}`);
 
 // "A week of use" needs a start. Set once; a factory reset starts it again.
@@ -760,6 +808,8 @@ app.post('/api/settings', async (req, res) => {
   }
   // Turned on: overdue tasks move now, not at the next check.
   const rescheduled = features?.autoReschedule ? autoReschedule() : 0;
+  // Turned off: whatever was queued is dropped unsent.
+  if (features?.crashReports === false) crashReporter.flush().catch(() => {});
   res.json({ ok: true, ...(rescheduled ? { rescheduled } : {}) });
 });
 
@@ -1508,8 +1558,10 @@ ${ctx.text}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analys
     // The conversation used to live only in React state and vanish with the
     // panel. It is the raw material for understanding the person, so it is
     // kept — locally, and never sent back out as history.
+    // Unless the person turned the history off (Settings › Privacy): then
+    // nothing of the conversation is kept.
     try {
-      profileStore.appendEntry({ kind: 'exchange', message, reply });
+      if (featuresOf(readSettings()).convHistory) profileStore.appendEntry({ kind: 'exchange', message, reply });
     } catch (err) {
       console.error('[Clarity] could not journal the exchange:', err.message);
     }
@@ -1530,6 +1582,29 @@ app.get('/api/chat/history', (req, res) => {
       { role: 'assistant', content: e.reply, at: e.at },
     ])).filter(m => typeof m.content === 'string' && m.content.length > 0),
   });
+});
+
+// "Clear history" in Settings › Privacy. Removes the conversations, and only
+// them: the journal's other entries (corrections, observations) stay.
+app.delete('/api/chat/history', (req, res) => {
+  try { res.json({ ok: true, removed: profileStore.removeEntries(['exchange']) }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Settings › Data › Storage: where the data is and how much of it, measured —
+// the screen used to print "18.4 MB" whatever was on disk.
+app.get('/api/storage', (req, res) => {
+  const sizeOf = (dir) => {
+    let total = 0;
+    try {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = join(dir, e.name);
+        total += e.isDirectory() ? sizeOf(p) : (statSync(p).size || 0);
+      }
+    } catch { /* unreadable: counted as nothing */ }
+    return total;
+  };
+  res.json({ dir: DATA_DIR, bytes: sizeOf(DATA_DIR) });
 });
 
 // ── Subtask breakdown (streaming) ─────────────────────────────────────────────
@@ -1634,6 +1709,12 @@ app.get('/api/export', (req, res) => {
 // nothing at all.
 app.use((err, req, res, next) => {
   console.error(`[Clarity] ${req.method} ${req.originalUrl} failed:`, err?.stack || err);
+  // A server error is a bug worth a report; a 4xx is a refused request. The
+  // route's pattern, not its URL: no ids, no query string.
+  if (!err?.status || err.status >= 500) {
+    const route = `${req.method} ${req.route?.path || req.path}`;
+    reportCrash('service', { message: `${route} — ${err?.message || err}`, stack: err?.stack || '' });
+  }
   if (res.headersSent) {
     // An SSE stream is already open — report inside the stream and close it.
     try { res.write(`data: ${JSON.stringify({ error: err?.message || 'Internal error' })}\n\n`); } catch {}
@@ -1667,6 +1748,8 @@ function warmModel() {
 
 const server = app.listen(PORT, BIND_HOST, () => {
   try { autoReschedule(); } catch (err) { console.error('[Clarity] auto-reschedule failed:', err.message); }
+  // What the last session could not send — or, with reports off, drop it.
+  setTimeout(() => crashReporter.flush().catch(() => {}), 5000).unref();
   const s = readSettings();
   console.log(`[Clarity v${VERSION}] Backend on ${BIND_HOST}:${PORT} | Provider: ${s.providerType} | Endpoint: ${s.llmEndpoint}`);
   warmModel();
