@@ -601,6 +601,12 @@ le cloud et ne peuvent pas joindre un Clarity installé sur un PC — voie 4
   ne l'écrivait pas) et suit Windows ; les suivantes suivront Clarity. Un
   test lie les trois fichiers ; la CI rejoue une mise à jour sur un Windows
   anglais avec Clarity en français et exige une fenêtre « Installation de ».
+- **1.3.5 : la première langue est celle de l'ordinateur.** Relu avant
+  l'envoi aux amis : sans choix enregistré, Clarity démarrait toujours en
+  anglais — après une page et un installateur en français. Il suit désormais
+  les langues du système, l'anglais à défaut ; un choix fait dans Réglages
+  reste prioritaire. Vérifié dans le navigateur pour fr-FR, fr-CA, en-US et
+  de-DE (anglais).
 
 ---
 

@@ -687,7 +687,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'The installer speaks the language chosen in Clarity (Settings › Language), no longer Windows’ language.',
+  'update.news': 'At first launch, Clarity opens in your computer’s language — English or French — instead of always starting in English.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
