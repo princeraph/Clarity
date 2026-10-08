@@ -714,7 +714,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Le panneau « Aujourd’hui » se déplace : glissez son en-tête, il garde sa place.\nÉpinglez-le (📌) pour qu’il reste ouvert comme une note ; sinon il disparaît dès que vous cliquez ailleurs.\nAjoutez une tâche directement dans le panneau, depuis n’importe quelle fenêtre avec Ctrl+Alt+Espace.\nClic droit sur Clarity dans la barre des tâches : « Panneau Aujourd’hui ».',
+  'update.news': 'Le panneau « Aujourd’hui » garde sa largeur quand on le déplace (il s’étirait sur tout l’écran).\nUn clic sur l’icône près de l’horloge ferme le panneau s’il est ouvert, au lieu de le rouvrir.\nClic droit sur l’icône : Panneau Aujourd’hui, Ouvrir Clarity, Quitter.\nÉpinglé, le panneau se comporte comme une note : les autres fenêtres peuvent passer devant, et Ctrl+Alt+Espace le ramène.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

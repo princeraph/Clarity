@@ -713,7 +713,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'The “Today” panel moves: drag its header, and it stays where you put it.\nPin it (📌) to keep it open like a note; otherwise it goes away when you click elsewhere.\nAdd a task right in the panel, from any window with Ctrl+Alt+Space.\nRight-click Clarity in the taskbar: “Today panel”.',
+  'update.news': 'The “Today” panel keeps its width when moved (it used to stretch across the screen).\nClicking the icon by the clock closes the panel when it is open, instead of reopening it.\nRight-click the icon: Today panel, Open Clarity, Quit.\nPinned, the panel behaves like a note: other windows can go over it, and Ctrl+Alt+Space brings it back.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

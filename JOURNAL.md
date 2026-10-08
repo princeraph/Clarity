@@ -693,6 +693,17 @@ Le panneau se déplace par son en-tête et garde sa place (`panel.json`) ;
 Clic droit sur Clarity dans la barre des tâches : « Panneau Aujourd'hui »
 (liste de raccourcis Windows, dans la langue choisie).
 
+**1.5.2, retour de test.** Déplacé, le panneau revenait étiré sur toute la
+largeur de l'écran, et pâle : Windows redimensionne une fenêtre transparente
+sans cadre qu'on fait glisser selon la mise à l'échelle de l'écran, et le code
+de hauteur gardait cette largeur. Largeur verrouillée (380 px, min = max, et
+corrigée à chaque redimensionnement), fond opaque. Un clic sur l'icône pour
+fermer le rouvrait : le clic retire d'abord le focus au panneau, qui se cache,
+puis le clic le rouvrait — ignoré s'il vient de se cacher. Clic droit sur
+l'icône : le menu Windows habituel (panneau, ouvrir, quitter). Épinglé, le
+panneau n'est plus « toujours devant » : une note parmi les fenêtres, que
+Ctrl+Alt+Espace ramène au premier plan.
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher
