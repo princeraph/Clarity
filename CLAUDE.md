@@ -260,7 +260,7 @@ Clarity, installateurs. Cette règle vaut pour Personal-Work, `clarity`, `ahome`
 7. **Ne jamais relever le budget pour se débloquer** : c'est au propriétaire de
    décider.
 
-Ici : `ci.yml` et `publication.yml` suivent les points 1 à 3 ; la copie de référence de cette règle est dans le CLAUDE.md de `princeraph/Personal-Work`.
+Ici : `ci.yml` et `publication.yml` suivent les points 1 à 3 (`publication` avec `cancel-in-progress: false` : une publication coupée laisserait une release à moitié déposée) ; la copie de référence de cette règle est dans le CLAUDE.md de `princeraph/Personal-Work`.
 
 ### Publishing a version for testers
 

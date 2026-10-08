@@ -24,6 +24,13 @@ on:
     paths: ['app/package.json', '.github/workflows/publication.yml']
   workflow_dispatch:
 
+# Jamais annulée en cours : une publication coupée laisserait une release à
+# moitié déposée. Deux déclenchements se suivent au lieu de s'interrompre.
+# Coût estimé : ~15 min Windows × 2 = ~30 min par version publiée.
+concurrency:
+  group: publication
+  cancel-in-progress: false
+
 jobs:
   windows:
     runs-on: windows-latest
