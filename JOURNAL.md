@@ -797,6 +797,17 @@ connexion précédente après « Reconnecter ». Une suite de la même demande t
 maintenant sur une ligne avec son nombre ; trois lignes visibles, le reste
 derrière « Afficher les N autres » ; une reconnexion vide la liste (testé).
 
+**1.5.7.** « Je dois fermer et rouvrir Clarity pour voir une mise à jour. »
+La recherche se faisait au lancement, puis toutes les six heures — et une
+version trouvée en route n'allumait que la pastille. Or fermer la fenêtre ne
+quitte pas Clarity : il reste près de l'horloge, et le « lancement » n'arrive
+qu'à un redémarrage. Maintenant : toutes les 30 minutes, et chaque fois que la
+fenêtre revient (au plus toutes les 10 minutes), avec la fenêtre de mise à
+jour ; une version déjà téléchargée en arrière-plan est proposée au retour
+sans repartir de zéro. Un bouton dans Réglages › À propos et une entrée au
+clic droit de l'icône la cherchent tout de suite. Trois tests de plus dans
+`updateFlow.test.js`.
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

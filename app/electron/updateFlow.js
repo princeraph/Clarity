@@ -27,6 +27,8 @@ const PHASES = ['downloading', 'ready', 'installing', 'error'];
 function createUpdateFlow({ updater, send, notify, onQuit, later = setTimeout, installDelayMs = 1500 }) {
   let state = null;   // { phase, version, percent, wanted, atStartup }
   let startup = true;
+  let seen = false;   // this check was asked while the person is looking (launch, window back, the button)
+  let found = false;
   let notice = null;  // the notification's words, in the person's language
 
   const push = (patch) => {
@@ -45,7 +47,13 @@ function createUpdateFlow({ updater, send, notify, onQuit, later = setTimeout, i
   }
 
   updater.on('update-available', (info) => {
-    push({ phase: 'downloading', version: info.version, percent: 0, wanted: state?.wanted || false, atStartup: startup });
+    found = true;
+    // Already downloading or downloaded this one: a new check changes nothing.
+    if (state?.version === info.version && state.phase !== 'error') {
+      if (seen && !state.atStartup) push({ atStartup: true });
+      return;
+    }
+    push({ phase: 'downloading', version: info.version, percent: 0, wanted: state?.wanted || false, atStartup: startup || seen });
   });
   updater.on('download-progress', (p) => {
     if (!state || state.phase !== 'downloading') return;
@@ -63,10 +71,19 @@ function createUpdateFlow({ updater, send, notify, onQuit, later = setTimeout, i
   });
 
   return {
-    /** The result of a check, flagged when it is the one made at launch. */
-    async check() {
-      try { await updater.checkForUpdates(); } catch { /* offline: next time */ }
+    /** A check. `announce`: the person is looking — at launch, when the
+     *  window comes back, from the button — so a version found is offered in
+     *  the window, not only the pill. Says whether one was found (null:
+     *  offline). Clarity lives in the tray: closing it does not quit it, and
+     *  a check made only at launch waited for a quit nobody makes. */
+    async check({ announce = false } = {}) {
+      seen = announce || startup;
+      found = false;
+      let ok = true;
+      try { await updater.checkForUpdates(); } catch { ok = false; /* offline: next time */ }
       startup = false;
+      seen = false;
+      return { available: ok ? found : null, version: state?.version || null };
     },
     status: () => (state ? { ...state } : null),
     /** "Update now": install at once if downloaded, as soon as it is otherwise. */
