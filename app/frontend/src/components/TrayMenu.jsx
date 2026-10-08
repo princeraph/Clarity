@@ -2,6 +2,8 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import ApertureMark from './ApertureMark.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { C, tasksAtHand, todayStr } from './glance.js';
+import { parseInput } from '../lib/saisie.js';
+import { useFeatures } from '../features.js';
 
 const API = 'http://localhost:3001/api';
 const PANEL_TASKS = 8;
@@ -97,7 +99,38 @@ export default function TrayMenu() {
   const [data, setData] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [justDone, setJustDone] = useState(null);
+  const [pinned, setPinned] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [addFailed, setAddFailed] = useState(false);
   const card = useRef(null);
+  const input = useRef(null);
+  const features = useFeatures();
+
+  // Pinned: it stays open like a sticky note. Shown: ready to type a task.
+  useEffect(() => {
+    window.clarity?.panel?.get().then(p => setPinned(!!p?.pinned)).catch(() => {});
+    return window.clarity?.panel?.onShown(() => { input.current?.focus(); });
+  }, []);
+  async function togglePin() {
+    const next = !pinned;
+    setPinned(next);
+    try { await window.clarity?.panel?.pin(next); } catch { setPinned(!next); }
+  }
+
+  // Adding from here — from anywhere, through Ctrl+Alt+Space — understood like
+  // Ctrl+K in the app (lib/saisie.js), with the same Settings › Capture options.
+  async function add() {
+    const p = parseInput(draft, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false });
+    if (!p.title.trim()) return;
+    try {
+      const r = await fetch(`${API}/tasks`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null }),
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      setDraft(''); setAddFailed(false); load();
+    } catch { setAddFailed(true); }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -159,7 +192,8 @@ export default function TrayMenu() {
         background: C.cardBg, border: `1px solid ${C.border}`, borderRadius: 10,
         boxShadow: '0 16px 48px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.24)', overflow: 'hidden',
       }}>
-        <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.divider}` }}>
+        {/* The header moves the panel (a window region Windows drags). */}
+        <div style={{ padding: '12px 10px 10px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.divider}`, WebkitAppRegion: 'drag', cursor: 'grab' }}>
           <ApertureMark s={16} ink={C.ink90} accent={C.accent} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 500, color: C.ink90 }}>{t('panel.title')}</div>
@@ -167,6 +201,29 @@ export default function TrayMenu() {
               {t('panel.subtitle', { date: fmtDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' }), due: dueToday, done: doneToday })}
             </div>
           </div>
+          <button type="button" onClick={togglePin} aria-pressed={pinned} title={t(pinned ? 'panel.unpin' : 'panel.pin')} aria-label={t(pinned ? 'panel.unpin' : 'panel.pin')} style={{
+            WebkitAppRegion: 'no-drag', background: pinned ? C.tileBg : 'transparent', border: `1px solid ${pinned ? C.border : 'transparent'}`,
+            borderRadius: 6, padding: '4px 7px', cursor: 'pointer', color: pinned ? C.ink90 : C.ink40, fontSize: 13, lineHeight: 1,
+          }}>📌</button>
+          <button type="button" onClick={act('hide')} aria-label={t('common.close')} title={t('common.close')} style={{
+            WebkitAppRegion: 'no-drag', background: 'transparent', border: 'none', padding: '4px 8px', cursor: 'pointer', color: C.ink40, fontSize: 14, lineHeight: 1,
+          }}>✕</button>
+        </div>
+
+        <div style={{ padding: '10px 12px 4px' }}>
+          <input
+            ref={input}
+            value={draft}
+            onChange={e => { setDraft(e.target.value); setAddFailed(false); }}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+            placeholder={t('panel.addPlaceholder')}
+            aria-label={t('panel.add')}
+            style={{
+              width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: 13, fontFamily: 'inherit',
+              color: C.ink90, background: C.tileBg, border: `1px solid ${addFailed ? 'oklch(0.68 0.16 25)' : C.border}`, borderRadius: 6, outline: 'none',
+            }}
+          />
+          {addFailed && <div role="alert" style={{ fontSize: 11.5, color: 'oklch(0.75 0.14 25)', marginTop: 4 }}>{t('onboarding.addFailed')}</div>}
         </div>
 
         <div style={{ maxHeight: 420, overflowY: 'auto', paddingBottom: 6 }}>
@@ -183,7 +240,6 @@ export default function TrayMenu() {
         )}
 
         <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderTop: `1px solid ${C.divider}` }}>
-          <button type="button" onClick={act('capture')} style={{ ...btn, background: C.tileBg, border: `1px solid ${C.border}`, color: C.ink90 }}>{t('panel.add')}</button>
           <button type="button" onClick={act('open')} style={{ ...btn, background: C.ink90, border: 'none', color: '#19191A', fontWeight: 500 }}>{t('tray.openClarity')}</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', padding: '0 14px 10px', gap: 8 }}>

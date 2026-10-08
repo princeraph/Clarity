@@ -196,6 +196,32 @@ function createWindow() {
 }
 
 // ─── System tray (Windows 11 taskbar popup) ────────────────────────────────────
+// ─── The "Today" panel (TrayMenu.jsx) ────────────────────────────────────────
+// Opens from the tray icon, Ctrl+Alt+Space, or "Today panel" when the taskbar
+// icon is right-clicked. Moved by its header, and it stays where it was put.
+// Pinned, it stays open like a sticky note; unpinned, it goes away when the
+// person clicks elsewhere. Both are remembered (panel.json in the profile).
+const PANEL_FILE = () => path.join(app.getPath('userData'), 'panel.json');
+let panelState = null;   // { x, y, pinned }
+function readPanelState() {
+  if (panelState) return panelState;
+  try { panelState = JSON.parse(fs.readFileSync(PANEL_FILE(), 'utf8')) || {}; } catch { panelState = {}; }
+  return panelState;
+}
+function savePanelState(patch) {
+  panelState = { ...readPanelState(), ...patch };
+  try { fs.writeFileSync(PANEL_FILE(), JSON.stringify(panelState)); } catch { /* next time */ }
+}
+// A saved spot only counts while it is on a screen that still exists.
+function savedSpotFits(width, height) {
+  const st = readPanelState();
+  if (!Number.isFinite(st.x) || !Number.isFinite(st.y)) return false;
+  return screen.getAllDisplays().some(d => {
+    const wa = d.workArea;
+    return st.x >= wa.x - 20 && st.y >= wa.y - 20 && st.x + Math.min(width, 120) <= wa.x + wa.width && st.y + 40 <= wa.y + wa.height;
+  });
+}
+
 function createTrayWindow() {
   trayWindow = new BrowserWindow({
     width: 380,
@@ -204,7 +230,7 @@ function createTrayWindow() {
     frame: false,
     transparent: true,
     resizable: false,
-    movable: false,
+    movable: true,
     skipTaskbar: true,
     alwaysOnTop: true,
     fullscreenable: false,
@@ -218,46 +244,65 @@ function createTrayWindow() {
 
   lockNavigation(trayWindow);
   trayWindow.loadFile(getFrontendPath(), { hash: 'tray' });
-  // Dismiss when the popup loses focus (clicking elsewhere), matching Win11 behaviour.
-  trayWindow.on('blur', () => { if (trayWindow && !trayWindow.webContents.isDevToolsFocused()) trayWindow.hide(); });
+  // Unpinned, it is dismissed when it loses focus, like a Windows flyout.
+  trayWindow.on('blur', () => {
+    if (!trayWindow || trayWindow.webContents.isDevToolsFocused() || readPanelState().pinned) return;
+    trayWindow.hide();
+  });
+  let moveTimer = null;
+  trayWindow.on('moved', () => {
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => {
+      if (!trayWindow) return;
+      const [x, y] = trayWindow.getPosition();
+      savePanelState({ x, y });
+    }, 300);
+  });
   trayWindow.on('closed', () => { trayWindow = null; });
 }
 
 function positionTrayWindow() {
-  if (!tray || !trayWindow) return;
-  const trayBounds = tray.getBounds();
+  if (!trayWindow) return;
   const winBounds = trayWindow.getBounds();
-  const display = screen.getDisplayMatching(trayBounds);
-  const wa = display.workArea;
-
-  let x = Math.round(trayBounds.x + trayBounds.width / 2 - winBounds.width / 2);
-  // Clamp horizontally inside the work area (with an 8px gutter).
-  x = Math.max(wa.x + 8, Math.min(x, wa.x + wa.width - winBounds.width - 8));
-
-  // Place above the taskbar if the tray sits in the bottom half, else below it.
-  let y;
-  if (trayBounds.y > wa.y + wa.height / 2) {
-    y = Math.round(wa.y + wa.height - winBounds.height);
-  } else {
-    y = Math.round(trayBounds.y + trayBounds.height);
+  if (savedSpotFits(winBounds.width, winBounds.height)) {
+    const st = readPanelState();
+    // Keep it on its screen when it grows: move up rather than run off the bottom.
+    const wa = screen.getDisplayNearestPoint({ x: st.x, y: st.y }).workArea;
+    const y = Math.min(st.y, wa.y + wa.height - winBounds.height);
+    trayWindow.setPosition(st.x, Math.max(wa.y, y), false);
+    return;
   }
+  const trayBounds = tray ? tray.getBounds() : null;
+  const display = trayBounds ? screen.getDisplayMatching(trayBounds) : screen.getPrimaryDisplay();
+  const wa = display.workArea;
+  if (!trayBounds || !trayBounds.width) {
+    trayWindow.setPosition(wa.x + wa.width - winBounds.width - 8, wa.y + wa.height - winBounds.height - 8, false);
+    return;
+  }
+  let x = Math.round(trayBounds.x + trayBounds.width / 2 - winBounds.width / 2);
+  x = Math.max(wa.x + 8, Math.min(x, wa.x + wa.width - winBounds.width - 8));
+  const y = trayBounds.y > wa.y + wa.height / 2
+    ? Math.round(wa.y + wa.height - winBounds.height)
+    : Math.round(trayBounds.y + trayBounds.height);
   trayWindow.setPosition(x, y, false);
 }
 
-// The "Today" panel (TrayMenu.jsx) says how tall its card is; the window
-// follows, keeping its bottom edge above the taskbar.
+// The panel says how tall its card is; the window follows.
 ipcMain.on('tray:resize', (event, height) => {
   if (!trayWindow || event.sender !== trayWindow.webContents) return;
   const h = Math.max(160, Math.min(Math.round(Number(height) || 420), 760));
-  const [w] = trayWindow.getSize();
-  if (trayWindow.getSize()[1] === h) return;
+  const [w, current] = trayWindow.getSize();
+  if (current === h) return;
   trayWindow.setSize(w, h);
   if (trayWindow.isVisible()) positionTrayWindow();
 });
+ipcMain.handle('panel:get', () => ({ pinned: !!readPanelState().pinned, shortcut: PANEL_SHORTCUT_LABEL }));
+ipcMain.handle('panel:pin', (_e, pinned) => { savePanelState({ pinned: !!pinned }); return !!pinned; });
 
 // From anywhere, over any window: the phone's home-screen widget, for a laptop
 // whose desktop is always covered (JOURNAL, 7 October).
 const PANEL_SHORTCUT = 'CommandOrControl+Alt+Space';
+const PANEL_SHORTCUT_LABEL = 'Ctrl+Alt+Space';
 function registerPanelShortcut() {
   try {
     if (!globalShortcut.register(PANEL_SHORTCUT, toggleTrayWindow)) {
@@ -267,15 +312,34 @@ function registerPanelShortcut() {
 }
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
 
-function toggleTrayWindow() {
+function showPanel() {
   if (!trayWindow) createTrayWindow();
-  if (trayWindow.isVisible()) {
-    trayWindow.hide();
-  } else {
-    positionTrayWindow();
-    trayWindow.show();
-    trayWindow.focus();
-  }
+  positionTrayWindow();
+  trayWindow.show();
+  trayWindow.focus();
+  trayWindow.webContents.send('panel-shown');
+}
+function toggleTrayWindow() {
+  if (trayWindow?.isVisible()) trayWindow.hide();
+  else showPanel();
+}
+
+// Right-click on Clarity in the taskbar: the panel, and a new task, without
+// going through the tray. Windows only (jump list).
+const PANEL_ARG = '--panel';
+function chosenLocale() {
+  try { return fs.readFileSync(path.join(app.getPath('userData'), 'locale.txt'), 'utf8').trim(); }
+  catch { return app.getLocale() || 'en'; }
+}
+function setTaskbarTasks() {
+  if (process.platform !== 'win32') return;
+  try {
+    app.setUserTasks([{
+      program: process.execPath, arguments: PANEL_ARG, iconPath: process.execPath, iconIndex: 0,
+      title: chosenLocale().startsWith('fr') ? 'Panneau Aujourd’hui' : 'Today panel',
+      description: PANEL_SHORTCUT_LABEL,
+    }]);
+  } catch (err) { console.warn('[Clarity] jump list not set:', err.message); }
 }
 
 function createTray() {
@@ -320,7 +384,8 @@ let quittingForReal = false;
 // option and by the AI connector, which wakes Clarity when an assistant needs
 // it and the person has not opened it.
 const BACKGROUND_ARG = '--background';
-const START_HIDDEN = process.argv.includes(BACKGROUND_ARG);
+// Launched from the taskbar's "Today panel": the panel alone, like the tray.
+const START_HIDDEN = process.argv.includes(BACKGROUND_ARG) || process.argv.includes('--panel');
 
 // Two copies of Clarity meant two backends writing the same tasks.json, each
 // unaware of the other's writes. The second launch now surfaces the first
@@ -332,6 +397,7 @@ if (!gotTheLock) {
   app.on('second-instance', (_event, argv) => {
     // The connector waking a Clarity that is already running: nothing to show.
     if (argv.includes(BACKGROUND_ARG)) return;
+    if (argv.includes(PANEL_ARG)) { showPanel(); return; }
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
@@ -344,6 +410,8 @@ if (!gotTheLock) {
     createWindow();
     createTray();
     registerPanelShortcut();
+    setTaskbarTasks();
+    if (process.argv.includes(PANEL_ARG)) setTimeout(showPanel, 800);
     startUpdateChecks();
     watchForWake();
   });
@@ -500,6 +568,7 @@ ipcMain.handle('locale:set', (_e, locale) => {
   try {
     fs.mkdirSync(app.getPath('userData'), { recursive: true });
     fs.writeFileSync(path.join(app.getPath('userData'), LOCALE_FILE), locale);
+    setTaskbarTasks();   // the jump list speaks it too
   } catch { /* the installer then follows Windows' language */ }
 });
 ipcMain.handle('update:later', () => updateFlow?.later());
