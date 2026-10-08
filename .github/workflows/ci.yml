@@ -6,17 +6,25 @@
 # racine, et le workflow tourne.
 name: qualité
 
+# Minutes d'Actions : 2 000/mois pour TOUS les dépôts privés du compte, une
+# minute Windows en vaut 2. Lancé à chaque envoi de branche, ce workflow les a
+# épuisées le 8 octobre 2026. Une branche de travail passe ici UNE fois, à la
+# main (onglet Actions → qualité → Run workflow → la branche), juste avant la
+# fusion ; main repasse à la fusion. Coût estimé : ~25 min par passage
+# (Linux ~5 + Windows ~10 × 2, à mesurer) — ~8 passages/mois ≈ 200 min.
 on:
   push:
-    # Les branches de travail aussi : rien n'est fusionné dans main — d'où
-    # l'utilisateur tire ses mises à jour — avant d'avoir passé ici, Windows
-    # compris.
-    branches: [main, 'claude/**']
-  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: qualite-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   controles:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         # L'historique complet : le contrôle du paquet compare des fichiers
@@ -84,6 +92,7 @@ jobs:
   # l'app en silence et vérifie qu'elle démarre.
   windows:
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
