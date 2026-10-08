@@ -34,6 +34,7 @@ export function createConnector({ readSettings, saveSettings, now = () => new Da
     async issue() {
       const token = randomBytes(24).toString('hex');
       await saveSettings({ ...readSettings(), connectorEnabled: true, connectorTokenHash: sha256(token), connectorIssuedAt: now().toISOString() });
+      activity.length = 0;   // a new connection: what the old one did is not its history
       return token;
     },
 

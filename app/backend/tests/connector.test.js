@@ -46,6 +46,14 @@ describe('the connector token', () => {
     expect(runGuard(c, `Bearer ${token}`).code).toBe(403);
     expect(c.status()).toMatchObject({ enabled: false, activity: [] });
   });
+
+  test('reconnected: the list starts over — what the old connection did is not the new one’s', async () => {
+    const c = createConnector(settingsStore());
+    await c.issue();
+    c.record('archive'); c.record('archive');
+    await c.issue();
+    expect(c.status().activity).toEqual([]);
+  });
 });
 
 describe('what an assistant sees', () => {

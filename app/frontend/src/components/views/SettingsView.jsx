@@ -524,6 +524,19 @@ const CONNECTOR_ACTION_KEY = {
   timer:      'settings.connector.action.timer',
 };
 
+const ACTIVITY_SHOWN = 3;
+// Newest first, as the backend keeps it: a run of the same action becomes one
+// entry, dated by its latest call.
+function groupActivity(list) {
+  const out = [];
+  for (const a of list) {
+    const last = out[out.length - 1];
+    if (last && last.action === a.action) last.count += 1;
+    else out.push({ ...a, count: 1 });
+  }
+  return out;
+}
+
 // Lets Claude Desktop (or any app that speaks MCP) see and update the tasks.
 // Off until the person downloads the file: the token lives only inside it, so
 // downloading IS turning it on, and every new download replaces the last one.
@@ -542,6 +555,7 @@ function ConnectorSettings({ T }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [manual, setManual] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -645,7 +659,11 @@ function ConnectorSettings({ T }) {
 
   if (!info) return <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.checking')}</div>;
 
-  const activity = (info.activity || []).slice(0, 8);
+  // The same request several times in a row — Claude archiving four tasks,
+  // listing them before each change — is one line with its count, not four:
+  // the list piled up and hid what had happened.
+  const activity = groupActivity(info.activity || []);
+  const shownActivity = activityOpen ? activity : activity.slice(0, ACTIVITY_SHOWN);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -703,17 +721,24 @@ function ConnectorSettings({ T }) {
             </div>
             {activity.length === 0 ? (
               <div style={{ fontSize: 12.5, color: T.ink40 }}>{t('settings.connector.noActivity')}</div>
-            ) : activity.map((a, i) => (
+            ) : shownActivity.map((a, i) => (
               <div key={`${a.at}-${i}`} style={{
                 display: 'flex', alignItems: 'baseline', gap: 8, padding: '5px 0',
-                borderBottom: i < activity.length - 1 ? `1px solid ${T.hairlineSoft}` : 'none',
+                borderBottom: i < shownActivity.length - 1 ? `1px solid ${T.hairlineSoft}` : 'none',
               }}>
                 <span style={{ fontSize: 12.5, color: T.ink }}>
                   {CONNECTOR_ACTION_KEY[a.action] ? t(CONNECTOR_ACTION_KEY[a.action]) : t('settings.connector.action.other')}
                 </span>
+                {a.count > 1 && <span style={{ fontSize: 12, color: T.ink60 }}>· {t('settings.connector.times', { n: a.count })}</span>}
                 <span style={{ fontSize: 12, color: T.ink40 }}>· {when(a.at)}</span>
               </div>
             ))}
+            {activity.length > ACTIVITY_SHOWN && (
+              <button type="button" onClick={() => setActivityOpen(o => !o)} style={{
+                marginTop: 4, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                fontFamily: T.fontUI, fontSize: 12, color: T.accentInk,
+              }}>{activityOpen ? t('settings.connector.showLess') : t('settings.connector.showMore', { n: activity.length - ACTIVITY_SHOWN })}</button>
+            )}
           </div>
         </div>
       )}
