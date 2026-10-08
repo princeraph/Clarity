@@ -105,8 +105,8 @@ par arithmétique — **jamais par un modèle**.
 
 Clarity est sorti du dépôt multi-projets par `git subtree split`, avec son
 historique complet. La raison est une raison de confidentialité, pas de
-rangement : le dépôt d'origine est privé **parce qu'il contient la logistique
-d'un mariage et des coordonnées bancaires**. Y inviter un relecteur, c'est lui
+rangement : le dépôt d'origine est privé **parce qu'il contient des données
+personnelles**. Y inviter un relecteur, c'est lui
 donner tout ça. Ici, on peut ouvrir Clarity sans ouvrir le reste.
 
 Le crochet `pre-push` du dépôt parent a refusé ce push, et à juste titre de son
