@@ -717,7 +717,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Récurrence en écrivant : « Sortir les poubelles tous les lundis », « Payer le loyer tous les mois », « Lire chaque jour » — dans Ctrl+K, le panneau « Aujourd’hui » et l’accueil.\nClaude peut créer des tâches qui se répètent, et arrêter une répétition. Pour en profiter : Réglages › Assistant IA › Connecter Clarity à Claude › Reconnecter, puis installez le nouveau fichier dans Claude Desktop.\nUne tâche qui se répète garde son heure et sa durée d’une fois sur l’autre.\nDans Claude, une tâche pour aujourd’hui n’apparaît plus « en retard » le soir.',
+  'update.news': 'La récurrence se choisit d’un clic : dans la fenêtre d’ajout (Ctrl+K), sous le titre — Une seule fois, Chaque jour, Chaque semaine, Chaque mois.\nDans la fiche d’une tâche, la récurrence est maintenant juste sous l’échéance.\n« Accepter » une suggestion de l’assistant la range : elle ne reste plus affichée après l’ajout de la tâche.\nCtrl+Entrée (« enregistrer et ouvrir ») ouvre bien la tâche qui vient d’être ajoutée.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

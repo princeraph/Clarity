@@ -716,7 +716,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'Repeat as you type: “Take out the trash every Monday”, “Pay rent every month”, “Read every day” — in Ctrl+K, the “Today” panel and the welcome screen.\nClaude can create repeating tasks, and stop a repeat. To get it: Settings › AI assistant › Connect Clarity to Claude › Reconnect, then install the new file in Claude Desktop.\nA repeating task keeps its time and duration from one occurrence to the next.\nIn Claude, a task due today no longer shows as overdue in the evening.',
+  'update.news': 'Choose a repeat with one click: in the add window (Ctrl+K), under the title — One-time, Daily, Weekly, Monthly.\nIn a task’s details, the repeat now sits right under the deadline.\n“Accept” on an assistant suggestion puts it away: it no longer stays up once the task is added.\nCtrl+Enter (“save & open”) does open the task just added.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

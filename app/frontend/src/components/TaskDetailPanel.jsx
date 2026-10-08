@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import FollowUp from './FollowUp.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { localDay } from './glance.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -395,6 +396,38 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
             </div>
           </div>
 
+          {/* Recurrence — next to the deadline it counts from. It sat at the bottom,
+              under the follow-up, where nobody found it. */}
+          <div>
+            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.recurrence')}</div>
+            <select
+              value={task.recurring || 'none'}
+              onChange={async e => {
+                const recurring = e.target.value;
+                try {
+                  const resp = await fetch(`${API}/tasks/${task.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    // A repeat counts from a deadline: without one, the first is today.
+                    body: JSON.stringify(recurring !== 'none' && !task.deadline ? { recurring, deadline: localDay(new Date()) } : { recurring }),
+                  });
+                  if (!resp.ok) throw new Error();
+                  onSaved?.();
+                } catch {}
+              }}
+              style={{
+                fontFamily: T.fontMono, fontSize: 12.5, color: T.ink60,
+                background: T.paperSubtle, border: `1px solid ${T.hairline}`,
+                borderRadius: T.r6, padding: '5px 10px', cursor: 'pointer',
+              }}
+            >
+              <option value="none">{t('recur.none')}</option>
+              <option value="daily">{t('recur.daily')}</option>
+              <option value="weekly">{t('recur.weekly')}</option>
+              <option value="monthly">{t('recur.monthly')}</option>
+            </select>
+          </div>
+
           {/* Subtasks — expandable cards */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -451,36 +484,6 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
           {/* Follow-up thread — why it has not happened, which is the part anyone can help with */}
           <FollowUp task={task} />
-
-          {/* Recurrence */}
-          <div>
-            <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.recurrence')}</div>
-            <select
-              value={task.recurring || 'none'}
-              onChange={async e => {
-                const recurring = e.target.value;
-                try {
-                  const resp = await fetch(`${API}/tasks/${task.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ recurring }),
-                  });
-                  if (!resp.ok) throw new Error();
-                  onSaved?.();
-                } catch {}
-              }}
-              style={{
-                fontFamily: T.fontMono, fontSize: 12.5, color: T.ink60,
-                background: T.paperSubtle, border: `1px solid ${T.hairline}`,
-                borderRadius: T.r6, padding: '5px 10px', cursor: 'pointer',
-              }}
-            >
-              <option value="none">{t('recur.none')}</option>
-              <option value="daily">{t('recur.daily')}</option>
-              <option value="weekly">{t('recur.weekly')}</option>
-              <option value="monthly">{t('recur.monthly')}</option>
-            </select>
-          </div>
 
           {/* Activity log */}
           <div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { localDay } from './glance.js';
 
 function generateId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -95,7 +96,8 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
     const { estimateValue, estimateUnit, ...rest } = form;
     onSave({
       ...rest,
-      deadline: form.deadline || null,
+      // A repeat counts from a deadline: without one, the first is today.
+      deadline: form.deadline || (form.recurring !== 'none' ? localDay(new Date()) : null),
       estimatedDuration: joinEstimate(estimateValue, estimateUnit),
     });
   }

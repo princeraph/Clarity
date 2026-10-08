@@ -209,7 +209,7 @@ function stalledWhy(s, t) {
   return s.why;
 }
 
-export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
+export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, handledPlan, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
   const userName = getUserName();
@@ -280,7 +280,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       <TimeBlockingStrip blocks={timelineBlocks} />
 
       {/* AI Plan strip — Settings › Day to day › Planning › Daily plan strip */}
-      {analysis?.whatToDoNext && features?.dailyPlan !== false && (
+      {analysis?.whatToDoNext && analysis.whatToDoNext !== handledPlan && features?.dailyPlan !== false && (
         <div style={{
           display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 16,
           padding: '14px 18px',
@@ -311,7 +311,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
               border: 'none', padding: '7px 14px', borderRadius: T.r6,
               cursor: 'pointer',
             }}>{t('focus.accept')}</button>
-            <button onClick={() => onAddTask?.({ title: analysis.whatToDoNext })} style={{
+            <button onClick={() => (onEditPlan ? onEditPlan(analysis.whatToDoNext) : onAddTask?.({ title: analysis.whatToDoNext }))} style={{
               fontFamily: T.fontUI, fontSize: 12.5, fontWeight: 400,
               color: T.accentInk, background: 'transparent',
               border: `1px solid ${T.accent}`, padding: '6px 12px', borderRadius: T.r6,

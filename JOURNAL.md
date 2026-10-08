@@ -769,6 +769,27 @@ la saisie rapide non plus : « tous les lundis » finissait dans le titre.
 Vérifié : connecteur de bout en bout (ajout répété, coche, suivante une semaine
 plus tard, arrêt), et dans Electron les trois champs de saisie.
 
+**1.5.5, retour de test.** « La récurrence ne doit pas passer par Claude. »
+Elle existait dans l'app, mais là où personne ne regarde : le formulaire
+complet (qu'aucun bouton de la vue Aujourd'hui n'ouvre) et le bas de la fiche,
+sous le suivi. La fenêtre d'ajout — le geste de tous les jours — n'en avait
+pas. Elle a maintenant une rangée « Une seule fois · Chaque jour · Chaque
+semaine · Chaque mois », que « tous les lundis » coche tout seul et qu'un clic
+remplace ; dans la fiche, la récurrence est remontée sous l'échéance.
+
+« Accepter » une suggestion ajoutait la tâche, mais le bandeau restait : il ne
+change qu'à la prochaine analyse, et sans assistant il n'y en a pas. Une
+suggestion acceptée ou ajoutée est maintenant rangée, mémorisée par ses mots ;
+la suivante s'affiche. Au passage, deux lectures de la même réponse
+`{ task, analyzing }` comme si c'était la tâche : « Accepter » mettait dans la
+liste une tâche sans identifiant ni titre, et Ctrl+Entrée n'ouvrait jamais
+la tâche ajoutée.
+
+Vérifié dans Electron, suggestion simulée : acceptée, elle disparaît et ne
+revient pas à la relance ; « Chaque semaine » cliqué, Ctrl+Entrée enregistre
+la tâche (hebdomadaire, pour aujourd'hui) et ouvre sa fiche, où la récurrence
+se change.
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher
