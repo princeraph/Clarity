@@ -2,6 +2,9 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { parseInput } from '../lib/saisie.js';
+import { localDay } from './glance.js';
+
+const REPEATS = [['none', 'form.oneTime'], ['daily', 'form.daily'], ['weekly', 'form.weekly'], ['monthly', 'form.monthly']];
 import { useFeatures } from '../features.js';
 
 const API = 'http://localhost:3001/api';
@@ -190,10 +193,16 @@ export default function SearchCapture({
   const parsed = mode === 'capture'
     ? parseInput(query, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false })
     : null;
+  // Repeat, chosen with a click — not only by writing « tous les lundis ».
+  // null: follow what the line says; a click overrides it.
+  const [repeat, setRepeat] = useState(null);
+  const recurring = repeat ?? parsed?.recurring ?? 'none';
+  // A repeat counts from a deadline: without one, the first is due today.
+  const deadline = parsed?.deadline || (recurring !== 'none' ? localDay(new Date()) : null);
 
   function handleKeyDown(e) {
     if (e.key === 'Escape') {
-      if (mode === 'capture') { setMode('search'); e.stopPropagation(); return; }
+      if (mode === 'capture') { setMode('search'); setRepeat(null); e.stopPropagation(); return; }
       onClose();
       return;
     }
@@ -230,15 +239,17 @@ export default function SearchCapture({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: parsed.title, tags: parsed.tags,
-          deadline: parsed.deadline || null,
+          deadline,
           estimatedDuration: parsed.estimatedDuration || null,
-          status: 'not_started', recurring: parsed.recurring || 'none',
+          status: 'not_started', recurring,
         }),
       });
       // The server's own message is English plumbing ("Title is required"); the
       // person gets the interface's sentence, never a raw error string.
       if (!resp.ok) { const e = new Error(); e.shown = t('capture.saveFailed'); throw e; }
-      const newTask = await resp.json();
+      // The answer is { task, analyzing }: reading it as the task itself left
+      // "save & open" (Ctrl+Enter) without an id, and it never opened anything.
+      const { task: newTask } = await resp.json();
       onSaved?.();
       onClose();
       if (openAfter && onSavedAndOpen && newTask?.id) onSavedAndOpen(newTask);
@@ -249,7 +260,7 @@ export default function SearchCapture({
   }
 
   const hasParseResult = features?.capturePreview !== false
-    && parsed && (parsed.tags?.length > 0 || parsed.deadline || parsed.estimatedDuration || parsed.recurring !== 'none');
+    && parsed && (parsed.tags?.length > 0 || deadline || parsed.estimatedDuration);
 
   return (
     <div
@@ -319,11 +330,29 @@ export default function SearchCapture({
               }}>
                 <span style={{ fontFamily: T.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
                 {parsed.tags.map(tag => <ParsePill key={tag} label={t('capture.area')} value={tag} T={T} />)}
-                {parsed.deadline && <ParsePill label={t('capture.due')} value={fmtDate(parsed.deadline + 'T00:00:00')} T={T} />}
+                {deadline && <ParsePill label={t('capture.due')} value={fmtDate(deadline + 'T00:00:00')} T={T} />}
                 {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={parsed.estimatedDuration >= 60 ? fmtHours(parsed.estimatedDuration) : fmtDuration(parsed.estimatedDuration)} T={T} />}
-                {parsed.recurring !== 'none' && <ParsePill label={t('capture.repeats')} value={t(`recurFreq.${parsed.recurring}`)} T={T} />}
               </div>
             )}
+            <div role="radiogroup" aria-label={t('detail.recurrence')} style={{
+              padding: '10px 18px', borderTop: `1px solid ${T.hairlineSoft}`,
+              display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+            }}>
+              <span style={{ fontFamily: T.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 6 }}>{t('detail.recurrence')}</span>
+              {REPEATS.map(([value, key]) => {
+                const on = recurring === value;
+                return (
+                  <button key={value} type="button" role="radio" aria-checked={on}
+                    onMouseDown={e => e.preventDefault()}   // keep the typing in the line
+                    onClick={() => { setRepeat(value); inputRef.current?.focus(); }}
+                    style={{
+                      padding: '4px 10px', borderRadius: T.rPill, fontSize: 12, fontFamily: T.fontUI, cursor: 'pointer',
+                      border: `1px solid ${on ? T.accent : T.hairline}`,
+                      background: on ? T.accentSoft : 'transparent', color: on ? T.accentInk : T.ink60,
+                    }}>{t(key)}</button>
+                );
+              })}
+            </div>
             {saveError && (
               <div style={{
                 padding: '8px 18px', background: T.dangerSoft, fontSize: 12, color: T.danger,

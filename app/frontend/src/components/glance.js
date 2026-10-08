@@ -26,10 +26,10 @@ export const C = {
   fontMono:    '"Geist Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace',
 };
 
-export function todayStr() {
-  const d = new Date();
+export function localDay(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+export function todayStr() { return localDay(new Date()); }
 
 // What is at hand: overdue first, then today, then — if that leaves room —
 // what comes next, in the order of the latest analysis or else by deadline.

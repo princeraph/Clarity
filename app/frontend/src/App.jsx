@@ -124,6 +124,16 @@ function AppInner() {
   const notifiedDeadlines  = useRef(new Set());
   const pendingDeleteTimers = useRef(new Map());
   const loadErrorShown      = useRef(false);
+  // The day's plan (Today › the suggestion strip) stays up until the next
+  // analysis rewrites it — minutes later with an assistant, never without one.
+  // Accepted or added, it is put away: remembered by its words, so it does
+  // not come back on reload, and a new suggestion shows again.
+  const [handledPlan, setHandledPlan] = useState(() => { try { return localStorage.getItem('clarity-plan-handled') || ''; } catch { return ''; } });
+  const planPending = useRef(null);   // the plan being edited in the form ("Edit & add")
+  const markPlanHandled = useCallback((text) => {
+    setHandledPlan(text);
+    try { localStorage.setItem('clarity-plan-handled', text); } catch { /* this session only */ }
+  }, []);
   const toastTimer          = useRef(null);
   const toastActionRef      = useRef(null);
 
@@ -271,6 +281,8 @@ function AppInner() {
         body: JSON.stringify(taskData),
       });
       if (!resp.ok) throw new Error();
+      if (!isEdit && planPending.current) markPlanHandled(planPending.current);
+      planPending.current = null;
       setShowForm(false);
       setEditingTask(null);
       await loadData();
@@ -389,8 +401,11 @@ function AppInner() {
       if (resp.ok) {
         // Not `t`: that name is the translator, and shadowing it here is how a
         // toast ends up calling a task object.
-        const created = await resp.json();
+        // The answer is { task, analyzing }: the wrapper was pushed as if it
+        // were the task — a task with no id and no title in the list.
+        const { task: created } = await resp.json();
         setData(d => ({ ...d, tasks: [...d.tasks, created] }));
+        markPlanHandled(title);
         showToast(t('toast.quickAdded', { title: title.slice(0, 40) }));
       }
     } catch {
@@ -398,7 +413,13 @@ function AppInner() {
     }
   }
 
-  function openAddTask(defaults = {}) { setEditingTask(Object.keys(defaults).length ? defaults : null); setShowForm(true); }
+  // A button's onClick passes its click event: that is not a set of defaults.
+  function openAddTask(defaults = {}) {
+    const given = defaults && !defaults.nativeEvent && Object.keys(defaults).length ? defaults : null;
+    planPending.current = null;
+    setEditingTask(given); setShowForm(true);
+  }
+  function editPlan(text) { openAddTask({ title: text }); planPending.current = text; }
   function openEditTask(task)  { setEditingTask(task); setShowForm(true); setDetailTask(null); }
   function openDetail(task)    { setDetailTask(task); setContextMenu(null); }
 
@@ -578,7 +599,7 @@ function AppInner() {
           {view === 'focus' && (
             <FocusView rankedTasks={rankedTasks} analysis={data.analysis} stats={stats}
               analyzing={data.analyzing} analysisError={data.analysisError} health={health} {...taskHandlers}
-              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onViewTasks={() => setView('calendar')}
+              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
               onOpenSettings={openAiSettings} onReanalyze={handleReanalyze}
               onOpenChat={() => setShowChat(true)} />
           )}
