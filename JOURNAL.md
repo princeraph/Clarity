@@ -683,6 +683,16 @@ au clic ailleurs ou par Échap. La sélection des tâches est partagée avec la
 carte du réveil (`components/glance.js`). Le panneau Widgets de Windows
 (Win+W) reste possible plus tard, mais exige une app empaquetée et signée.
 
+**1.5.1, retour de test.** Le panneau doit se déplacer, s'ouvrir sans passer
+par l'icône, et « Ctrl+K ne marche pas ». Ctrl+K marchait — dans la fenêtre de
+Clarity seulement ; c'est le tutoriel et l'accueil qui promettaient « depuis
+n'importe où ». Corrigé dans le texte, et le panneau a désormais son propre
+champ d'ajout : Ctrl+Alt+Espace puis on tape, de n'importe quelle fenêtre.
+Le panneau se déplace par son en-tête et garde sa place (`panel.json`) ;
+épinglé, il reste ouvert comme une note ; sinon il se ferme au clic ailleurs.
+Clic droit sur Clarity dans la barre des tâches : « Panneau Aujourd'hui »
+(liste de raccourcis Windows, dans la langue choisie).
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

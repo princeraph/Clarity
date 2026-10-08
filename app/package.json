@@ -1,7 +1,7 @@
 {
   "name": "clarity",
   "productName": "Clarity",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "AI-powered personal task manager",
   "author": "Clarity",
   "main": "electron/main.js",

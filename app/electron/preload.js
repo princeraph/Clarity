@@ -8,6 +8,15 @@ contextBridge.exposeInMainWorld('clarity', {
   // Tray popup → main process
   trayAction: (action) => ipcRenderer.send('tray-action', action),
   trayResize: (height) => ipcRenderer.send('tray:resize', height),
+  panel: {
+    get: () => ipcRenderer.invoke('panel:get'),
+    pin: (pinned) => ipcRenderer.invoke('panel:pin', pinned),
+    onShown: (cb) => {
+      const handler = () => cb();
+      ipcRenderer.on('panel-shown', handler);
+      return () => ipcRenderer.removeListener('panel-shown', handler);
+    },
+  },
   // Main process → main window (tray command forwarding)
   onTrayCommand: (cb) => {
     const handler = (_e, action) => cb(action);
