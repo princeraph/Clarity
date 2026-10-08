@@ -129,8 +129,7 @@ synchroniser.
 Une version précédente de ce fichier donnait ici une commande
 `git subtree pull --prefix=projet-clarity` pour « remonter les corrections ».
 **Ne pas la relancer.** Elle recréerait le dossier, donc le projet, dans un
-dépôt privé qui contient la logistique d'un mariage et des coordonnées
-bancaires — ce dont l'extraction visait précisément à sortir Clarity, pour
+dépôt privé qui contient des données personnelles — ce dont l'extraction visait précisément à sortir Clarity, pour
 qu'on puisse l'ouvrir à un relecteur sans ouvrir le reste. Reprendre la
 synchronisation annulerait ça sans rien dire.
 

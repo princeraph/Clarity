@@ -47,10 +47,10 @@ describe('an unanswered check-in backs off instead of repeating', () => {
   test('the answer lands on the ask it belongs to, and the record is kept', () => {
     let t = emptyThread('task-1', { now: T0 });
     t = askCheckIn(t, 'What is in the way?', { now: plus(1) });
-    t = answerCheckIn(t, 'I need the numbers from Bara.', { now: plus(2) });
+    t = answerCheckIn(t, 'I need the numbers from Sam.', { now: plus(2) });
     expect(t.checkIns).toHaveLength(1);
     expect(t.checkIns[0].asked).toBe('What is in the way?');
-    expect(t.checkIns[0].answer).toBe('I need the numbers from Bara.');
+    expect(t.checkIns[0].answer).toBe('I need the numbers from Sam.');
     expect(t.checkIns[0].answeredAt).toBeTruthy();
   });
 
@@ -126,7 +126,7 @@ describe('blockers and needs', () => {
 describe('options', () => {
   test('records whether a way forward came from the person or was suggested', () => {
     let t = addOption(emptyThread('task-1', { now: T0 }), { text: 'Split it in two', source: 'suggested' }, { now: T0 });
-    t = addOption(t, { text: 'Just ask Bara directly', source: 'user' }, { now: T0 });
+    t = addOption(t, { text: 'Just ask Sam directly', source: 'user' }, { now: T0 });
     expect(t.options.map(o => o.source)).toEqual(['suggested', 'user']);
   });
 

@@ -7,7 +7,7 @@ export const MAX_TASKS = 5;
 // Always-dark palette — the tray popup lives against the Windows taskbar,
 // which is dark regardless of the app theme. Values mirror system-tray.jsx.
 export const C = {
-  cardBg:      'rgba(28, 28, 34, 0.98)',
+  cardBg:      '#1C1C22',   // opaque: a translucent card over a stretched window read as a ghost
   border:      'rgba(255,255,255,0.10)',
   divider:     'rgba(255,255,255,0.07)',
   tileBg:      'rgba(255,255,255,0.05)',

@@ -31,7 +31,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/* `--tolere <motif>` déclare une absence VOULUE. Le moodboard du mariage, par
+/* `--tolere <motif>` déclare une absence VOULUE. Une page d'un autre projet, par
    exemple, référence huit images qui n'existent pas encore : chaque tuile les
    pose en première couche de fond avec un dégradé CSS en repli, et le README
    du dossier documente le nom de fichier attendu. C'est un état d'attente
@@ -98,10 +98,10 @@ for (const cible of cibles) {
        page construit ses liens dans des gabarits — `href="${esc(url)}"` — et
        appelle `URL.createObjectURL`. Lus comme du HTML, ce sont des chemins
        nommés « ${esc(url)} » et « blob » qu'aucun fichier ne satisfera jamais.
-       Quatre faux positifs sur le quiz, quatre sur celui de Reika : de quoi
+       Quatre faux positifs sur un quiz, quatre sur un autre : de quoi
        faire abandonner le contrôle au premier passage. */
     /* Les COMMENTAIRES d'abord, les scripts ensuite, et cet ordre n'est pas
-       cosmétique. La page du mariage porte « Voir le bloc <script> en bas de
+       cosmétique. Une page porte « Voir le bloc <script> en bas de
        page. » dans un commentaire : deux ouvertures pour une seule fermeture.
        Le retrait des scripts partait alors de la ligne 106 et allait jusqu'à
        la 328, avalant tout le corps de la page — liens compris. Le contrôle

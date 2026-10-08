@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Tray, nativeImage, screen, safeStorage, powerMonitor, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage, screen, safeStorage, powerMonitor, globalShortcut } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -222,9 +222,17 @@ function savedSpotFits(width, height) {
   });
 }
 
+// Fixed width. Dragged on Windows, a frameless transparent window is resized
+// for the screen's scaling — and the panel came back stretched across the
+// screen (1.5.1, user's screenshot), its height code keeping the bad width.
+const PANEL_WIDTH = 380;
+let panelHiddenAt = 0;
+
 function createTrayWindow() {
   trayWindow = new BrowserWindow({
-    width: 380,
+    width: PANEL_WIDTH,
+    minWidth: PANEL_WIDTH,
+    maxWidth: PANEL_WIDTH,
     height: 420,
     show: false,
     frame: false,
@@ -248,6 +256,12 @@ function createTrayWindow() {
   trayWindow.on('blur', () => {
     if (!trayWindow || trayWindow.webContents.isDevToolsFocused() || readPanelState().pinned) return;
     trayWindow.hide();
+    panelHiddenAt = Date.now();
+  });
+  trayWindow.on('resize', () => {
+    if (!trayWindow) return;
+    const [w, h] = trayWindow.getSize();
+    if (w !== PANEL_WIDTH) trayWindow.setSize(PANEL_WIDTH, h);
   });
   let moveTimer = null;
   trayWindow.on('moved', () => {
@@ -292,12 +306,12 @@ ipcMain.on('tray:resize', (event, height) => {
   if (!trayWindow || event.sender !== trayWindow.webContents) return;
   const h = Math.max(160, Math.min(Math.round(Number(height) || 420), 760));
   const [w, current] = trayWindow.getSize();
-  if (current === h) return;
-  trayWindow.setSize(w, h);
+  if (current === h && w === PANEL_WIDTH) return;
+  trayWindow.setSize(PANEL_WIDTH, h);
   if (trayWindow.isVisible()) positionTrayWindow();
 });
 ipcMain.handle('panel:get', () => ({ pinned: !!readPanelState().pinned, shortcut: PANEL_SHORTCUT_LABEL }));
-ipcMain.handle('panel:pin', (_e, pinned) => { savePanelState({ pinned: !!pinned }); return !!pinned; });
+ipcMain.handle('panel:pin', (_e, pinned) => { savePanelState({ pinned: !!pinned }); applyPin(); return !!pinned; });
 
 // From anywhere, over any window: the phone's home-screen widget, for a laptop
 // whose desktop is always covered (JOURNAL, 7 October).
@@ -312,16 +326,40 @@ function registerPanelShortcut() {
 }
 app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch {} });
 
+// Unpinned it floats over everything, like a Windows flyout; pinned it is a
+// window among others, like a sticky note, that others may cover.
+function applyPin() {
+  if (trayWindow) trayWindow.setAlwaysOnTop(!readPanelState().pinned);
+}
 function showPanel() {
   if (!trayWindow) createTrayWindow();
+  applyPin();
   positionTrayWindow();
   trayWindow.show();
   trayWindow.focus();
   trayWindow.webContents.send('panel-shown');
 }
 function toggleTrayWindow() {
-  if (trayWindow?.isVisible()) trayWindow.hide();
-  else showPanel();
+  // Pinned and covered by other windows: bring it back rather than hide it.
+  if (trayWindow?.isVisible() && readPanelState().pinned && !trayWindow.isFocused()) { trayWindow.show(); trayWindow.focus(); return; }
+  if (trayWindow?.isVisible()) { trayWindow.hide(); return; }
+  // Clicking the tray icon takes the focus from the panel first: blur has just
+  // hidden it, and this click meant "close", not "open again".
+  if (Date.now() - panelHiddenAt < 400) return;
+  showPanel();
+}
+
+// Right-click on the tray icon: the menu Windows users expect, Quit included.
+function showTrayMenu() {
+  const fr = chosenLocale().startsWith('fr');
+  const visible = !!trayWindow?.isVisible();
+  tray.popUpContextMenu(Menu.buildFromTemplate([
+    { label: fr ? (visible ? 'Fermer le panneau Aujourd’hui' : 'Panneau Aujourd’hui') : (visible ? 'Close the Today panel' : 'Today panel'),
+      accelerator: 'CommandOrControl+Alt+Space', click: () => (visible ? trayWindow.hide() : showPanel()) },
+    { label: fr ? 'Ouvrir Clarity' : 'Open Clarity', click: () => showMainWindow() },
+    { type: 'separator' },
+    { label: fr ? 'Quitter Clarity' : 'Quit Clarity', click: () => { quittingForReal = true; app.quit(); } },
+  ]));
 }
 
 // Right-click on Clarity in the taskbar: the panel, and a new task, without
@@ -352,7 +390,7 @@ function createTray() {
   tray = new Tray(image);
   tray.setToolTip('Clarity');
   tray.on('click', toggleTrayWindow);
-  tray.on('right-click', toggleTrayWindow);
+  tray.on('right-click', showTrayMenu);
   createTrayWindow();
 }
 

@@ -83,11 +83,10 @@ Ce dépôt EST le résultat. `princeraph/clarity`, privé, extrait de
 Reste à inviter l'ami dans Settings → Collaborators.
 
 **Pourquoi l'extraction plutôt qu'un collaborateur sur Personal-Work :** ce
-dépôt-là est privé pour une raison précise — il contient la logistique du
-mariage et des coordonnées bancaires. Un collaborateur y a accès, ainsi qu'à
-l'historique complet des autres projets. Le partage devait porter sur Clarity
-seul, et c'est le modèle déjà appliqué une fois pour Bara et Laya vers
-`princeraph/Business-Project`.
+dépôt-là est privé pour une raison précise — il contient des données
+personnelles. Un collaborateur y a accès, ainsi qu'à l'historique complet des
+autres projets. Le partage devait porter sur Clarity seul, et c'est le modèle
+déjà appliqué une fois pour d'autres projets.
 
 **L'audit d'historique, avant publication.** 177 chemins distincts, 35 commits.
 Aucun motif de secret (`sk-`, `sk-ant-`, `ghp_`, `AKIA`, clé privée). Aucun
