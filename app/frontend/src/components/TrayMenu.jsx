@@ -104,12 +104,15 @@ export default function TrayMenu() {
   const [addFailed, setAddFailed] = useState(false);
   const card = useRef(null);
   const input = useRef(null);
+  const loadRef = useRef(() => {});   // the latest load(), for the 'shown' message
   const features = useFeatures();
 
-  // Pinned: it stays open like a sticky note. Shown: ready to type a task.
+  // Pinned: it stays open like a sticky note. Shown: up to date, and ready to
+  // type a task — without waiting for the next refresh, which showed the tasks
+  // of the last time it was open.
   useEffect(() => {
     window.clarity?.panel?.get().then(p => setPinned(!!p?.pinned)).catch(() => {});
-    return window.clarity?.panel?.onShown(() => { input.current?.focus(); });
+    return window.clarity?.panel?.onShown(() => { loadRef.current(); input.current?.focus(); });
   }, []);
   async function togglePin() {
     const next = !pinned;
@@ -142,23 +145,27 @@ export default function TrayMenu() {
   }, []);
 
   useEffect(() => {
+    loadRef.current = load;
     load();
     const onFocus = () => load();
+    const onVisible = () => { if (!document.hidden) load(); };
     window.addEventListener('focus', onFocus);
-    const iv = setInterval(load, 4000);
-    return () => { window.removeEventListener('focus', onFocus); clearInterval(iv); };
+    document.addEventListener('visibilitychange', onVisible);
+    // Hidden or covered, it has nothing to show; it reloads when seen again.
+    const iv = setInterval(() => { if (!document.hidden) load(); }, 4000);
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVisible); clearInterval(iv); };
   }, [load]);
 
   // The window is as tall as the card: an empty transparent band above it
   // would catch clicks meant for what is behind.
   useLayoutEffect(() => {
     if (!card.current || !window.clarity?.trayResize) return undefined;
-    const send = () => window.clarity.trayResize(Math.ceil(card.current.getBoundingClientRect().height) + 16);
+    const send = () => window.clarity.trayResize(Math.ceil(card.current.getBoundingClientRect().height));
     send();
     const ro = new ResizeObserver(send);
     ro.observe(card.current);
     return () => ro.disconnect();
-  }, [data]);
+  }, []);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') window.clarity?.trayAction?.('hide'); };
@@ -166,10 +173,18 @@ export default function TrayMenu() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // A tick by mistake is undone from here. Not for a recurring task: ticking it
+  // already created the next one (backend/server.js), which undoing would not remove.
   async function done(task) {
-    setJustDone(task.title);
+    const entry = { id: task.id, title: task.title, from: task.status || 'not_started', undoable: !task.recurring || task.recurring === 'none' };
+    setJustDone(entry);
     if (await saveTask(task.id, { status: 'done' })) load();
-    setTimeout(() => setJustDone(j => (j === task.title ? null : j)), 2500);
+    setTimeout(() => setJustDone(j => (j === entry ? null : j)), 6000);
+  }
+  async function undo() {
+    const entry = justDone;
+    setJustDone(null);
+    if (entry && await saveTask(entry.id, { status: entry.from })) load();
   }
   async function toggleSubtask(task, i) {
     const subtasks = (task.subtasks || []).map((s, k) => (k === i ? { ...s, done: !s.done } : s));
@@ -181,30 +196,41 @@ export default function TrayMenu() {
   const tasks = data?.tasks || [];
   const atHand = tasksAtHand(tasks, data?.analysis, PANEL_TASKS);
   const doneToday = tasks.filter(x => x.status === 'done' && isToday(x.updatedAt)).length;
-  const dueToday = tasks.filter(x => !x.archived && x.status !== 'done' && x.deadline === todayStr()).length;
+  // What is still for today counts the late ones too: they are listed above the
+  // day's own, and a count of 0 over a list of overdue tasks read as a mistake.
+  const dueToday = tasks.filter(x => !x.archived && x.status !== 'done' && x.deadline && x.deadline <= todayStr()).length;
   const rowProps = { openId, onOpen: setOpenId, onDone: done, onSubtask: toggleSubtask, t, fmtDuration, fmtHours };
   const shown = atHand.overdue.length + atHand.today.length + atHand.next.length;
   const btn = { flex: 1, padding: '8px 10px', borderRadius: 6, fontFamily: 'inherit', fontSize: 12.5, cursor: 'pointer' };
 
   return (
-    <div style={{ padding: 8, fontFamily: C.fontUI, background: 'transparent' }}>
+    // The card is the whole window (electron/main.js: an opaque window of the
+    // card's size), so no margin, no shadow drawn here — Windows draws its own.
+    <div style={{ fontFamily: C.fontUI, background: C.cardBg }}>
       <div ref={card} style={{
-        background: C.cardBg, border: `1px solid ${C.border}`, borderRadius: 10,
-        boxShadow: '0 16px 48px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.24)', overflow: 'hidden',
+        background: C.cardBg, border: `1px solid ${C.border}`, overflow: 'hidden',
       }}>
         {/* The header moves the panel (a window region Windows drags). */}
         <div style={{ padding: '12px 10px 10px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${C.divider}`, WebkitAppRegion: 'drag', cursor: 'grab' }}>
           <ApertureMark s={16} ink={C.ink90} accent={C.accent} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 500, color: C.ink90 }}>{t('panel.title')}</div>
-            <div style={{ fontSize: 11.5, color: C.ink45, marginTop: 1 }}>
-              {t('panel.subtitle', { date: fmtDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' }), due: dueToday, done: doneToday })}
+            <div style={{ fontSize: 11.5, color: C.ink45, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {fmtDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })}
+            </div>
+            <div style={{ fontSize: 11, color: C.ink40, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {t('panel.counts', { due: dueToday, done: doneToday })}
             </div>
           </div>
           <button type="button" onClick={togglePin} aria-pressed={pinned} title={t(pinned ? 'panel.unpin' : 'panel.pin')} aria-label={t(pinned ? 'panel.unpin' : 'panel.pin')} style={{
             WebkitAppRegion: 'no-drag', background: pinned ? C.tileBg : 'transparent', border: `1px solid ${pinned ? C.border : 'transparent'}`,
-            borderRadius: 6, padding: '4px 7px', cursor: 'pointer', color: pinned ? C.ink90 : C.ink40, fontSize: 13, lineHeight: 1,
-          }}>📌</button>
+            borderRadius: 6, padding: '5px 6px', cursor: 'pointer', color: pinned ? C.accent : C.ink40, lineHeight: 0,
+          }}>
+            {/* A pin: outlined until pinned, filled once it is. */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 4h6l-1 6 4 4H6l4-4-1-6z" /><path d="M12 14v7" />
+            </svg>
+          </button>
           <button type="button" onClick={act('hide')} aria-label={t('common.close')} title={t('common.close')} style={{
             WebkitAppRegion: 'no-drag', background: 'transparent', border: 'none', padding: '4px 8px', cursor: 'pointer', color: C.ink40, fontSize: 14, lineHeight: 1,
           }}>✕</button>
@@ -236,7 +262,12 @@ export default function TrayMenu() {
         </div>
 
         {justDone && (
-          <div role="status" style={{ padding: '6px 16px', fontSize: 12, color: C.ink78, borderTop: `1px solid ${C.divider}` }}>{t('panel.done', { title: justDone })}</div>
+          <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 6px 16px', fontSize: 12, color: C.ink78, borderTop: `1px solid ${C.divider}` }}>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('panel.done', { title: justDone.title })}</span>
+            {justDone.undoable && (
+              <button type="button" onClick={undo} style={{ background: 'transparent', border: 'none', padding: '2px 4px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, color: C.accent, flexShrink: 0 }}>{t('toast.undo')}</button>
+            )}
+          </div>
         )}
 
         <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderTop: `1px solid ${C.divider}` }}>

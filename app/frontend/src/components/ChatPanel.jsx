@@ -29,7 +29,7 @@ export default function ChatPanel({ onClose, taskCount }) {
   // The conversation used to start over every time this panel closed, because it
   // lived only in React state. It is now kept in the local journal, so pick it
   // back up — the greeting above is only what a first-ever conversation opens with.
-  // Settings › AI assistant › Features › Conversation history: off, every
+  // Settings › Privacy › Conversation history: off, every
   // opening starts a new conversation, and the assistant sees only that one.
   const features = useFeatures();
   const keepsHistory = features ? features.convHistory !== false : null;
