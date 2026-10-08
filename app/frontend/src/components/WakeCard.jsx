@@ -44,10 +44,9 @@ export default function WakeCard() {
     return () => clearTimeout(timer);
   }, [wake]);
 
-  // Sized to its content: a taller transparent window would catch the clicks
-  // meant for whatever sits behind its empty part.
+  // The window is the card (electron/main.js: opaque, of the card's height).
   useLayoutEffect(() => {
-    if (data && card.current) wake?.ready(Math.ceil(card.current.getBoundingClientRect().height) + 16);
+    if (data && card.current) wake?.ready(Math.ceil(card.current.getBoundingClientRect().height));
   }, [data, wake]);
 
   async function hideForGood() {
@@ -61,15 +60,11 @@ export default function WakeCard() {
   const linkBtn = { background: 'transparent', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 12, color: C.ink45, cursor: 'pointer' };
 
   return (
-    <div style={{ padding: 8, fontFamily: C.fontUI }}>
+    <div style={{ fontFamily: C.fontUI, background: C.cardBg }}>
       <div
         ref={card}
         onMouseEnter={() => { hovered.current = true; }}
-        style={{
-          background: C.cardBg, border: `1px solid ${C.border}`, borderRadius: 10,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.48), 0 2px 8px rgba(0,0,0,0.24)',
-          overflow: 'hidden', animation: 'fadeUp 0.2s ease-out',
-        }}
+        style={{ background: C.cardBg, border: `1px solid ${C.border}`, overflow: 'hidden' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 12px 10px 18px', borderBottom: `1px solid ${C.divider}` }}>
           <ApertureMark s={16} ink={C.ink90} accent={C.accent} />

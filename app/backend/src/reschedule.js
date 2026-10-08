@@ -1,4 +1,4 @@
-// "Auto-reschedule stale tasks" (Settings › AI assistant › Features): an
+// "Auto-reschedule stale tasks" (Settings › Day to day › Planning): an
 // unfinished task whose deadline has passed moves to today. The toggle was
 // shown for months and did nothing — not saved, not read by anything.
 //

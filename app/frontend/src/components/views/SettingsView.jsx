@@ -34,6 +34,7 @@ const DEFAULT_MODEL = {
 
 const SECTIONS = [
   { id: 'appearance', labelKey: 'settings.section.appearance' },
+  { id: 'daily',      labelKey: 'settings.section.daily' },
   { id: 'ai',         labelKey: 'settings.section.ai' },
   { id: 'capture',    labelKey: 'settings.section.capture' },
   { id: 'suggestions', labelKey: 'settings.section.suggestions' },
@@ -837,9 +838,9 @@ function StartWithSystem({ T }) {
   );
 }
 
-// Settings › AI assistant › Features, saved (src/features.js). These four
-// switches used to be state of this screen only: saved nowhere, read by
-// nothing, back to their defaults at every launch. "Smart area detection" had
+// Settings › Day to day › Planning, saved (src/features.js). These switches
+// used to be state of this screen only: saved nowhere, read by nothing, back
+// to their defaults at every launch. "Smart area detection" had
 // nothing behind it at all and is gone (BACKLOG.md).
 function FeatureSettings({ T, onTasksChanged }) {
   const { t } = useLocale();
@@ -853,7 +854,7 @@ function FeatureSettings({ T, onTasksChanged }) {
   }
 
   return (
-    <Section title={t('settings.ai.features')} subtitle={t('settings.ai.featuresHint')} T={T}>
+    <Section title={t('settings.daily.planning')} subtitle={t('settings.daily.planningHint')} T={T}>
       <SettingRow label={t('settings.dailyPlanStrip')} hint={t('settings.showAiGeneratedDailyPlan')} T={T}>
         <Toggle on={features.dailyPlan} onChange={v => change('dailyPlan', v)} T={T} label={t('settings.dailyPlanStrip')} />
       </SettingRow>
@@ -1350,6 +1351,16 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             </Section>
           </div>
 
+        ) : section === 'daily' ? (
+          // What Clarity does with the days, and on this computer. These sat
+          // under "AI assistant", where nobody looks for "start with Windows":
+          // a setting is looked for by what it changes, not by what runs it.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <PageHeader section={t('settings.section.daily')} title={t('settings.daily.title')} T={T} />
+            <FeatureSettings T={T} onTasksChanged={onSaved} />
+            <StartWithSystem T={T} />
+          </div>
+
         ) : section === 'ai' ? (
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             <PageHeader section={t('settings.section.ai')} title={t('settings.ai.title')} T={T} />
@@ -1514,10 +1525,6 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             <Section title={t('settings.connector.title')} subtitle={t('settings.connector.hint')} T={T}>
               <ConnectorSettings T={T} />
             </Section>
-
-            <StartWithSystem T={T} />
-
-            <FeatureSettings T={T} onTasksChanged={onSaved} />
 
             {status && (
               <div style={{

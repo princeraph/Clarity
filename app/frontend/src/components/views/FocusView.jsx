@@ -279,7 +279,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       {/* Time blocking strip */}
       <TimeBlockingStrip blocks={timelineBlocks} />
 
-      {/* AI Plan strip — Settings › AI assistant › Features › Daily plan strip */}
+      {/* AI Plan strip — Settings › Day to day › Planning › Daily plan strip */}
       {analysis?.whatToDoNext && features?.dailyPlan !== false && (
         <div style={{
           display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 16,

@@ -704,6 +704,45 @@ l'icône : le menu Windows habituel (panneau, ouvrir, quitter). Épinglé, le
 panneau n'est plus « toujours devant » : une note parmi les fenêtres, que
 Ctrl+Alt+Espace ramène au premier plan.
 
+**1.5.3, « encore des bugs ».** Relu entier, et conduit dans un vrai Electron
+(Playwright, sous Xvfb), le panneau en avait encore sept :
+
+- **Épinglé, l'icône ne le fermait jamais.** Le clic sur l'icône lui retire le
+  focus avant d'arriver ; la 1.5.2 le voyait alors « derrière » et le ramenait
+  devant. La perte de focus est maintenant datée : un panneau qui l'avait il y
+  a moins d'une demi-seconde était devant, et le clic le ferme.
+- **La fenêtre restait transparente**, carte dessinée à l'intérieur. C'est
+  elle que Windows étire. Elle est maintenant opaque, de la taille exacte de la
+  carte, largeur et hauteur verrouillées — la carte du réveil aussi, pour la
+  même raison.
+- **Chaque déplacement fait par le code était enregistré** comme un
+  déplacement de la personne, et le panneau dérivait d'une ouverture à l'autre.
+  Seul un glisser (`will-move`) est mémorisé.
+- **Épinglé, « Ouvrir Clarity » le cachait.** Une note épinglée reste ; seuls
+  ✕ et Échap la rangent.
+- **« Pour aujourd'hui : 0 » au-dessus de tâches en retard.** Le compte inclut
+  le retard, qui est aussi pour aujourd'hui.
+- **Une tâche cochée par erreur disparaissait sans retour.** « Annuler » pendant
+  six secondes — sauf pour une tâche récurrente, dont la suivante est déjà
+  créée.
+- **À l'ouverture, il montrait les tâches de la fois d'avant**, jusqu'au
+  rafraîchissement suivant (4 s). Il recharge maintenant à chaque ouverture.
+
+Deux à côté. La carte du réveil disait « Tâches en cours : 4 » pour quatre
+tâches non terminées, dont une seule en cours. Et une demande du 7 octobre
+était restée sans suite : le démarrage avec Windows, le résumé au réveil, le
+plan du jour et la replanification n'avaient rien à faire sous « Assistant
+IA ». Ils ont leur onglet, « Au quotidien » ; « Assistant IA » ne règle plus
+que le moteur.
+
+Vérifié dans Electron : taille refusée quand on tente de l'étirer, ouverture et
+fermeture par l'icône épinglé ou non, Échap, déplacement par le code non
+enregistré, annuler (qui rend le statut d'avant, « en cours » compris), la
+carte du réveil à la hauteur exacte de sa fenêtre, l'interrupteur de
+replanification toujours actif après relance depuis son nouvel onglet, un
+parcours complet (accueil, Ctrl+K, réglages, panneau) sans erreur JavaScript. Pas vérifiable sans Windows : le glisser réel sur un écran
+mis à l'échelle et la liste de raccourcis de la barre des tâches.
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

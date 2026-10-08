@@ -222,27 +222,44 @@ function savedSpotFits(width, height) {
   });
 }
 
-// Fixed width. Dragged on Windows, a frameless transparent window is resized
-// for the screen's scaling — and the panel came back stretched across the
-// screen (1.5.1, user's screenshot), its height code keeping the bad width.
+// An opaque window of a fixed size. It was transparent, with the card drawn
+// inside it: dragged on Windows, a frameless transparent window is resized for
+// the screen's scaling, and the panel came back stretched across the screen,
+// pale (1.5.1). Opaque, the card IS the window: nothing for Windows to rescale,
+// no invisible band around it to catch clicks. Both dimensions are locked; the
+// height is the card's, set from the panel's own measure.
 const PANEL_WIDTH = 380;
-let panelHiddenAt = 0;
+const PANEL_BG = '#1C1C22';   // components/glance.js, C.cardBg
+let panelHeight = 420;
+let panelLostFocusAt = 0;     // when the panel last lost the focus (to anything)
+let panelUserMoving = false;  // a drag by the person, not a move made here
+
+function lockPanelSize(h) {
+  panelHeight = h;
+  if (!trayWindow) return;
+  trayWindow.setMinimumSize(PANEL_WIDTH, h);
+  trayWindow.setMaximumSize(PANEL_WIDTH, h);
+  const [w, cur] = trayWindow.getSize();
+  if (w !== PANEL_WIDTH || cur !== h) trayWindow.setSize(PANEL_WIDTH, h);
+}
 
 function createTrayWindow() {
   trayWindow = new BrowserWindow({
     width: PANEL_WIDTH,
-    minWidth: PANEL_WIDTH,
-    maxWidth: PANEL_WIDTH,
-    height: 420,
+    height: panelHeight,
+    minWidth: PANEL_WIDTH, maxWidth: PANEL_WIDTH,
+    minHeight: panelHeight, maxHeight: panelHeight,
     show: false,
     frame: false,
-    transparent: true,
+    transparent: false,
     resizable: false,
     movable: true,
+    minimizable: false,
+    maximizable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
     fullscreenable: false,
-    backgroundColor: '#00000000',
+    backgroundColor: PANEL_BG,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -254,19 +271,27 @@ function createTrayWindow() {
   trayWindow.loadFile(getFrontendPath(), { hash: 'tray' });
   // Unpinned, it is dismissed when it loses focus, like a Windows flyout.
   trayWindow.on('blur', () => {
+    panelLostFocusAt = Date.now();
     if (!trayWindow || trayWindow.webContents.isDevToolsFocused() || readPanelState().pinned) return;
     trayWindow.hide();
-    panelHiddenAt = Date.now();
   });
+  // Whatever Windows does to the size (scaling, a drag between screens), the
+  // panel goes back to its own.
   trayWindow.on('resize', () => {
     if (!trayWindow) return;
     const [w, h] = trayWindow.getSize();
-    if (w !== PANEL_WIDTH) trayWindow.setSize(PANEL_WIDTH, h);
+    if (w !== PANEL_WIDTH || h !== panelHeight) trayWindow.setSize(PANEL_WIDTH, panelHeight);
   });
+  // Only a move the person made is remembered: 'will-move' fires for a drag,
+  // not for setPosition. Saving every move made the panel drift — each time it
+  // was nudged up to fit, that became its new place.
+  trayWindow.on('will-move', () => { panelUserMoving = true; });
   let moveTimer = null;
   trayWindow.on('moved', () => {
+    if (!panelUserMoving) return;
     clearTimeout(moveTimer);
     moveTimer = setTimeout(() => {
+      panelUserMoving = false;
       if (!trayWindow) return;
       const [x, y] = trayWindow.getPosition();
       savePanelState({ x, y });
@@ -305,9 +330,8 @@ function positionTrayWindow() {
 ipcMain.on('tray:resize', (event, height) => {
   if (!trayWindow || event.sender !== trayWindow.webContents) return;
   const h = Math.max(160, Math.min(Math.round(Number(height) || 420), 760));
-  const [w, current] = trayWindow.getSize();
-  if (current === h && w === PANEL_WIDTH) return;
-  trayWindow.setSize(PANEL_WIDTH, h);
+  if (h === panelHeight && trayWindow.getSize()[1] === h) return;
+  lockPanelSize(h);
   if (trayWindow.isVisible()) positionTrayWindow();
 });
 ipcMain.handle('panel:get', () => ({ pinned: !!readPanelState().pinned, shortcut: PANEL_SHORTCUT_LABEL }));
@@ -339,14 +363,35 @@ function showPanel() {
   trayWindow.focus();
   trayWindow.webContents.send('panel-shown');
 }
+// Open, close, or bring back. Clicking the tray icon takes the focus from the
+// panel BEFORE the click arrives: a panel that was in front a moment ago was
+// in front for the person, and the click means "close". Unpinned, that same
+// blur has already hidden it — the click must not open it again.
 function toggleTrayWindow() {
-  // Pinned and covered by other windows: bring it back rather than hide it.
-  if (trayWindow?.isVisible() && readPanelState().pinned && !trayWindow.isFocused()) { trayWindow.show(); trayWindow.focus(); return; }
-  if (trayWindow?.isVisible()) { trayWindow.hide(); return; }
-  // Clicking the tray icon takes the focus from the panel first: blur has just
-  // hidden it, and this click meant "close", not "open again".
-  if (Date.now() - panelHiddenAt < 400) return;
+  const justHadFocus = Date.now() - panelLostFocusAt < 500;
+  if (trayWindow?.isVisible()) {
+    const inFront = trayWindow.isFocused() || justHadFocus;
+    // Pinned and covered by other windows: bring it back rather than hide it.
+    if (readPanelState().pinned && !inFront) { trayWindow.show(); trayWindow.focus(); return; }
+    trayWindow.hide();
+    return;
+  }
+  if (justHadFocus && !readPanelState().pinned) return;   // the blur just closed it
   showPanel();
+}
+
+// For driving the panel from an end-to-end test only (Playwright's _electron,
+// with CLARITY_TEST_HOOKS=1): what a tray click or the shortcut would call.
+if (process.env.CLARITY_TEST_HOOKS === '1') {
+  global.__clarityPanel = {
+    toggle: () => toggleTrayWindow(),
+    show: () => showPanel(),
+    win: () => trayWindow,
+    state: () => readPanelState(),
+    height: () => panelHeight,
+    wake: () => showWakeSummary(),
+    wakeWin: () => wakeWindow,
+  };
 }
 
 // Right-click on the tray icon: the menu Windows users expect, Quit included.
@@ -640,14 +685,16 @@ function showWakeSummary() {
     height: 200,
     show: false,
     frame: false,
-    transparent: true,
+    // Opaque, like the panel: on Windows a transparent frameless window is
+    // rescaled with the screen's scaling, and the card came out stretched.
+    transparent: false,
     resizable: false,
     movable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
     focusable: true,
     fullscreenable: false,
-    backgroundColor: '#00000000',
+    backgroundColor: PANEL_BG,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -686,7 +733,9 @@ function watchForWake() {
 
 // ─── System tray actions ────────────────────────────────────────────────────────
 ipcMain.on('tray-action', (event, action) => {
-  if (trayWindow) trayWindow.hide();
+  // A pinned panel stays where it is when it opens Clarity or a task; only its
+  // own close button (or Escape) puts it away.
+  if (trayWindow && (action === 'hide' || action === 'quit' || !readPanelState().pinned)) trayWindow.hide();
   if (action === 'hide') return;
   if (wakeWindow && event.sender === wakeWindow.webContents) wakeWindow.close();
   if (action === 'quit') {
