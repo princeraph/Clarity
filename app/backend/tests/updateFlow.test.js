@@ -42,6 +42,36 @@ describe('an update, as the person sees it', () => {
     expect(last()).toMatchObject({ version: '1.3.3', atStartup: false });
   });
 
+  test('Clarity never quits: a version found when the window comes back, or from the button, is offered too', async () => {
+    const { flow, updater, last } = setup();
+    await flow.check();                                  // launch: nothing yet
+    const back = flow.check({ announce: true });          // the window is shown again
+    updater.emit('update-available', { version: '1.5.7' });
+    expect(await back).toEqual({ available: true, version: '1.5.7' });
+    expect(last()).toMatchObject({ phase: 'downloading', version: '1.5.7', atStartup: true });
+  });
+
+  test('a version found in the background is offered once the window comes back', async () => {
+    const { flow, updater, sent, last } = setup();
+    await flow.check();
+    const quiet = flow.check();
+    updater.emit('update-available', { version: '1.5.7' });
+    await quiet;
+    expect(last().atStartup).toBe(false);
+    updater.emit('update-downloaded', { version: '1.5.7' });
+    const n = sent.length;
+    const back = flow.check({ announce: true });
+    updater.emit('update-available', { version: '1.5.7' });
+    await back;
+    expect(last()).toMatchObject({ phase: 'ready', atStartup: true });   // not back to "downloading"
+    expect(sent.length).toBe(n + 1);
+  });
+
+  test('nothing new: the button can say so', async () => {
+    const { flow } = setup();
+    expect(await flow.check({ announce: true })).toEqual({ available: false, version: null });
+  });
+
   test('"now" before the download ends: progress is shown, then it installs by itself', async () => {
     const { flow, updater, calls, notes, timers, last, quitting } = setup();
     updater.emit('update-available', { version: '1.3.2' });
@@ -109,7 +139,7 @@ describe('an update, as the person sees it', () => {
 
   test('an offline check does not throw', async () => {
     const { flow } = setup({ failCheck: true });
-    await expect(flow.check()).resolves.toBeUndefined();
+    await expect(flow.check()).resolves.toEqual({ available: null, version: null });
     expect(flow.status()).toBeNull();
   });
 });

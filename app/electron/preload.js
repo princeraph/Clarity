@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('clarity', {
   updates: {
     status: () => ipcRenderer.invoke('update:status'),
     now: (words) => ipcRenderer.invoke('update:now', words),
+    check: () => ipcRenderer.invoke('update:check'),
     later: () => ipcRenderer.invoke('update:later'),
     onState: (cb) => {
       const handler = (_e, state) => cb(state);

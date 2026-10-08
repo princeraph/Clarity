@@ -6,6 +6,7 @@ import ApertureMark from '../ApertureMark.jsx';
 import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 import OllamaSetup from '../OllamaSetup.jsx';
 import ConnectorAnimation from '../ConnectorAnimation.jsx';
+import { updates } from '../../updates.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -523,6 +524,38 @@ const CONNECTOR_ACTION_KEY = {
   delete:     'settings.connector.action.delete',
   timer:      'settings.connector.action.timer',
 };
+
+// Settings › About: look for a new version now, instead of waiting for the
+// next check (electron/main.js: at launch, every 30 minutes, and when the
+// window comes back). A version found opens the update window by itself.
+function UpdateCheck({ T }) {
+  const { t } = useLocale();
+  const [result, setResult] = useState(null);   // null | 'checking' | { available, version, current, unavailable }
+  const check = window.clarity?.updates?.check;
+  async function run() {
+    setResult('checking');
+    try {
+      const r = await check();
+      setResult(r);
+      if (r?.available) updates.open();   // even one put off earlier: it was asked for
+    } catch { setResult({ available: null }); }
+  }
+  const said = !result || result === 'checking' ? null
+    : result.unavailable ? t('settings.about.updatesDev')
+    : result.available === true ? t('settings.about.updatesFound', { version: result.version })
+    : result.available === false ? t('settings.about.updatesNone', { version: result.current })
+    : t('settings.about.updatesOffline');
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <button type="button" disabled={!check || result === 'checking'} onClick={run} style={{
+        padding: '8px 16px', fontSize: 13, fontWeight: 500, fontFamily: T.fontUI,
+        color: T.ink80, background: T.paperSubtle, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+        cursor: check && result !== 'checking' ? 'pointer' : 'not-allowed', opacity: check ? 1 : 0.6,
+      }}>{result === 'checking' ? t('settings.about.updatesChecking') : t('settings.about.updatesCheck')}</button>
+      {said && <span role="status" style={{ fontSize: 12.5, color: T.ink60 }}>{said}</span>}
+    </div>
+  );
+}
 
 const ACTIVITY_SHOWN = 3;
 // Newest first, as the backend keeps it: a run of the same action becomes one
@@ -1830,6 +1863,10 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
                   </div>
                 </div>
               ))}
+            </Section>
+
+            <Section title={t('settings.about.updatesTitle')} subtitle={t('settings.about.updatesBody')} T={T}>
+              <UpdateCheck T={T} />
             </Section>
 
             {onFeedback && (

@@ -717,7 +717,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Réglages › Assistant IA › Dernières demandes : les demandes identiques qui se suivent tiennent sur une ligne (« A archivé une tâche · 4 fois »), seules les 3 plus récentes s’affichent, et la liste repart de zéro à chaque reconnexion.',
+  'update.news': 'Plus besoin de quitter Clarity pour voir une mise à jour : elle est cherchée toutes les 30 minutes et quand vous revenez sur sa fenêtre, et proposée aussitôt.\nRéglages › À propos › « Rechercher une mise à jour », et la même chose au clic droit sur l’icône près de l’horloge.\nRéglages › Assistant IA › Dernières demandes : les demandes identiques qui se suivent tiennent sur une ligne (« A archivé une tâche · 4 fois »), et la liste repart de zéro à chaque reconnexion.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
@@ -935,6 +935,14 @@ export default {
   'settings.about.platform': 'Plateforme',
   'settings.about.feedbackTitle': 'Votre avis',
   'settings.about.feedbackBody': 'Ce qui marche, ce qui coince, ce qui manque : ça arrive directement à ceux qui construisent Clarity.',
+  'settings.about.updatesTitle': 'Mises à jour',
+  'settings.about.updatesBody': 'Clarity en cherche une au lancement, toutes les 30 minutes et quand vous revenez sur sa fenêtre.',
+  'settings.about.updatesCheck': 'Rechercher une mise à jour',
+  'settings.about.updatesChecking': 'Recherche…',
+  'settings.about.updatesFound': 'Version {version} trouvée.',
+  'settings.about.updatesNone': 'Clarity est à jour (version {version}).',
+  'settings.about.updatesOffline': 'Impossible de vérifier pour l’instant. Êtes-vous connecté à Internet ?',
+  'settings.about.updatesDev': 'Les mises à jour ne concernent que la version installée.',
 
   // Avis des testeurs
   'feedback.give': 'Donner un avis',

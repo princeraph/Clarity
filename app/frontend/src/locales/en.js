@@ -716,7 +716,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'Settings › AI assistant › Recent requests: the same request several times in a row fits on one line (“Archived a task · 4 times”), only the 3 latest show, and the list starts over at each reconnection.',
+  'update.news': 'No need to quit Clarity to see an update: it looks for one every 30 minutes and when you come back to its window, and offers it right away.\nSettings › About › “Check for updates”, and the same from a right-click on the icon by the clock.\nSettings › AI assistant › Recent requests: the same request several times in a row fits on one line (“Archived a task · 4 times”), and the list starts over at each reconnection.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
@@ -934,6 +934,14 @@ export default {
   'settings.about.platform': 'Platform',
   'settings.about.feedbackTitle': 'Your opinion',
   'settings.about.feedbackBody': 'What works, what gets in the way, what is missing: it goes straight to the people building Clarity.',
+  'settings.about.updatesTitle': 'Updates',
+  'settings.about.updatesBody': 'Clarity looks for one at launch, every 30 minutes, and when you come back to its window.',
+  'settings.about.updatesCheck': 'Check for updates',
+  'settings.about.updatesChecking': 'Checking…',
+  'settings.about.updatesFound': 'Version {version} found.',
+  'settings.about.updatesNone': 'Clarity is up to date (version {version}).',
+  'settings.about.updatesOffline': 'Could not check right now. Are you online?',
+  'settings.about.updatesDev': 'Updates only apply to the installed app.',
 
   // Feedback from testers
   'feedback.give': 'Give feedback',

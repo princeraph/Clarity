@@ -193,6 +193,8 @@ function createWindow() {
     }
   });
   mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('show', checkForUpdatesOnReturn);
+  mainWindow.on('focus', checkForUpdatesOnReturn);
 }
 
 // ─── System tray (Windows 11 taskbar popup) ────────────────────────────────────
@@ -402,6 +404,8 @@ function showTrayMenu() {
     { label: fr ? (visible ? 'Fermer le panneau Aujourd’hui' : 'Panneau Aujourd’hui') : (visible ? 'Close the Today panel' : 'Today panel'),
       accelerator: 'CommandOrControl+Alt+Space', click: () => (visible ? trayWindow.hide() : showPanel()) },
     { label: fr ? 'Ouvrir Clarity' : 'Open Clarity', click: () => showMainWindow() },
+    ...(updateFlow ? [{ label: fr ? 'Rechercher une mise à jour' : 'Check for updates',
+      click: () => { showMainWindow(); lastUpdateCheck = Date.now(); updateFlow.check({ announce: true }); } }] : []),
     { type: 'separator' },
     { label: fr ? 'Quitter Clarity' : 'Quit Clarity', click: () => { quittingForReal = true; app.quit(); } },
   ]));
@@ -633,9 +637,23 @@ function startUpdateChecks() {
     notify: ({ title, body }) => { if (Notification.isSupported()) new Notification({ title, body }).show(); },
     onQuit: () => { quittingForReal = true; },
   });
-  setTimeout(() => updateFlow.check(), 3000);   // as Clarity opens, once the window is up
-  setInterval(() => updateFlow.check(), 6 * 60 * 60 * 1000).unref?.();
+  setTimeout(() => updateFlow.check().then(() => { lastUpdateCheck = Date.now(); }), 3000);   // as Clarity opens
+  // Closing the window does not quit Clarity (it stays by the clock): a check
+  // made only at launch waited for a quit nobody makes. Every 30 minutes, and
+  // each time the window comes back — at most every 10 — with the offer shown.
+  setInterval(() => { lastUpdateCheck = Date.now(); updateFlow.check(); }, 30 * 60 * 1000).unref?.();
 }
+let lastUpdateCheck = 0;
+function checkForUpdatesOnReturn() {
+  if (!updateFlow || Date.now() - lastUpdateCheck < 10 * 60 * 1000) return;
+  lastUpdateCheck = Date.now();
+  updateFlow.check({ announce: true });
+}
+ipcMain.handle('update:check', async () => {
+  if (!updateFlow) return { available: null, version: null, current: APP_VERSION, unavailable: true };
+  lastUpdateCheck = Date.now();
+  return { ...(await updateFlow.check({ announce: true })), current: APP_VERSION };
+});
 ipcMain.handle('update:status', () => {
   const updated = updatedToShow;
   updatedToShow = null;                         // "up to date" is said once
