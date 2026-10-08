@@ -221,46 +221,25 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx) and are sorted by `aiData.p
 - **Remote**: `princeraph/clarity` — Clarity is the whole repo, at its root
 - **Production branch**: `main`
 - **Author**: `git config user.email noreply@anthropic.com && git config user.name Claude`
-- Work on a `claude/*` branch, then merge into `main` — **only once CI is green on that branch, the `windows` job included.** CI no longer runs on each push to a branch (see « Minutes GitHub Actions » below): run it **once, by hand**, just before merging — Actions tab → `qualité` → Run workflow → the branch, or `workflow_dispatch` through the GitHub tools. The user pulls from `main` and is the only other Windows machine; before this job existed, every Windows-only defect (`Update.bat` rebuilding `dist/`, a CRLF line in `dist/index.html`) was found by the user, mid-update. The job replays `Update.bat`'s steps, installs silently, starts the installed backend, and rebuilds `dist/` to check it is byte-identical to the committed one.
+- Work on a `claude/*` branch, then merge into `main` — **only once CI is green on that branch, the `windows` job included.** The user pulls from `main` and is the only other Windows machine; before this job existed, every Windows-only defect (`Update.bat` rebuilding `dist/`, a CRLF line in `dist/index.html`) was found by the user, mid-update. The job replays `Update.bat`'s steps, installs silently, starts the installed backend, and rebuilds `dist/` to check it is byte-identical to the committed one.
 - Every commit must rebuild `app/frontend/dist/` when `app/frontend/src/` changes,
   in the **same** commit — see `CONTRIBUTING.md`, it is the rule that breaks
   fastest and shows least
 
-### Minutes GitHub Actions — règle commune à TOUS les dépôts du propriétaire
+### Minutes GitHub Actions
 
-Demande du propriétaire, après l'incident du 8 octobre 2026 : le quota
-gratuit (2 000 min/mois, **partagé par tous les dépôts privés du compte**) a été
-épuisé par des CI lancées à chaque envoi de branche, Windows compris. Le budget
-est à 0 $ avec « Stop usage » : au plafond, rien n'est facturé, mais **toutes**
-les Actions privées s'arrêtent jusqu'au 1er du mois — tests, publications de
-Clarity, installateurs. Cette règle vaut pour Personal-Work, `clarity`, `ahome`,
-`hodea` et tout nouveau dépôt : la recopier dans son CLAUDE.md.
+This repository is **public**: GitHub's standard runners are free here, Windows
+included, so CI runs on every push to `main` and to `claude/**`. Minutes are
+only counted for private repositories — the owner's quota ran out on 8 October
+2026 for that reason. What still holds here:
 
-| Système | Une minute compte pour |
-|---|---|
-| Linux | 1 |
-| Windows | 2 |
-| macOS | 10 |
-
-1. **Déclencheurs permis : `push` sur `main`, `workflow_dispatch`, `schedule`.**
-   Jamais `pull_request`, jamais `push` sur `claude/**` ou toute autre branche de
-   travail. Une branche se vérifie en local (crochet pre-push, contrôles du
-   dépôt) ; la CI confirme, elle ne découvre pas.
-2. **`paths:`** quand le workflow ne concerne qu'une partie du dépôt.
-3. **`concurrency` avec `cancel-in-progress: true`**, et **`timeout-minutes` sur
-   chaque job** — un job bloqué tourne sinon 6 h.
-4. **Windows ou macOS seulement quand c'est la seule preuve possible** (un
-   installateur, un comportement propre au système). Tout ce qui tourne sous
-   Linux tourne sous Linux.
-5. **Un déploiement passe par la plateforme** (Cloudflare construit depuis le
-   dépôt), jamais par Actions.
-6. **Avant d'ajouter ou d'élargir un workflow : écrire en tête du fichier son
-   coût estimé** (durée × multiplicateur × passages/mois), et vérifier que le
-   total des dépôts reste sous ~1 500 min/mois.
-7. **Ne jamais relever le budget pour se débloquer** : c'est au propriétaire de
-   décider.
-
-Ici : `ci.yml` et `publication.yml` suivent les points 1 à 3 (`publication` avec `cancel-in-progress: false` : une publication coupée laisserait une release à moitié déposée) ; la copie de référence de cette règle est dans le CLAUDE.md de `princeraph/Personal-Work`.
+- every job has a `timeout-minutes` (a stuck job otherwise runs 6 h);
+- `qualité` cancels a superseded run on the same branch (`concurrency`);
+  `publication` never cancels one (`cancel-in-progress: false`) — cut short, it
+  would leave a half-uploaded release;
+- no `pull_request` trigger: it re-ran the same commit a second time;
+- **if this repository ever goes private again**, revisit the triggers first:
+  every minute would count, Windows twice.
 
 ### Publishing a version for testers
 
