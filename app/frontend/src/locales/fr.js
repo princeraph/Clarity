@@ -457,6 +457,7 @@ export default {
   'capture.area': 'sujet',
   'capture.due': 'échéance',
   'capture.est': 'durée',
+  'capture.repeats': 'se répète',
   'detail.priority': 'Priorité',
   'detail.tracked': 'Mesuré',
   'detail.topic': 'Sujet',
@@ -716,7 +717,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Le panneau « Aujourd’hui » ne s’étire plus quand on le déplace : c’est maintenant une vraie fenêtre de taille fixe.\nÉpinglé, un clic sur l’icône près de l’horloge le ferme (avant, il revenait au premier plan).\nIl reste à l’endroit où vous l’avez posé, et « Ouvrir Clarity » ne ferme plus un panneau épinglé.\nUne tâche cochée par erreur ? « Annuler » apparaît quelques secondes.\nLe compte « Pour aujourd’hui » inclut les tâches en retard.\nDémarrage avec Windows, résumé au réveil, plan du jour et replanification ont leur onglet : Réglages › Au quotidien (ils étaient dans Assistant IA).',
+  'update.news': 'Récurrence en écrivant : « Sortir les poubelles tous les lundis », « Payer le loyer tous les mois », « Lire chaque jour » — dans Ctrl+K, le panneau « Aujourd’hui » et l’accueil.\nClaude peut créer des tâches qui se répètent, et arrêter une répétition. Pour en profiter : Réglages › Assistant IA › Connecter Clarity à Claude › Reconnecter, puis installez le nouveau fichier dans Claude Desktop.\nUne tâche qui se répète garde son heure et sa durée d’une fois sur l’autre.\nDans Claude, une tâche pour aujourd’hui n’apparaît plus « en retard » le soir.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

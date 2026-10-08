@@ -1,4 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
+import { execFileSync } from 'child_process';
 import { createConnector, findByRef, findSubtask, taskView, taskDetail, listView, overviewView } from '../src/connector/connector.js';
 import { handle, TOOLS } from '../src/connector/mcp-server.mjs';
 import { manifest, zip, buildBundle } from '../src/connector/bundle.js';
@@ -81,6 +82,40 @@ describe('what an assistant sees', () => {
     const o = overviewView(tasks, { whatToDoNext: 'D4 d’abord', taskAnalysis: [{ id: 'd4', priority: 1 }, { id: 'a1', priority: 2 }] });
     expect(o.topTasks.map(t => t.ref)).toEqual(['d4', 'a1']);
     expect(o.whatToDoNext).toBe('D4 d’abord');
+  });
+});
+
+describe('repeating tasks', () => {
+  test('a repeat shows; a task that does not repeat says nothing about it', () => {
+    expect(taskView(task('a1', { recurring: 'weekly' })).repeats).toBe('weekly');
+    expect('repeats' in taskView(task('a2', { recurring: 'none' }))).toBe(false);
+    expect('repeats' in taskView(task('a3'))).toBe(false);
+  });
+
+  test('add and update offer the repeat, with the same four choices as Clarity', () => {
+    for (const name of ['clarity_add_task', 'clarity_update_task']) {
+      const tool = TOOLS.find(t => t.name === name);
+      expect(tool.inputSchema.properties.recurring.enum).toEqual(['none', 'daily', 'weekly', 'monthly']);
+    }
+  });
+});
+
+describe('the overview’s day is the person’s', () => {
+  // In its own process: the time zone is read when Node starts, and Jest
+  // hands each test a copy of process.env, so setting TZ here changes nothing.
+  test('a task due today is not overdue when UTC is already on another day', () => {
+    // A zone whose date differs from UTC's right now, whatever the hour:
+    // UTC+14 from 10:00 UTC on, UTC-11 before 11:00 UTC.
+    const TZ = new Date().getUTCHours() >= 10 ? 'Pacific/Kiritimati' : 'Pacific/Pago_Pago';
+    const code = `
+      import { overviewView } from ${JSON.stringify(new URL('../src/connector/connector.js', import.meta.url).href)};
+      const d = new Date();
+      const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const o = overviewView([{ id: 't1', title: 'x', status: 'not_started', deadline: today, tags: [], subtasks: [] }], null);
+      console.log(JSON.stringify({ today, seen: o.today, overdue: o.overdue }));`;
+    const out = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', code], { env: { ...process.env, TZ } }).toString());
+    expect(out.seen).toBe(out.today);
+    expect(out.overdue).toBe(0);
   });
 });
 

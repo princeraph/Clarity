@@ -456,6 +456,7 @@ export default {
   'capture.area': 'area',
   'capture.due': 'due',
   'capture.est': 'est',
+  'capture.repeats': 'repeats',
   'detail.priority': 'Priority',
   'detail.tracked': 'Tracked',
   'detail.topic': 'Topic',
@@ -715,7 +716,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'The “Today” panel no longer stretches when moved: it is now a real window of fixed size.\nPinned, clicking the icon by the clock closes it (it used to come back to the front).\nIt stays where you put it, and “Open Clarity” no longer closes a pinned panel.\nTicked a task by mistake? “Undo” shows for a few seconds.\nThe “Due today” count includes overdue tasks.\nStart with Windows, summary on wake, daily plan and rescheduling have their own tab: Settings › Day to day (they were under AI assistant).',
+  'update.news': 'Repeat as you type: “Take out the trash every Monday”, “Pay rent every month”, “Read every day” — in Ctrl+K, the “Today” panel and the welcome screen.\nClaude can create repeating tasks, and stop a repeat. To get it: Settings › AI assistant › Connect Clarity to Claude › Reconnect, then install the new file in Claude Desktop.\nA repeating task keeps its time and duration from one occurrence to the next.\nIn Claude, a task due today no longer shows as overdue in the evening.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

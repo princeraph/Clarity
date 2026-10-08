@@ -50,6 +50,18 @@ const cas = [
   ['Lire Demainland',                   { title: 'Lire Demainland', deadline: null, estimatedDuration: null }],
   ['Corriger le bug 3h70',              { title: 'Corriger le bug 3h70', deadline: null, estimatedDuration: null }],
 
+  // ── récurrence : toujours introduite, jamais un adjectif seul ────────────
+  ['Sortir les poubelles tous les lundis', { title: 'Sortir les poubelles', deadline: '2026-09-21', recurring: 'weekly' }],
+  ['Lire 10 pages chaque jour',         { title: 'Lire 10 pages',   deadline: '2026-09-15', recurring: 'daily' }],
+  ['Payer le loyer tous les mois',      { title: 'Payer le loyer',  deadline: '2026-09-15', recurring: 'monthly' }],
+  ['Revoir le budget toutes les semaines vendredi', { title: 'Revoir le budget', deadline: '2026-09-18', recurring: 'weekly' }],
+  ['Team sync every Monday for 30 min', { title: 'Team sync',       deadline: '2026-09-21', estimatedDuration: 30, recurring: 'weekly' }],
+  ['Call mom every week',               { title: 'Call mom',        deadline: '2026-09-15', recurring: 'weekly' }],
+  ['Rédiger le rapport hebdo',          { title: 'Rédiger le rapport hebdo', deadline: null, recurring: 'none' }],
+  ['Daily standup',                     { title: 'Daily standup',   deadline: null, recurring: 'none' }],
+  ['Acheter des produits everyday',     { title: 'Acheter des produits everyday', deadline: null, recurring: 'none' }],
+  ['Plan sprint monday',                { title: 'Plan sprint',     recurring: 'none' }],
+
   // ── étiquettes, accents compris ──────────────────────────────────────────
   ['Rendre le devis #privé #urgent demain',
    { title: 'Rendre le devis', tags: ['privé', 'urgent'], deadline: '2026-09-16', estimatedDuration: null }],

@@ -51,6 +51,16 @@ const parLongueur = mots => [...mots].sort((a, b) => b.length - a.length).map(ec
 const MOTS_DATE = parLongueur([...Object.keys(RELATIFS), ...Object.keys(JOURS)]);
 const RE_DATE = new RegExp(`(?<![\\p{L}\\d])(${MOTS_DATE.join('|')})(?![\\p{L}\\d])`, 'giu');
 
+// La récurrence. Toujours introduite — « chaque », « tous les », « every » —
+// jamais un adjectif seul : « Rédiger le rapport hebdo » ou « Daily standup »
+// sont des titres, et « hebdo » ou « daily » avalés leur feraient perdre leur
+// sens. Pour un jour, les noms complets seulement, pour la raison des
+// abréviations françaises ci-dessus.
+const JOURS_COMPLETS = Object.keys(JOURS).filter(j => j.length > 3);
+const RE_RECUR_JOUR = new RegExp(`(?<![\\p{L}\\d])(?:every|each|chaque|tous\\s+les)\\s+(${JOURS_COMPLETS.join('|')})s?(?![\\p{L}\\d])`, 'iu');
+const RE_RECUR = /(?<![\p{L}\d])(?:(?:every|each|chaque)\s+(day|week|month|jour|semaine|mois)|tous\s+les\s+(jours|mois)|toutes\s+les\s+(semaines))(?![\p{L}\d])/iu;
+const PERIODE = { day: 'daily', jour: 'daily', jours: 'daily', week: 'weekly', semaine: 'weekly', semaines: 'weekly', month: 'monthly', mois: 'monthly' };
+
 // « for 2h », « pour 45 min », « ~1.5h », et la forme française « 2h30 ».
 const RE_DUREE_HM = /(?<![\p{L}\d])(?:for\s+|pour\s+|~)?(\d{1,2})\s*h\s*(\d{1,2})(?![\p{L}\d])/iu;
 const RE_DUREE    = /(?<![\p{L}\d])(?:for\s+|pour\s+|~)(\d+(?:[.,]\d+)?)\s*(h(?:eures?|ours?)?|min(?:utes?)?|m)(?![\p{L}\d])/iu;
@@ -79,6 +89,7 @@ export function parseInput(texte, maintenant = new Date(), { tags = true, durati
   const etiquettes = new Set();
   let echeance = null;
   let duree = null;
+  let recurrence = 'none';
   let titre = String(texte ?? '');
 
   if (tags) titre = titre.replace(/#([\p{L}\d-]+)/gu, (_, e) => { etiquettes.add(e.toLowerCase()); return ''; }).trim();
@@ -101,6 +112,13 @@ export function parseInput(texte, maintenant = new Date(), { tags = true, durati
     });
   }
 
+  // Avant les dates : « tous les lundis » laisse « lundi », que la suite
+  // transforme en prochaine occurrence.
+  titre = titre.replace(RE_RECUR_JOUR, (_, jour) => { recurrence = 'weekly'; return ` ${jour} `; });
+  if (recurrence === 'none') {
+    titre = titre.replace(RE_RECUR, (_, a, b, c) => { recurrence = PERIODE[(a || b || c).toLowerCase()]; return ''; });
+  }
+
   titre = titre.replace(RE_DATE, (_, mot) => {
     if (echeance) return '';
     const cle = mot.toLowerCase();
@@ -119,6 +137,10 @@ export function parseInput(texte, maintenant = new Date(), { tags = true, durati
     return '';
   });
 
+  // Une répétition compte à partir d'une échéance : sans date, la première
+  // est pour aujourd'hui (c'est aussi ce que fait le connecteur).
+  if (recurrence !== 'none' && !echeance) echeance = dateISO(maintenant);
+
   titre = titre.replace(/\s{2,}/g, ' ').trim();
-  return { title: titre, tags: [...etiquettes], deadline: echeance, estimatedDuration: duree };
+  return { title: titre, tags: [...etiquettes], deadline: echeance, estimatedDuration: duree, recurring: recurrence };
 }

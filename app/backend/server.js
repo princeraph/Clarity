@@ -26,7 +26,7 @@ import { totalmem, platform, release, homedir } from 'os';
 import { createConnector, findByRef, findSubtask, taskDetail, listView, overviewView, STATUSES as CONNECTOR_STATUSES, LIST_FILTERS as CONNECTOR_LISTS } from './src/connector/connector.js';
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
-import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS } from './src/reschedule.js';
+import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { createCrashReporter, WHERE as CRASH_WHERE } from './src/crash/crash.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -258,6 +258,10 @@ function spawnRecurringTask(data, source) {
     title:        source.title,
     description:  source.description  || '',
     deadline:     nextDeadline(source.deadline, source.recurring),
+    // The next one happens at the same hour and takes as long: a weekly
+    // 14:00 meeting came back with no hour and no duration.
+    time:              source.time              || null,
+    estimatedDuration: source.estimatedDuration || null,
     deliverable:  source.deliverable  || '',
     status:       'not_started',
     notes:        source.notes        || '',
@@ -575,7 +579,10 @@ cv1.post('/tasks', (req, res) => {
     ...(typeof b.description === 'string' ? { description: b.description.slice(0, 2000) } : {}),
     ...(/^\d{4}-\d{2}-\d{2}$/.test(b.deadline || '') ? { deadline: b.deadline } : {}),
     ...(Array.isArray(b.tags) ? { tags: b.tags.filter(t => typeof t === 'string').slice(0, 5).map(t => t.slice(0, 40)) } : {}),
+    ...(VALID_RECURRINGS.has(b.recurring) ? { recurring: b.recurring } : {}),
   };
+  // A repeat counts from a deadline: without one, the first is due today.
+  if (body.recurring && body.recurring !== 'none' && !body.deadline) body.deadline = localDay(new Date());
   const probe = { status(c) { this.code = c; return this; }, json(x) { this.body = x; return this; } };
   if (validateCreate(body, probe)) return res.status(probe.code || 400).json(probe.body);
   connector.record('add');
@@ -587,7 +594,9 @@ cv1.post('/tasks/:ref/status', (req, res) => {
   const found = knownTask(req, res); if (!found) return;
   connector.record('status');
   const task = updateTask(found.task.id, { status: req.body.status });
-  res.json({ updated: taskDetail(task, found.data.analysis, null) });
+  // Ticking a repeating task creates the next one: say so, and when.
+  const repeats = req.body.status === 'done' && found.task.status !== 'done' && task.recurring && task.recurring !== 'none';
+  res.json({ updated: taskDetail(task, found.data.analysis, null), ...(repeats ? { nextOccurrence: nextDeadline(task.deadline, task.recurring) } : {}) });
 });
 cv1.post('/tasks/:ref/ways-forward', (req, res) => {
   const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
@@ -610,11 +619,14 @@ cv1.post('/tasks/:ref/update', (req, res) => {
     // null clears the deadline; anything else must be a calendar date
     ...(b.deadline === null || /^\d{4}-\d{2}-\d{2}$/.test(b.deadline || '') ? { deadline: b.deadline } : {}),
     ...(Array.isArray(b.tags) ? { tags: b.tags.filter(t => typeof t === 'string').slice(0, 5).map(t => t.slice(0, 40)) } : {}),
+    ...(VALID_RECURRINGS.has(b.recurring) ? { recurring: b.recurring } : {}),
   };
-  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nothing to change: give a title, description, deadline (YYYY-MM-DD, or null to remove it) or tags.' });
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nothing to change: give a title, description, deadline (YYYY-MM-DD, or null to remove it), tags or recurring.' });
   const probe = probeRes();
   if (validateUpdate(patch, probe)) return res.status(probe.code || 400).json(probe.body);
   const found = knownTask(req, res); if (!found) return;
+  const deadlineAfter = patch.deadline !== undefined ? patch.deadline : found.task.deadline;
+  if (patch.recurring && patch.recurring !== 'none' && !deadlineAfter) patch.deadline = localDay(new Date());
   connector.record('update');
   res.json({ updated: taskDetail(updateTask(found.task.id, patch), found.data.analysis, null) });
 });
