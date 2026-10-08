@@ -790,6 +790,13 @@ revient pas à la relance ; « Chaque semaine » cliqué, Ctrl+Entrée enregistr
 la tâche (hebdomadaire, pour aujourd'hui) et ouvre sa fiche, où la récurrence
 se change.
 
+**1.5.6.** « Les dernières demandes s'accumulent. » Claude liste les tâches
+avant chaque changement et archive une tâche par appel : quatre archivages
+faisaient quatre lignes identiques, et la liste gardait l'historique de la
+connexion précédente après « Reconnecter ». Une suite de la même demande tient
+maintenant sur une ligne avec son nombre ; trois lignes visibles, le reste
+derrière « Afficher les N autres » ; une reconnexion vide la liste (testé).
+
 ---
 
 ## Ce que ce journal n'a pas le droit de cacher

@@ -717,7 +717,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'La récurrence se choisit d’un clic : dans la fenêtre d’ajout (Ctrl+K), sous le titre — Une seule fois, Chaque jour, Chaque semaine, Chaque mois.\nDans la fiche d’une tâche, la récurrence est maintenant juste sous l’échéance.\n« Accepter » une suggestion de l’assistant la range : elle ne reste plus affichée après l’ajout de la tâche.\nCtrl+Entrée (« enregistrer et ouvrir ») ouvre bien la tâche qui vient d’être ajoutée.',
+  'update.news': 'Réglages › Assistant IA › Dernières demandes : les demandes identiques qui se suivent tiennent sur une ligne (« A archivé une tâche · 4 fois »), seules les 3 plus récentes s’affichent, et la liste repart de zéro à chaque reconnexion.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
@@ -1028,6 +1028,9 @@ export default {
   'settings.connector.action.delete': 'A supprimé une tâche',
   'settings.connector.action.timer': 'A lancé ou arrêté un minuteur',
   'settings.connector.action.other': 'Autre demande',
+  'settings.connector.times': '{n} fois',
+  'settings.connector.showMore': 'Afficher les {n} autres',
+  'settings.connector.showLess': 'Afficher moins',
   'settings.connector.error': 'Ça n’a pas marché. Vérifiez que Clarity tourne, puis réessayez.',
   'settings.connector.advanced': 'Autres applis d’IA (avancé)',
   'settings.connector.advancedHint': 'Pour les applis d’IA compatibles MCP qui ne savent pas ouvrir Clarity.mcpb : collez cette configuration dans leurs réglages. L’afficher crée une nouvelle clé : toute connexion précédente, Claude Desktop compris, cesse de fonctionner.',

@@ -716,7 +716,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'Choose a repeat with one click: in the add window (Ctrl+K), under the title — One-time, Daily, Weekly, Monthly.\nIn a task’s details, the repeat now sits right under the deadline.\n“Accept” on an assistant suggestion puts it away: it no longer stays up once the task is added.\nCtrl+Enter (“save & open”) does open the task just added.',
+  'update.news': 'Settings › AI assistant › Recent requests: the same request several times in a row fits on one line (“Archived a task · 4 times”), only the 3 latest show, and the list starts over at each reconnection.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
@@ -1027,6 +1027,9 @@ export default {
   'settings.connector.action.delete': 'Deleted a task',
   'settings.connector.action.timer': 'Started or stopped a timer',
   'settings.connector.action.other': 'Another request',
+  'settings.connector.times': '{n} times',
+  'settings.connector.showMore': 'Show {n} more',
+  'settings.connector.showLess': 'Show less',
   'settings.connector.error': 'That didn’t work. Check that Clarity is running, then try again.',
   'settings.connector.advanced': 'Other AI apps (advanced)',
   'settings.connector.advancedHint': 'For AI apps that use MCP but can’t open Clarity.mcpb: paste this setup into their configuration. Showing it creates a new key, so any previous connection, Claude Desktop included, stops working.',
