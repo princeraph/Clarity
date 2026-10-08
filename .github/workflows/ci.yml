@@ -6,15 +6,15 @@
 # racine, et le workflow tourne.
 name: qualité
 
-# Minutes d'Actions : 2 000/mois pour TOUS les dépôts privés du compte, une
-# minute Windows en vaut 2. Lancé à chaque envoi de branche, ce workflow les a
-# épuisées le 8 octobre 2026. Une branche de travail passe ici UNE fois, à la
-# main (onglet Actions → qualité → Run workflow → la branche), juste avant la
-# fusion ; main repasse à la fusion. Coût estimé : ~25 min par passage
-# (Linux ~5 + Windows ~10 × 2, à mesurer) — ~8 passages/mois ≈ 200 min.
+# Dépôt public : les exécuteurs standard de GitHub y sont gratuits, Windows
+# compris. Les branches de travail passent donc ici à chaque envoi : rien n'est
+# fusionné dans main — d'où l'utilisateur tire ses mises à jour — avant d'avoir
+# passé ici, Windows compris. Pas de déclenchement pull_request : il refaisait
+# le même passage sur le même commit. Si ce dépôt redevenait privé, chaque
+# minute compterait (Windows double) : revoir ces déclencheurs d'abord.
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
   workflow_dispatch:
 
 concurrency:
