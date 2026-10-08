@@ -232,7 +232,7 @@ export default function SearchCapture({
           title: parsed.title, tags: parsed.tags,
           deadline: parsed.deadline || null,
           estimatedDuration: parsed.estimatedDuration || null,
-          status: 'not_started', recurring: 'none',
+          status: 'not_started', recurring: parsed.recurring || 'none',
         }),
       });
       // The server's own message is English plumbing ("Title is required"); the
@@ -249,7 +249,7 @@ export default function SearchCapture({
   }
 
   const hasParseResult = features?.capturePreview !== false
-    && parsed && (parsed.tags?.length > 0 || parsed.deadline || parsed.estimatedDuration);
+    && parsed && (parsed.tags?.length > 0 || parsed.deadline || parsed.estimatedDuration || parsed.recurring !== 'none');
 
   return (
     <div
@@ -321,6 +321,7 @@ export default function SearchCapture({
                 {parsed.tags.map(tag => <ParsePill key={tag} label={t('capture.area')} value={tag} T={T} />)}
                 {parsed.deadline && <ParsePill label={t('capture.due')} value={fmtDate(parsed.deadline + 'T00:00:00')} T={T} />}
                 {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={parsed.estimatedDuration >= 60 ? fmtHours(parsed.estimatedDuration) : fmtDuration(parsed.estimatedDuration)} T={T} />}
+                {parsed.recurring !== 'none' && <ParsePill label={t('capture.repeats')} value={t(`recurFreq.${parsed.recurring}`)} T={T} />}
               </div>
             )}
             {saveError && (

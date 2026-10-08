@@ -14,6 +14,7 @@
 // 3. Every call is visible: the last calls are listed in Settings.
 
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { localDay } from '../reschedule.js';
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 const ACTIVITY_MAX = 30;
@@ -81,6 +82,7 @@ export function taskView(task, analysis) {
     status: task.status,
     deadline: task.deadline || null,
     tags: task.tags || [],
+    ...(task.recurring && task.recurring !== 'none' ? { repeats: task.recurring } : {}),
     ...(a?.priorityLevel ? { priority: a.priorityLevel } : {}),
     ...(task.description ? { description: task.description.slice(0, 300) } : {}),
     ...(subtasks.length ? { subtasks: `${subtasks.filter(s => s.done).length}/${subtasks.length} done` } : {}),
@@ -116,9 +118,11 @@ export function overviewView(tasks, analysis) {
   const order = new Map((analysis?.taskAnalysis || []).map(a => [a.id, a.priority ?? 99]));
   const ranked = [...live].sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
   return {
-    today: new Date().toISOString().slice(0, 10),
+    // The person's day, not UTC's: in the evening west of Greenwich, UTC is
+    // already tomorrow and every task due today read as overdue.
+    today: localDay(new Date()),
     activeTasks: live.length,
-    overdue: live.filter(t => t.deadline && t.deadline < new Date().toISOString().slice(0, 10)).length,
+    overdue: live.filter(t => t.deadline && t.deadline < localDay(new Date())).length,
     ...(analysis?.whatToDoNext ? { whatToDoNext: analysis.whatToDoNext } : {}),
     ...(analysis?.overallInsight ? { insight: analysis.overallInsight } : {}),
     ...(analysis?.analyzedAt ? { analyzedAt: analysis.analyzedAt } : {}),

@@ -85,7 +85,7 @@ async function addTask(text) {
   try {
     const r = await fetch(`${API}/tasks`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null }),
+      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
     });
     return r.ok ? await r.json() : null;
   } catch { return null; }
@@ -142,6 +142,7 @@ function FirstCapture({ T, t, added, setAdded, draft, setDraft, cta }) {
             {p.deadline && <Pill label={t('onboarding.when')} value={fmtDate(p.deadline + 'T00:00:00', { weekday: 'long', day: 'numeric', month: 'long' })} T={T} />}
             {p.tags.map(tag => <Pill key={tag} label={t('capture.area')} value={tag} T={T} />)}
             {p.estimatedDuration && <Pill label={t('onboarding.duration')} value={p.estimatedDuration >= 60 ? fmtHours(p.estimatedDuration) : fmtDuration(p.estimatedDuration)} T={T} />}
+            {p.recurring !== 'none' && <Pill label={t('capture.repeats')} value={t(`recurFreq.${p.recurring}`)} T={T} />}
           </div>
         )}
         {added.length > 0 && (

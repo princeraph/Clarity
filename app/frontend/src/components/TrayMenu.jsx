@@ -128,7 +128,7 @@ export default function TrayMenu() {
     try {
       const r = await fetch(`${API}/tasks`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null }),
+        body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
       });
       if (!r.ok) throw new Error(String(r.status));
       setDraft(''); setAddFailed(false); load();

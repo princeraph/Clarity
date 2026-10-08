@@ -745,6 +745,32 @@ mis à l'échelle et la liste de raccourcis de la barre des tâches.
 
 ---
 
+## 8 octobre — la récurrence, partout où l'on ajoute une tâche
+
+« Il n'y a pas de récurrence dans les outils. » Elle existait — formulaire,
+fiche d'une tâche — mais nulle part où l'on ajoute vite. Les outils que Claude
+appelle (`clarity_add_task`, `clarity_update_task`) ne la connaissaient pas, et
+la saisie rapide non plus : « tous les lundis » finissait dans le titre.
+
+- **Connecteur 1.1.0.** `recurring` à l'ajout et à la modification ; une tâche
+  répétée sans échéance commence aujourd'hui (une répétition compte à partir
+  d'une date) ; cochée, la réponse dit quand tombe la suivante. Une extension
+  déjà installée garde l'ancien serveur : il faut la reconnecter.
+- **Saisie rapide.** « chaque/tous les/every » + jour, semaine, mois, ou un nom
+  de jour complet. Jamais un adjectif seul : « Daily standup » et « rapport
+  hebdo » sont des titres. Dix cas de plus dans `verifier-saisie.mjs`.
+- **Deux défauts trouvés en chemin.** La suivante d'une tâche répétée perdait
+  son heure et sa durée. Et l'aperçu du connecteur datait « aujourd'hui » en
+  UTC : le soir, à Montréal, les tâches du jour y étaient « en retard ». Le
+  test qui le garde tourne dans son propre processus — Jest donne à chaque
+  test une copie de `process.env`, et changer `TZ` dedans ne changeait rien :
+  le premier jet passait aussi sur l'ancien code.
+
+Vérifié : connecteur de bout en bout (ajout répété, coche, suivante une semaine
+plus tard, arrêt), et dans Electron les trois champs de saisie.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

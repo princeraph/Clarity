@@ -19,7 +19,7 @@ import { fileURLToPath } from 'url';
 const URL_BASE = process.env.CLARITY_URL || 'http://127.0.0.1:3001';
 const TOKEN = process.env.CLARITY_CONNECTOR_TOKEN || '';
 const APP = process.env.CLARITY_APP || '';
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';   // 1.1.0: recurring on add and update
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const WAKE_MS = Number(process.env.CLARITY_WAKE_MS) || 45000;
 
@@ -72,6 +72,10 @@ async function call(method, path, body) {
 
 // ─── Tools ───────────────────────────────────────────────────────────────────
 
+const RECURRING = {
+  type: 'string', enum: ['none', 'daily', 'weekly', 'monthly'],
+  description: 'Repeats: when the person marks it done, Clarity creates the next one, due a day, a week or a month after this one’s deadline. Without a deadline, the first one is due today. "none" stops it repeating.',
+};
 const REF = { type: 'string', description: 'The task’s ref, as given by clarity_list_tasks or clarity_overview (8 characters).' };
 const STATUS = { type: 'string', enum: ['not_started', 'in_progress', 'done'] };
 
@@ -105,7 +109,7 @@ export const TOOLS = [
   },
   {
     name: 'clarity_add_task',
-    description: 'Add a task to the person’s Clarity task list — whenever they say they need to, must, should or want to do something, or ask to be reminded. Use their own words for the title.',
+    description: 'Add a task to the person’s Clarity task list — whenever they say they need to, must, should or want to do something, or ask to be reminded. Use their own words for the title. For something that comes back (every day, week or month), set recurring.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -113,6 +117,7 @@ export const TOOLS = [
         description: { type: 'string' },
         deadline: { type: 'string', description: 'YYYY-MM-DD' },
         tags: { type: 'array', items: { type: 'string' } },
+        recurring: RECURRING,
       },
       required: ['title'],
     },
@@ -132,7 +137,7 @@ export const TOOLS = [
   },
   {
     name: 'clarity_update_task',
-    description: 'Change a Clarity task: rename it, rewrite its description, move or remove its deadline, change its tags. Give only what changes.',
+    description: 'Change a Clarity task: rename it, rewrite its description, move or remove its deadline, change its tags, make it repeat or stop repeating. Give only what changes.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -141,6 +146,7 @@ export const TOOLS = [
         description: { type: 'string' },
         deadline: { type: ['string', 'null'], description: 'YYYY-MM-DD, or null to remove the deadline' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Replaces the current tags' },
+        recurring: RECURRING,
       },
       required: ['ref'],
     },

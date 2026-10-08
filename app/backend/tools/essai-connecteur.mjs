@@ -127,6 +127,20 @@ if (!JSON.parse((await c.tool('clarity_get_task', { ref })).text).timerRunningSi
 await c.tool('clarity_timer', { ref, action: 'stop' });
 say('modifier, sous-tâches, minuteur : OK');
 
+// A repeating task: added without a deadline (the first is due today), ticked
+// done, and the next one is there, a week later, still repeating.
+const weekly = JSON.parse((await c.tool('clarity_add_task', { title: 'Sortir les poubelles', recurring: 'weekly' })).text).added;
+if (weekly.repeats !== 'weekly' || !weekly.deadline) fail(`repeat on add: ${JSON.stringify(weekly)}`);
+const ticked2 = JSON.parse((await c.tool('clarity_set_status', { ref: weekly.ref, status: 'done' })).text);
+const due = new Date(weekly.deadline + 'T00:00:00'); due.setDate(due.getDate() + 7);
+const nextDue = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+if (ticked2.nextOccurrence !== nextDue) fail(`next occurrence: ${JSON.stringify(ticked2)}, expected ${nextDue}`);
+const following = JSON.parse((await c.tool('clarity_list_tasks')).text).tasks.find(t => t.title === 'Sortir les poubelles');
+if (!following || following.deadline !== nextDue || following.repeats !== 'weekly') fail(`next one: ${JSON.stringify(following)}`);
+const stopped = JSON.parse((await c.tool('clarity_update_task', { ref: following.ref, recurring: 'none' })).text).updated;
+if ('repeats' in stopped) fail(`stop repeating: ${JSON.stringify(stopped)}`);
+say('récurrence : ajoutée, cochée, suivante créée, arrêtée : OK');
+
 // Archive and restore, then a delete that is refused without the person's yes.
 await c.tool('clarity_archive_task', { ref });
 if (JSON.parse((await c.tool('clarity_list_tasks')).text).tasks.some(t => t.ref === ref)) fail('archived task still listed');
