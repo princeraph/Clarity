@@ -719,7 +719,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Plus besoin de quitter Clarity pour voir une mise à jour : elle est cherchée toutes les 30 minutes et quand vous revenez sur sa fenêtre, et proposée aussitôt.\nRéglages › À propos › « Rechercher une mise à jour », et la même chose au clic droit sur l’icône près de l’horloge.\nRéglages › Assistant IA › Dernières demandes : les demandes identiques qui se suivent tiennent sur une ligne (« A archivé une tâche · 4 fois »), et la liste repart de zéro à chaque reconnexion.',
+  'update.news': 'Une tâche mensuelle due le 29, le 30 ou le 31 ne saute plus de mois : due le 31 janvier, elle revient le 28 février, puis le 31 mars — elle garde son jour.\nRéglages › Assistant IA : changer de fournisseur, ou « Remplacer » puis Enregistrer sans rien taper, n\u2019efface plus la clé d\u2019API enregistrée. Laissez le champ vide pour la garder.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
