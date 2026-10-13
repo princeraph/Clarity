@@ -647,6 +647,8 @@ export default {
 
   'archive.count': '{n} tâches archivées',
   'tasks.count': '{n} tâches',
+  'tasks.doneHidden': '· {n} terminées, masquées',
+  'focus.viewAll': 'Voir les {n} tâches →',
   'history.countCompleted': '{n} tâches terminées',
   'history.countArchived': '{n} tâches archivées',
   'patterns.nWaiting': '{n} en attente de vous',

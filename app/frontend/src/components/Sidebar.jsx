@@ -102,7 +102,7 @@ const NAV_ITEMS = [
   { id: 'inbox',    labelKey: 'nav.inbox',    view: 'tasks',    Icon: IcoInbox },
   { id: 'today',    labelKey: 'nav.today',    view: 'focus',    Icon: IcoToday },
   { id: 'upcoming', labelKey: 'nav.calendar', view: 'calendar', Icon: IcoUpcoming },
-  { id: 'anytime',  labelKey: 'nav.anytime',  view: 'tasks',    Icon: IcoAnytime },
+  { id: 'anytime',  labelKey: 'nav.anytime',  view: 'anytime',  Icon: IcoAnytime },
   { id: 'someday',  labelKey: 'nav.archive',  view: 'archive',  Icon: IcoSomeday },
   { id: 'history',  labelKey: 'nav.history',  view: 'history',  Icon: IcoHistory },
   { id: 'graph',    labelKey: 'nav.graph',    view: 'graph',    Icon: IcoGraph },
@@ -247,15 +247,19 @@ export default function Sidebar({
   }, [allTasks]);
 
   const getCount = (item) => {
-    if (item.id === 'inbox') return taskCount;
-    if (item.id === 'anytime') return (allTasks || []).filter(t => !t.deadline && t.status !== 'done').length;
+    // Each badge counts what its page lists. « Today » used to show the total
+    // of all tasks (done included) above a page that lists a handful.
+    const active = (allTasks || []).filter(t => t.status !== 'done');
+    if (item.id === 'inbox') return active.length;
+    if (item.id === 'anytime') return active.filter(t => !t.deadline).length;
     if (item.id === 'someday') return archivedCount;
-    if (item.id === 'today') return taskCount;
+    if (item.id === 'today') { const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; return active.filter(t => t.deadline && t.deadline.slice(0, 10) <= today).length || undefined; }
     return undefined;
   };
 
   const isActive = (item) => {
-    if (item.id === 'inbox' || item.id === 'anytime') return view === 'tasks' && !activeArea;
+    if (item.id === 'inbox') return view === 'tasks' && !activeArea;
+    if (item.id === 'anytime') return view === 'anytime';
     if (item.id === 'today') return view === 'focus';
     if (item.id === 'upcoming') return view === 'calendar';
     if (item.id === 'someday') return view === 'archive';

@@ -646,6 +646,8 @@ export default {
 
   'archive.count': '{n} archived tasks',
   'tasks.count': '{n} tasks',
+  'tasks.doneHidden': '· {n} done, hidden',
+  'focus.viewAll': 'See all {n} tasks →',
   'history.countCompleted': '{n} tasks completed',
   'history.countArchived': '{n} tasks archived',
   'patterns.nWaiting': '{n} waiting on you',

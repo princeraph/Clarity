@@ -8,7 +8,7 @@ const STATUSES = ['', 'not_started', 'in_progress', 'done'];
 // Keys, resolved at render time so the filter relabels when the language changes.
 const STATUS_KEYS = { '': 'status.all', not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
 
-export default function TasksView({ rankedTasks, analyzing, onAddTask, activeArea, onClearArea, ...handlers }) {
+export default function TasksView({ rankedTasks, analyzing, onAddTask, activeArea, onClearArea, undatedOnly = false, ...handlers }) {
   const { T } = useTheme();
   const { t } = useLocale();
   const [searchInput, setSearchInput] = useState('');
@@ -39,9 +39,13 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
       const matchStatus = !statusFilter || task.status === statusFilter;
       const matchTag    = !tagFilter    || task.tags?.includes(tagFilter);
       const matchDone   = !hideDone || statusFilter === 'done' || task.status !== 'done';
-      return matchSearch && matchStatus && matchTag && matchDone;
+      const matchDate   = !undatedOnly || !task.deadline;
+      return matchSearch && matchStatus && matchTag && matchDone && matchDate;
     });
-  }, [rankedTasks, search, statusFilter, tagFilter, hideDone]);
+  }, [rankedTasks, search, statusFilter, tagFilter, hideDone, undatedOnly]);
+  // Done tasks are hidden by default; the title used to count them anyway.
+  const hiddenDone = hideDone && statusFilter !== 'done'
+    ? rankedTasks.filter(t => t.status === 'done' && (!undatedOnly || !t.deadline)).length : 0;
 
   function clearFilters() { setSearchInput(''); setSearch(''); setStatusFilter(''); setTagFilter(''); onClearArea?.(); }
   const hasFilters = search || statusFilter || tagFilter;
@@ -66,10 +70,11 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
           <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-            {t('tasks.allTasks')}
+            {undatedOnly ? t('nav.anytime') : t('tasks.allTasks')}
           </div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
-            {t('tasks.count', { n: rankedTasks.length })}
+            {t('tasks.count', { n: filtered.length })}
+            {hiddenDone > 0 && <span style={{ fontSize: 13, color: T.ink40, marginLeft: 12, fontWeight: 400 }}>{t('tasks.doneHidden', { n: hiddenDone })}</span>}
             {analyzing && <span style={{ fontSize: 14, color: T.accent, marginLeft: 12, fontWeight: 400 }}>{t('tasks.analyzing')}</span>}
           </h1>
         </div>

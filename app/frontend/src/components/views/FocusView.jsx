@@ -209,7 +209,7 @@ function stalledWhy(s, t) {
   return s.why;
 }
 
-export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
+export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onViewAll, onOpenSettings, onOpenChat, ...handlers }) {
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
   const userName = getUserName();
@@ -362,6 +362,12 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
           {quickTasks.length > 0 && (
             <TaskGroup title={t('focus.upNext')} subtitle={t(quickTasks.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: quickTasks.length })} T={T}>
               {quickTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
+              {/* Today shows four; the rest were simply out of sight. */}
+              {activeTasks.length > focusTasks.length + quickTasks.length && onViewAll && (
+                <button onClick={onViewAll} style={{ marginTop: 8, background: 'transparent', border: 'none', color: T.accent, cursor: 'pointer', fontSize: 12.5, fontFamily: T.fontUI, padding: '4px 0' }}>
+                  {t('focus.viewAll', { n: activeTasks.length })}
+                </button>
+              )}
             </TaskGroup>
           )}
 
