@@ -647,6 +647,8 @@ export default {
 
   'archive.count': '{n} tâches archivées',
   'tasks.count': '{n} tâches',
+  'tasks.doneHidden': '· {n} terminées, masquées',
+  'focus.viewAll': 'Voir les {n} tâches →',
   'history.countCompleted': '{n} tâches terminées',
   'history.countArchived': '{n} tâches archivées',
   'patterns.nWaiting': '{n} en attente de vous',
@@ -724,7 +726,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Échap ferme de nouveau — saisie rapide, formulaire, panneaux.\nSélectionner du texte à la souris ne ferme plus la saisie d\u2019une tâche ; si elle se ferme, votre texte est toujours là à la réouverture.\nLes notes s\u2019écrivent directement dans le panneau d\u2019une tâche, enregistrées au fil de la frappe.\nLa boîte de réception montre de nouveau toutes vos tâches, pas le dernier sujet.\nLa page d\u2019un sujet a son bouton « Ajouter une tâche à ce sujet ».\nUne étiquette tapée dans le formulaire est gardée même sans Entrée.\nLe plan du jour peut être ignoré.\nLes textes de l\u2019IA (plan, bilan de la semaine, sous-tâches) suivent la langue choisie dans Clarity.\nPlus fluide : vues, listes et fenêtres apparaissent en douceur.',
+  'update.news': 'La boîte de réception liste toutes les tâches ouvertes, les nouvelles en tête jusqu\u2019à leur classement ; son titre dit combien de terminées sont masquées.\nChaque badge compte ce que sa page montre — « Aujourd\u2019hui » n\u2019affiche plus le total de toutes les tâches.\n« Quand je veux » liste les tâches sans date, comme son nom le dit.\n« Aujourd\u2019hui » propose « Voir les N tâches » quand il n\u2019en montre qu\u2019une partie.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

@@ -375,3 +375,78 @@ jobs:
           npm run build
           $sale = git status --porcelain -- dist/
           if ($sale) { $sale; git diff -- dist/; exit 1 }
+
+  # Une copie installée doit pouvoir rejoindre la dernière version d'elle-même,
+  # sans désinstaller, quelle que soit son ancienneté — demande du 13 octobre :
+  # deux testeuses restaient sur une vieille version. Part de la PLUS ANCIENNE
+  # version publiée avec mise à jour automatique (1.3.0), et ne compte que sur
+  # ce que cette version-là sait faire : chercher, télécharger, installer
+  # par-dessus. Une tâche témoin vérifie que les données passent la mise à jour.
+  ancienne-version:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: installer la plus ancienne version publiée (1.3.0)
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $base = 'https://github.com/princeraph/clarity-releases/releases'
+          Invoke-WebRequest "$base/download/v1.3.0/Clarity-Setup.exe" -OutFile "$env:RUNNER_TEMP\old.exe" -UseBasicParsing
+          Start-Process -Wait -FilePath "$env:RUNNER_TEMP\old.exe" -ArgumentList '/S'
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe | Select-Object -First 1
+          if (-not $exe) { Write-Error 'la 1.3.0 ne s est pas installée'; exit 1 }
+          "installée : $($exe.VersionInfo.ProductVersion)"
+          $data = "$env:APPDATA\Clarity\data"
+          New-Item -ItemType Directory -Force -Path $data | Out-Null
+          $now = (Get-Date).ToUniversalTime().ToString('o')
+          $temoin = @{ tasks = @(@{ id = 'temoin-maj'; title = 'Témoin d''avant la mise à jour'; description = ''; deadline = $null; status = 'not_started'; tags = @('temoin'); subtasks = @(); recurring = 'none'; timeTracked = 0; timerStarted = $null; archived = $false; history = @(); createdAt = $now; updatedAt = $now }); analysis = $null; weeklySummary = $null }
+          $temoin | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 -Path "$data\tasks.json"
+
+      - name: la 1.3.0 trouve et télécharge seule la dernière version
+        shell: pwsh
+        timeout-minutes: 12
+        run: |
+          $latest = (Invoke-WebRequest 'https://github.com/princeraph/clarity-releases/releases/latest/download/latest.yml' -UseBasicParsing).Content
+          if ($latest -is [byte[]]) { $latest = [Text.Encoding]::UTF8.GetString($latest) }
+          $want = ([regex]'version:\s*(\S+)').Match($latest).Groups[1].Value
+          "dernière publiée : $want"
+          Add-Content $env:GITHUB_ENV "WANT=$want"
+          $exe = (Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe | Select-Object -First 1).FullName
+          Start-Process -FilePath $exe
+          $pending = "$env:LOCALAPPDATA\clarity-updater\pending"
+          $found = $null
+          for ($i = 0; $i -lt 200 -and -not $found; $i++) {
+            Start-Sleep -Seconds 3
+            # temp-*.exe = téléchargement en cours ; le fichier final est renommé à la fin.
+            $found = Get-ChildItem $pending -Filter *.exe -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike 'temp-*' -and $_.Length -gt 10MB } | Select-Object -First 1
+          }
+          if (-not $found) { "::error::aucun téléchargement complet après 10 min : la 1.3.0 ne trouve pas la mise à jour"; exit 1 }
+          Start-Sleep -Seconds 10   # le fichier finit de s'écrire
+          "::notice::téléchargé : $($found.Name), $([int]($found.Length/1MB)) Mo"
+          Add-Content $env:GITHUB_ENV "PENDING=$($found.FullName)"
+
+      - name: installée par-dessus, sans désinstaller, données intactes
+        shell: pwsh
+        timeout-minutes: 8
+        run: |
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 2
+          # Ce que fait quitAndInstall : l'installateur téléchargé, en silence.
+          Start-Process -Wait -FilePath $env:PENDING -ArgumentList '--updated', '/S'
+          # L'installateur peut rendre la main avant d'avoir fini de copier.
+          $got = ''
+          for ($i = 0; $i -lt 45 -and -not $got.StartsWith($env:WANT); $i++) {
+            $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+            $got = if ($exe) { "$($exe.VersionInfo.ProductVersion)" } else { '' }
+            if (-not $got.StartsWith($env:WANT)) { Start-Sleep -Seconds 2 }
+          }
+          $all = (Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe -ErrorAction SilentlyContinue | ForEach-Object { "$($_.FullName)=$($_.VersionInfo.ProductVersion)" }) -join ' ; '
+          "::notice::installée : '$got' — attendue : '$env:WANT' — exe trouvés : $all"
+          if (-not $got.StartsWith($env:WANT)) { "::error::la mise à jour n'a pas abouti : '$got' au lieu de '$env:WANT'"; exit 1 }
+          $f = "$env:APPDATA\Clarity\data\tasks.json"
+          $tasks = if (Test-Path $f) { Get-Content -Raw $f } else { '' }
+          $dirs = (Get-ChildItem "$env:APPDATA" -Directory | Where-Object Name -match 'larity' | ForEach-Object { $_.FullName }) -join ' ; '
+          "::notice::données : $f existe=$(Test-Path $f) — dossiers : $dirs"
+          if ($tasks -notmatch 'temoin-maj') { "::error::la tâche témoin a disparu avec la mise à jour"; exit 1 }
+          'tâche témoin conservée'
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force

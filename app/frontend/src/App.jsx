@@ -418,7 +418,7 @@ function AppInner() {
   // filter off — and going there kept the last topic's filter, so « Inbox »
   // opened that topic instead. Anything that navigates to the list clears it.
   function goTo(v) {
-    if (v === 'tasks') setActiveArea('');
+    if (v === 'tasks' || v === 'anytime') setActiveArea('');
     setView(v);
   }
 
@@ -538,6 +538,7 @@ function AppInner() {
 
   // ── Derived data ────────────────────────────────────────────────────────────
 
+  const analyzedAt = data.analysis?.analyzedAt ? new Date(data.analysis.analyzedAt) : null;
   const rankedTasks = [...data.tasks]
     .filter(t => !hiddenTaskIds.has(t.id))
     .map(task => ({
@@ -545,6 +546,12 @@ function AppInner() {
       aiData: data.analysis?.taskAnalysis?.find(a => a.id === task.id) || null,
     }))
     .sort((a, b) => {
+      // A task added since the last analysis has no rank yet. It used to sort
+      // after every ranked one — at the bottom of a long list, where a task
+      // just typed looked lost. New ones lead, newest first, until ranked.
+      const isNew = t => !t.aiData && (!analyzedAt || new Date(t.createdAt) > analyzedAt);
+      if (isNew(a) !== isNew(b)) return isNew(a) ? -1 : 1;
+      if (isNew(a)) return new Date(b.createdAt) - new Date(a.createdAt);
       if (a.aiData && b.aiData) return a.aiData.priority - b.aiData.priority;
       if (a.aiData) return -1;
       if (b.aiData) return 1;
@@ -609,13 +616,14 @@ function AppInner() {
           {view === 'focus' && (
             <FocusView rankedTasks={rankedTasks} analysis={data.analysis} stats={stats}
               analyzing={data.analyzing} analysisError={data.analysisError} health={health} {...taskHandlers}
-              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} onDismissPlan={markPlanHandled} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
+              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} onDismissPlan={markPlanHandled} onViewAll={() => goTo('tasks')} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
               onOpenSettings={openAiSettings} onReanalyze={handleReanalyze}
               onOpenChat={() => setShowChat(true)} />
           )}
-          {view === 'tasks' && (
+          {(view === 'tasks' || view === 'anytime') && (
             <TasksView rankedTasks={rankedTasks} analyzing={data.analyzing}
               {...taskHandlers} onAddTask={openAddTask}
+              undatedOnly={view === 'anytime'}
               activeArea={activeArea} onClearArea={() => setActiveArea('')} />
           )}
           {view === 'calendar' && (
