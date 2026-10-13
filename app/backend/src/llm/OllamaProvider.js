@@ -108,16 +108,28 @@ export class OllamaProvider extends LLMProvider {
       throw new Error(`Ollama ${resp.status}: ${await resp.text().catch(() => '')}`);
     }
 
+    // NDJSON: a line can arrive split across two chunks. Without carrying the
+    // tail over, both halves failed to parse and the token was lost — enough to
+    // drop a `[` and make a subtask plan unreadable.
     const decoder = new TextDecoder();
+    let buffer = '';
+    const parse = function* (line) {
+      if (!line.trim()) return;
+      try {
+        const json = JSON.parse(line);
+        if (json.response) yield json.response;
+        if (json.done) yield DONE;
+      } catch {}
+    };
+    const DONE = Symbol('done');
     for await (const chunk of resp.body) {
-      for (const line of decoder.decode(chunk, { stream: true }).split('\n').filter(Boolean)) {
-        try {
-          const json = JSON.parse(line);
-          if (json.response) yield json.response;
-          if (json.done) return;
-        } catch {}
-      }
+      buffer += decoder.decode(chunk, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) for (const t of parse(line)) { if (t === DONE) return; yield t; }
     }
+    buffer += decoder.decode();
+    for (const t of parse(buffer)) { if (t === DONE) return; yield t; }
   }
 
   async *generateChat(systemPrompt, messages, options = {}) {

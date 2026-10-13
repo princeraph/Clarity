@@ -118,7 +118,11 @@ export function createCrashReporter({ dataDir, enabled, send, version = '', syst
         left.push(r);                        // offline: next time
       }
     }
-    writeLines(PENDING, left);
+    // Reports recorded while the sends above were awaited were appended to
+    // PENDING after it was read: keep them instead of overwriting them.
+    const seen = new Set(pending.map(signature));
+    const arrived = readLines(PENDING).filter(r => !seen.has(signature(r)));
+    writeLines(PENDING, [...left, ...arrived]);
     return { sent, dropped: 0 };
   }
 

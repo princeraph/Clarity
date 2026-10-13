@@ -14,18 +14,23 @@
 //   - a deletion travels as a tombstone, never as an absence;
 //   - deleted here vs edited elsewhere since we last agreed: the edit wins.
 //     Losing a deletion costs a click; losing an edit costs what was written.
-//   - the journal only grows: entries are added, never deleted by sync (it is
-//     trimmed locally, and trimming one device must not erase another's).
+//   - the journal is not deleted by absence (it is trimmed locally, and
+//     trimming one device must not erase another's) — only by an explicit
+//     deletion ("clear conversation history"), passed in as `explicitDeletes`;
+//   - `allowDeletes: false` sends no tombstone for anything found missing: set
+//     when this device's files were just recovered from damage or a backup, so
+//     a local loss is never broadcast to the other devices as a deletion.
 
 export const keyOf = (kind, id) => `${kind}:${id}`;
 const ms = t => { const n = Date.parse(t); return Number.isNaN(n) ? 0 : n; };
 const APPEND_ONLY = new Set(['journal']);
 
-export function planSync({ local, known = {}, remote = [], now = new Date() }) {
+export function planSync({ local, known = {}, remote = [], now = new Date(), allowDeletes = true, explicitDeletes = [] }) {
   const apply = [];          // { kind, id, data } | { kind, id, deleted: true }
   const push = [];           // { kind, id, data, deleted, updated_at }
   const nextKnown = { ...known };
   const handled = new Set();
+  const explicit = new Set(explicitDeletes.map(d => keyOf(d.kind, d.id)));
 
   for (const r of remote) {
     const k = keyOf(r.kind, r.id);
@@ -34,8 +39,8 @@ export function planSync({ local, known = {}, remote = [], now = new Date() }) {
     handled.add(k);
 
     if (r.deleted) {
-      if (APPEND_ONLY.has(r.kind)) { nextKnown[k] = r.updated_at; continue; }
       if (!mine) { delete nextKnown[k]; continue; }
+      if (APPEND_ONLY.has(r.kind)) { apply.push({ kind: r.kind, id: r.id, deleted: true }); delete nextKnown[k]; continue; }
       const editedHereSince = lT > rT && (kT == null || lT > kT);
       if (editedHereSince) push.push(row(mine));                 // edit beats deletion
       else { apply.push({ kind: r.kind, id: r.id, deleted: true }); delete nextKnown[k]; }
@@ -43,8 +48,10 @@ export function planSync({ local, known = {}, remote = [], now = new Date() }) {
     }
     // Absent here, and the server holds nothing newer than what we already had:
     // it was deleted here. (Pulls overlap by design, so a row we know comes back.)
+    // Cleared here on purpose (history clear), and back in the pull overlap.
+    if (!mine && !r.deleted && explicit.has(k)) { push.push(tombstone(r.kind, r.id, r.updated_at, now)); continue; }
     if (!mine && kT != null && rT <= kT) {
-      if (!APPEND_ONLY.has(r.kind)) push.push(tombstone(r.kind, r.id, known[k], now));
+      if (!APPEND_ONLY.has(r.kind) && allowDeletes) push.push(tombstone(r.kind, r.id, known[k], now));
       continue;
     }
     if (!mine || lT < rT) { apply.push({ kind: r.kind, id: r.id, data: r.data, updated_at: r.updated_at }); nextKnown[k] = r.updated_at; }
@@ -57,7 +64,15 @@ export function planSync({ local, known = {}, remote = [], now = new Date() }) {
     if (!known[k] || ms(mine.updatedAt) > ms(known[k])) push.push(row(mine));
   }
 
+  for (const d of explicitDeletes) {
+    const k = keyOf(d.kind, d.id);
+    if (local.has(k) || handled.has(k)) continue;
+    handled.add(k);
+    push.push(tombstone(d.kind, String(d.id), known[k], now));
+  }
+
   for (const k of Object.keys(known)) {
+    if (!allowDeletes) break;
     if (local.has(k) || handled.has(k)) continue;
     const kind = k.slice(0, k.indexOf(':'));
     if (APPEND_ONLY.has(kind)) continue;

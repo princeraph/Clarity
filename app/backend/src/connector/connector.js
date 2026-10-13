@@ -33,13 +33,13 @@ export function createConnector({ readSettings, saveSettings, now = () => new Da
     /** A new token (returned once, never stored in clear) — the old one stops working. */
     async issue() {
       const token = randomBytes(24).toString('hex');
-      await saveSettings({ ...readSettings(), connectorEnabled: true, connectorTokenHash: sha256(token), connectorIssuedAt: now().toISOString() });
+      await saveSettings({ connectorEnabled: true, connectorTokenHash: sha256(token), connectorIssuedAt: now().toISOString() });
       activity.length = 0;   // a new connection: what the old one did is not its history
       return token;
     },
 
     async disable() {
-      await saveSettings({ ...readSettings(), connectorEnabled: false, connectorTokenHash: '', connectorIssuedAt: null });
+      await saveSettings({ connectorEnabled: false, connectorTokenHash: '', connectorIssuedAt: null });
       activity.length = 0;
     },
 
@@ -85,7 +85,7 @@ export function taskView(task, analysis) {
     tags: task.tags || [],
     ...(task.recurring && task.recurring !== 'none' ? { repeats: task.recurring } : {}),
     ...(a?.priorityLevel ? { priority: a.priorityLevel } : {}),
-    ...(task.description ? { description: task.description.slice(0, 300) } : {}),
+    ...(task.description ? { description: String(task.description).slice(0, 300) } : {}),
     ...(subtasks.length ? { subtasks: `${subtasks.filter(s => s.done).length}/${subtasks.length} done` } : {}),
   };
 }
@@ -138,8 +138,8 @@ export function findSubtask(subtasks, which) {
   if (Number.isInteger(n) && n >= 1 && n <= list.length) return n - 1;
   const words = String(which ?? '').trim().toLowerCase();
   if (!words) return -1;
-  const exact = list.findIndex(s => s.title.toLowerCase() === words);
+  const exact = list.findIndex(s => String(s?.title ?? '').toLowerCase() === words);
   if (exact !== -1) return exact;
-  const partial = list.map((s, i) => (s.title.toLowerCase().includes(words) ? i : -1)).filter(i => i !== -1);
+  const partial = list.map((s, i) => (String(s?.title ?? '').toLowerCase().includes(words) ? i : -1)).filter(i => i !== -1);
   return partial.length === 1 ? partial[0] : -1;
 }

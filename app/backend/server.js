@@ -3,7 +3,7 @@ import cors from 'cors';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, renameSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
-import { randomUUID as uuidv4 } from 'node:crypto';
+import { randomUUID as uuidv4, createHash } from 'node:crypto';
 import { createProvider } from './src/llm/index.js';
 import { writeJSONAtomic } from './src/storage.js';
 import { createProfileStore } from './src/profile/store.js';
@@ -104,6 +104,23 @@ process.on('disconnect', () => process.exit(0));
 function readSettings() { return secrets.view(readRawSettings()); }
 
 async function saveSettings(s) { writeJSONAtomic(SETTINGS_FILE, await secrets.toFile(s, readRawSettings())); }
+
+// Every settings change goes through this one queue, reading the file INSIDE
+// it. Callers used to read, await encryption (an IPC round trip), then write
+// the whole file: a concurrent save came back over theirs — a sign-out was
+// undone, a rotated sync token replaced by the one the server had just
+// revoked. Pass a patch, or a function of the current settings.
+let settingsQueue = Promise.resolve();
+function updateSettings(change) {
+  const run = settingsQueue.then(async () => {
+    const cur = readSettings();
+    const next = typeof change === 'function' ? change(cur) : { ...cur, ...change };
+    if (next !== cur) await saveSettings(next);
+    return next;
+  });
+  settingsQueue = run.catch(() => {});
+  return run;
+}
 function getProvider()   { return createProvider({ ...readSettings(), modelsDir: MODELS_DIR }); }
 
 // ─── Task store ───────────────────────────────────────────────────────────────
@@ -132,6 +149,11 @@ function newestGoodBackup() {
   return null;
 }
 
+// Set when tasks.json had to be recovered (from a backup, or empty). Until the
+// next sign-in, sync then sends no deletion for what went missing: a local
+// loss must not be broadcast to the other devices as « deleted ».
+let tasksRecoveredAt = 0;
+
 function readData() {
   if (!existsSync(DATA_FILE)) return emptyStore();   // first run — genuinely empty
   try {
@@ -148,6 +170,7 @@ function readData() {
     } catch (mvErr) {
       console.error(`[Clarity] tasks.json unreadable and could not be moved aside: ${mvErr.message}`);
     }
+    tasksRecoveredAt = Date.now();
     const backup = newestGoodBackup();
     if (backup) {
       console.error(`[Clarity] restored from backup ${backup.name} (${backup.data.tasks.length} tasks)`);
@@ -255,13 +278,24 @@ function scheduleProfileRecompute(tasks) {
 // ─── Recurring helpers ────────────────────────────────────────────────────────
 
 
+// The next occurrence's id is derived from the series and its date, so the same
+// recurring task completed on two synced devices creates ONE next occurrence,
+// not two copies with random ids.
+function occurrenceId(sourceId, deadline) {
+  const h = createHash('sha256').update(`${sourceId}|${deadline}`).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 function spawnRecurringTask(data, source) {
   const anchor = source.recurring === 'monthly' ? anchorDayOf(source) : null;
+  const deadline = nextDeadline(source.deadline, source.recurring, anchor);
+  const id = occurrenceId(source.id, deadline);
+  if (data.tasks.some(t => t.id === id)) return null;
   const task = {
-    id:           uuidv4(),
+    id,
     title:        source.title,
     description:  source.description  || '',
-    deadline:     nextDeadline(source.deadline, source.recurring, anchor),
+    deadline,
     // A monthly series set for the 31st keeps aiming at the 31st after a
     // short month clamped it to the 28th (src/recurrence.js).
     ...(anchor ? { recurrenceDay: anchor } : {}),
@@ -317,23 +351,29 @@ function analysisShortlist(tasks, limit = ANALYSIS_MAX_TASKS) {
     .slice(0, limit);
 }
 
+let analysisRerun = false;
+let analysisGeneration = 0;
 async function runAnalysis(allTasks) {
-  if (!allTasks.length || isAnalyzing) return;
+  if (isAnalyzing) { analysisRerun = true; return; }
+  if (!allTasks.length) return;
   const tasks = analysisShortlist(allTasks);
   isAnalyzing = true;
   analysisError = null;
+  const gen = analysisGeneration;
   console.log(`[AI] Analyzing ${tasks.length} of ${allTasks.length} task(s)...`);
 
-  const prompt = buildAnalysisPrompt(tasks, promptLanguage(readSettings().uiLanguage, tasks));
-
   try {
+    // Inside the try: a throw here (an odd field from an older version or
+    // another device) used to skip `finally`, leave isAnalyzing true, and stop
+    // every analysis until Clarity restarted.
+    const prompt = buildAnalysisPrompt(tasks, promptLanguage(readSettings().uiLanguage, tasks));
     const provider = getProvider();
     // Sized to the reply actually asked for. The old blanket 3072 let the model
     // keep writing long after the JSON closed, and that tail is pure waiting.
     const analysis = restoreIds(
       await provider.generateJSON(prompt.text, { maxTokens: prompt.maxTokens, schema: prompt.schema }),
       tasks);
-    if (analysis?.taskAnalysis) {
+    if (analysis?.taskAnalysis && gen === analysisGeneration) {   // not after a reset
       const data = readData();
       data.analysis = { ...analysis, analyzedAt: new Date().toISOString() };
       saveData(data);
@@ -345,6 +385,9 @@ async function runAnalysis(allTasks) {
     analysisError = err.message;
   } finally {
     isAnalyzing = false;
+    // Asked for while this one ran (a new task, a language change): run it now
+    // instead of dropping it.
+    if (analysisRerun) { analysisRerun = false; scheduleAnalysis(readData().tasks); }
   }
 }
 
@@ -405,6 +448,10 @@ app.use(express.json());
 
 // Express 4 forwards a throw from a *sync* handler to the error middleware but
 // silently drops a rejected promise from an async one — hence the wrapper.
+// The client closed a streaming request (panel closed, cancel). Breaking out of
+// the model's stream stops the generation; nothing it wrote is then saved.
+const clientGone = res => res.destroyed || res.writableEnded || res.socket?.destroyed === true;
+
 const asyncRoute = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ── Version ───────────────────────────────────────────────────────────────────
@@ -445,7 +492,7 @@ const downloader = createDownloader({
   modelsDir: MODELS_DIR,
   onComplete: async (m) => {
     try {
-      await saveSettings({ ...readSettings(), providerType: 'local', localModel: m.file });
+      await updateSettings({ providerType: 'local', localModel: m.file });
       console.log(`[assistant] ${m.file} ready — the built-in assistant is on`);
       warmModel();
       // The tasks typed while it downloaded — the first ones, often — are
@@ -486,7 +533,7 @@ app.delete('/api/assistant/models/:id', asyncRoute(async (req, res) => {
   if (!downloader.remove(req.params.id)) return res.status(409).json({ error: 'Model in use or unknown' });
   const s = readSettings();
   const gone = downloader.status().models.find(m => m.id === req.params.id);
-  if (s.localModel === gone?.file) await saveSettings({ ...s, localModel: '' });
+  if (s.localModel === gone?.file) await updateSettings(cur => cur.localModel === gone?.file ? { ...cur, localModel: '' } : cur);
   res.json({ removed: true });
 }));
 
@@ -498,7 +545,7 @@ app.delete('/api/assistant/models/:id', asyncRoute(async (req, res) => {
 const ollamaInstaller = createOllamaInstaller({
   onComplete: async (model) => {
     try {
-      await saveSettings({ ...readSettings(), providerType: 'ollama', llmEndpoint: OLLAMA_ENDPOINT, ollamaModel: model });
+      await updateSettings({ providerType: 'ollama', llmEndpoint: OLLAMA_ENDPOINT, ollamaModel: model });
       console.log(`[ollama] installed with ${model} — Clarity now uses it`);
       warmModel();
     } catch (err) {
@@ -525,7 +572,7 @@ app.post('/api/ollama/install/cancel', (req, res) => {
 // ── AI connector (Claude Desktop and other MCP clients) ──────────────────────
 // See src/connector/connector.js for what may leave and why it is off by default.
 
-const connector = createConnector({ readSettings, saveSettings });
+const connector = createConnector({ readSettings, saveSettings: updateSettings });
 // The wake-up needs Clarity.exe; in development the binary is plain Electron,
 // which cannot start the app on its own, so no path is given there.
 const CLARITY_APP = /^clarity(\.exe)?$/i.test(basename(process.execPath)) ? process.execPath : null;
@@ -738,9 +785,9 @@ console.log(`[feedback] ${feedback.enabled ? 'form configured — testers can se
 async function ensureFirstUse() {
   const s = readSettings();
   if (s.firstUseAt) return s;
-  const next = { ...s, firstUseAt: new Date().toISOString() };
-  try { await saveSettings(next); } catch (err) { console.warn('[feedback] could not record the first use:', err.message); }
-  return next;
+  const at = new Date().toISOString();
+  try { return await updateSettings(cur => (cur.firstUseAt ? cur : { ...cur, firstUseAt: at })); }
+  catch (err) { console.warn('[feedback] could not record the first use:', err.message); return { ...s, firstUseAt: at }; }
 }
 
 const feedbackFailure = (res, err) => {
@@ -761,7 +808,7 @@ app.post('/api/feedback', asyncRoute(async (req, res) => {
   // Whoever has given an opinion, from the prompt or not, is not asked again.
   const s = readSettings();
   if (s.feedbackPromptState !== 'never') {
-    try { await saveSettings({ ...s, ...promptPatch('done', new Date()) }); }
+    try { await updateSettings(cur => (cur.feedbackPromptState === 'never' ? cur : { ...cur, ...promptPatch('done', new Date()) })); }
     catch (err) { console.warn('[feedback] could not record the answer:', err.message); }
   }
   res.json(out);
@@ -771,7 +818,7 @@ app.post('/api/feedback/prompt', asyncRoute(async (req, res) => {
   let patch;
   try { patch = promptPatch(req.body?.action, new Date()); }
   catch (err) { return feedbackFailure(res, err); }
-  await saveSettings({ ...readSettings(), ...patch });
+  await updateSettings(patch);
   res.json({ ok: true, state: patch.feedbackPromptState });
 }));
 
@@ -814,8 +861,8 @@ app.post('/api/settings', async (req, res) => {
   // Empty never erases a stored secret; null does (src/security/secretField.js).
   const keyUpdate = secretField(apiKey);
   const tunnelUpdate = secretField(tunnelSecret);
-  const next = {
-    ...current,
+  const build = cur => ({
+    ...cur,
     ...(providerType        !== undefined && { providerType }),
     ...(llmEndpoint         !== undefined && { llmEndpoint }),
     ...(ollamaModel         !== undefined && { ollamaModel }),
@@ -825,16 +872,17 @@ app.post('/api/settings', async (req, res) => {
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
     ...(uiLanguage          !== undefined && { uiLanguage }),
-    ...(features            !== undefined && { features: { ...featuresOf(current), ...features } }),
-  };
-  try { await saveSettings(next); }
+    ...(features            !== undefined && { features: { ...featuresOf(cur), ...features } }),
+  });
+  let previousLanguage;
+  try { await updateSettings(cur => { previousLanguage = cur.uiLanguage; return build(cur); }); }
   catch (err) {
     // Never fall back to writing the key in clear because encryption failed.
     console.error('[secrets] could not store settings:', err.message);
     return res.status(500).json({ error: 'Could not store the settings securely', code: 'store-failed' });
   }
   // The plan on screen was written in the old language: write it again.
-  if (uiLanguage !== undefined && uiLanguage !== current.uiLanguage) {
+  if (uiLanguage !== undefined && uiLanguage !== previousLanguage) {
     try { scheduleAnalysis(readData().tasks); } catch { /* next edit will */ }
   }
   // Turned on: overdue tasks move now, not at the next check.
@@ -857,24 +905,38 @@ const syncSession = () => {
 };
 async function storeSyncSession({ email, refreshToken, accessToken, expiresAt }) {
   syncAccess = accessToken ? { accessToken, expiresAt } : null;
-  const current = readSettings();
-  await saveSettings({ ...current, ...(email !== undefined ? { syncEmail: email } : {}), syncRefreshToken: refreshToken || '' });
+  await updateSettings(cur => ({ ...cur, ...(email !== undefined ? { syncEmail: email } : {}), syncRefreshToken: refreshToken || '' }));
 }
+// Deleting every task is a real request to delete them everywhere; the mass-
+// deletion guard lets that one through for ten minutes, nothing else.
+let massDeleteUntil = 0;
 const syncEngine = createSyncEngine({
   dataDir: DATA_DIR, readData, saveData: saveDataQuiet, client: syncClient,
   getSession: syncSession, setSession: storeSyncSession,
-  onApplied: () => { const tasks = readData().tasks; scheduleAnalysis(tasks); scheduleProfileRecompute(tasks); },
+  isLocalTrusted: () => !tasksRecoveredAt,
+  massDeleteAllowed: () => Date.now() < massDeleteUntil,
+  // Only tasks feed the analysis and the observed profile. Re-running them on
+  // every applied profile or journal entry made two devices bounce forever.
+  onApplied: (apply) => {
+    if (!apply.some(a => a.kind === 'task')) return;
+    const tasks = readData().tasks; scheduleAnalysis(tasks); scheduleProfileRecompute(tasks);
+  },
 });
 function syncNow() {
   if (!syncSession()) return Promise.resolve(null);
-  return syncEngine.run().catch(err => {
-    // A refresh token refused for good (revoked, account deleted): signed out.
-    if (err instanceof SyncError && err.code === 'unauthorized' && /refresh|token/i.test(err.message)) {
-      storeSyncSession({ refreshToken: '' }).catch(() => {});
-    }
+  return syncEngine.run().catch(async err => {
+    // The refresh token was refused for good (revoked, already used, account
+    // deleted): end the session visibly instead of failing every minute.
+    if (err instanceof SyncError && err.code === 'session-expired') await endSyncSession();
     return null;
   });
 }
+async function endSyncSession() {
+  await syncEngine.reset().catch(() => {});
+  await storeSyncSession({ refreshToken: '' }).catch(() => {});
+  syncSessionEnded = true;
+}
+let syncSessionEnded = false;   // shown once by the Account panel
 let syncTimer = null;
 function syncSoon() {
   if (syncTimer) clearTimeout(syncTimer);
@@ -883,13 +945,13 @@ function syncSoon() {
 }
 setInterval(() => syncNow(), 60 * 1000).unref();
 
-const SYNC_ERROR_STATUS = { offline: 503, 'rate-limited': 429, unauthorized: 401, rejected: 400, server: 502, 'signed-out': 409 };
+const SYNC_ERROR_STATUS = { offline: 503, 'rate-limited': 429, unauthorized: 401, rejected: 400, server: 502, 'signed-out': 409, 'session-expired': 401, 'mass-delete': 409, 'local-unreadable': 409, cancelled: 409 };
 const syncFail = (res, err) => res.status(SYNC_ERROR_STATUS[err.code] || 500).json({ error: err.message, code: err.code || 'error' });
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
 app.get('/api/sync/status', (req, res) => {
   const s = syncSession();
-  res.json({ signedIn: !!s, email: s?.email || null, ...syncEngine.status() });
+  res.json({ signedIn: !!s, email: s?.email || null, ...syncEngine.status(), ...(!s && syncSessionEnded ? { ended: true } : {}) });
 });
 app.post('/api/sync/send-code', async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
@@ -905,10 +967,14 @@ app.post('/api/sync/verify', async (req, res) => {
     const s = await syncClient.verifyCode(email, code);
     // A new sign-in merges from scratch: whatever this device remembered of a
     // previous account must not turn into deletions on this one.
-    syncEngine.reset();
+    await syncEngine.reset();
+    tasksRecoveredAt = 0;          // the account copy is the reference again
+    syncSessionEnded = false;
     // Safety net before the first merge: the task file as it was. Outside the
     // tasks-* rotation, so the daily backups never trim it away.
-    try { if (existsSync(DATA_FILE)) copyFileSync(DATA_FILE, join(BACKUPS_DIR, `presync-${localDateStamp()}.json`)); } catch { /* best effort */ }
+    for (const [file, name] of [[DATA_FILE, 'presync'], [join(DATA_DIR, 'profile.json'), 'presync-profile']]) {
+      try { if (existsSync(file)) copyFileSync(file, join(BACKUPS_DIR, `${name}-${localDateStamp()}.json`)); } catch { /* best effort */ }
+    }
     await storeSyncSession({ email, refreshToken: s.refresh_token, accessToken: s.access_token, expiresAt: s.expires_at });
     const first = await syncEngine.run().catch(err => ({ error: err.code || 'error' }));
     res.json({ signedIn: true, email, first });
@@ -917,13 +983,20 @@ app.post('/api/sync/verify', async (req, res) => {
 app.post('/api/sync/now', async (req, res) => {
   if (!syncSession()) return res.status(409).json({ error: 'not signed in', code: 'signed-out' });
   try { res.json(await syncEngine.run()); }
-  catch (err) { syncFail(res, err); }
+  catch (err) {
+    if (err instanceof SyncError && err.code === 'session-expired') await endSyncSession();
+    syncFail(res, err);
+  }
 });
 app.post('/api/sync/sign-out', async (req, res) => {
+  // A run still in flight would otherwise save its state, or a token it just
+  // refreshed, after this — and sign the person back in.
+  await syncEngine.stop();
   const s = syncSession();
   if (s?.accessToken) await syncClient.signOut(s.accessToken);
   await storeSyncSession({ email: '', refreshToken: '' });
-  syncEngine.reset();   // tasks stay on this device; nothing is deleted anywhere
+  await syncEngine.reset();   // tasks stay on this device; nothing is deleted anywhere
+  syncSessionEnded = false;
   res.json({ signedIn: false });
 });
 
@@ -1117,7 +1190,9 @@ app.post('/api/tasks/:id/thread', (req, res) => {
 });
 
 app.post('/api/tasks/:id/thread/act', (req, res) => {
-  const action = THREAD_ACTIONS[req.body?.action];
+  // Own keys only: `toString` resolved to Object.prototype.toString and
+  // replaced the thread with the string "[object Undefined]".
+  const action = Object.hasOwn(THREAD_ACTIONS, req.body?.action) ? THREAD_ACTIONS[req.body.action] : undefined;
   if (!action) return res.status(400).json({ error: `Unknown action: ${req.body?.action}` });
 
   const now = new Date();
@@ -1271,11 +1346,19 @@ app.get('/api/backups/:name', (req, res) => {
 // and then reload the window, deleting nothing — a destructive-looking control
 // that was pure theatre. It now does what it says, and says what it does not do:
 // the daily backups are deliberately left in place, so a reset is survivable.
-app.post('/api/reset', (req, res) => {
+app.post('/api/reset', asyncRoute(async (req, res) => {
+  // First stop sync: a run in flight would otherwise see the files vanish and
+  // send every task to the other devices as deleted.
+  await syncEngine.stop();
+  syncAccess = null; syncSessionEnded = false;
+  // Pending recomputes would write the deleted tasks' profile and analysis back.
+  clearTimeout(profileDebounce); clearTimeout(analysisDebounce); clearTimeout(syncTimer);
+  analysisGeneration++;
   const removed = [];
   // sync.json goes too: kept, its memory of what was synced would read every
   // task as « deleted here » at the next sign-in and empty the account.
-  for (const file of [DATA_FILE, SETTINGS_FILE, join(DATA_DIR, 'profile.json'), join(DATA_DIR, 'journal.jsonl'), join(DATA_DIR, 'sync.json')]) {
+  for (const file of [DATA_FILE, SETTINGS_FILE, join(DATA_DIR, 'profile.json'), join(DATA_DIR, 'journal.jsonl'), join(DATA_DIR, 'sync.json'),
+                      join(DATA_DIR, 'threads.json'), join(DATA_DIR, 'suggestions.json'), join(DATA_DIR, 'journal-deleted.json')]) {
     if (!existsSync(file)) continue;
     try { unlinkSync(file); removed.push(file.split(/[\\/]/).pop()); }
     catch (err) { console.error(`[Clarity] reset could not remove ${file}: ${err.message}`); }
@@ -1283,7 +1366,7 @@ app.post('/api/reset', (req, res) => {
   console.log(`[Clarity] factory reset — removed ${removed.join(', ') || 'nothing'}; backups kept`);
   secrets.clear();
   res.json({ ok: true, removed, backupsKept: true });
-});
+}));
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
@@ -1332,12 +1415,17 @@ function validateFields(body, res) {
       !(typeof body.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.time)))
     return res.status(400).json({ error: 'Invalid time — use HH:MM' });
 
+  // Text fields must be text. A number in `notes` stored fine, then crashed
+  // the AI analysis prompt and the AI connector's views for every task.
+  for (const k of ['title', 'description', 'deliverable', 'notes'])
+    if (body[k] !== undefined && body[k] !== null && typeof body[k] !== 'string')
+      return res.status(400).json({ error: `${k} must be text` });
   if (body.tags !== undefined && body.tags !== null &&
       !(Array.isArray(body.tags) && body.tags.every(t => typeof t === 'string')))
     return res.status(400).json({ error: 'Tags must be an array of strings' });
   if (body.subtasks !== undefined && body.subtasks !== null &&
-      !(Array.isArray(body.subtasks) && body.subtasks.every(s => !!s && typeof s === 'object')))
-    return res.status(400).json({ error: 'Subtasks must be an array of objects' });
+      !(Array.isArray(body.subtasks) && body.subtasks.every(s => !!s && typeof s === 'object' && typeof s.title === 'string')))
+    return res.status(400).json({ error: 'Subtasks must be objects with a text title' });
   if (body.estimatedDuration !== undefined && body.estimatedDuration !== null &&
       !(typeof body.estimatedDuration === 'number' && Number.isFinite(body.estimatedDuration) && body.estimatedDuration >= 0))
     return res.status(400).json({ error: 'Estimated duration must be a positive number of minutes' });
@@ -1465,6 +1553,7 @@ app.put('/api/tasks/:id', (req, res) => {
 });
 
 app.delete('/api/tasks/all', (req, res) => {
+  massDeleteUntil = Date.now() + 10 * 60 * 1000;
   const data = readData();
   data.tasks = [];
   data.analysis = null;
@@ -1612,9 +1701,11 @@ Be direct, warm, under 250 words. Write everything, headings included, in ${lang
   try {
     const provider = getProvider();
     for await (const token of provider.generate(prompt, { temperature: 0.7 })) {
+      if (clientGone(res)) break;
       fullContent += token;
       res.write(`data: ${JSON.stringify({ token })}\n\n`);
     }
+    if (clientGone(res)) return res.end();
     const freshData = readData();
     freshData.weeklySummary = { content: fullContent, generatedAt: new Date().toISOString() };
     saveData(freshData);
@@ -1671,9 +1762,11 @@ ${ctx.text}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analys
 
     let reply = '';
     for await (const token of stream) {
+      if (clientGone(res)) break;   // closed: stop the model, keep nothing unseen
       reply += token;
       res.write(`data: ${JSON.stringify({ token })}\n\n`);
     }
+    if (clientGone(res)) return res.end();
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
 
     // The conversation used to live only in React state and vanish with the
@@ -1708,7 +1801,12 @@ app.get('/api/chat/history', (req, res) => {
 // "Clear history" in Settings › Privacy. Removes the conversations, and only
 // them: the journal's other entries (corrections, observations) stay.
 app.delete('/api/chat/history', (req, res) => {
-  try { res.json({ ok: true, removed: profileStore.removeEntries(['exchange']) }); }
+  try {
+    const { removed, ids } = profileStore.removeEntriesWithIds(['exchange']);
+    syncEngine.noteJournalDeleted(ids);   // cleared here = cleared on the other devices
+    if (ids.length) syncSoon();
+    res.json({ ok: true, removed });
+  }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1758,9 +1856,12 @@ Return ONLY a JSON array — no markdown, no commentary:
     const provider = getProvider();
     let fullContent = '';
     for await (const token of provider.generate(prompt)) {
+      if (clientGone(res)) break;
       fullContent += token;
       res.write(`data: ${JSON.stringify({ token })}\n\n`);
     }
+    // Cancelled: the person never saw this plan — do not write it over their subtasks.
+    if (clientGone(res)) return res.end();
     const jsonMatch = fullContent.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const newSubtasks = JSON.parse(jsonMatch[0]).map(s => ({
