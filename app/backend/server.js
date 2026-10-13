@@ -29,6 +29,8 @@ import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedb
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { secretField } from './src/security/secretField.js';
+import { createSyncClient, SyncError } from './src/sync/client.js';
+import { createSyncEngine } from './src/sync/engine.js';
 import { createCrashReporter, WHERE as CRASH_WHERE } from './src/crash/crash.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -157,9 +159,16 @@ function readData() {
   }
 }
 
-function saveData(data) {
+function saveDataQuiet(data) {
   if (!isStore(data)) throw new Error('refusing to save a malformed task store');
   writeJSONAtomic(DATA_FILE, data);
+}
+
+// Every task write also tells sync there is something to send. Sync's own
+// writes go through saveDataQuiet, or applying a change would trigger a run.
+function saveData(data) {
+  saveDataQuiet(data);
+  try { syncSoon(); } catch { /* startup, before sync is set up: nothing to send yet */ }
 }
 
 function localDateStamp() {
@@ -767,7 +776,7 @@ app.post('/api/feedback/prompt', asyncRoute(async (req, res) => {
 }));
 
 app.get('/api/settings', (req, res) => {
-  const { connectorTokenHash, ...s } = readSettings();   // not even the hash leaves
+  const { connectorTokenHash, syncRefreshToken, ...s } = readSettings();   // not even the hash leaves
   res.json({
     ...s,
     features: featuresOf(s),
@@ -833,6 +842,89 @@ app.post('/api/settings', async (req, res) => {
   // Turned off: whatever was queued is dropped unsent.
   if (features?.crashReports === false) crashReporter.flush().catch(() => {});
   res.json({ ok: true, ...(rescheduled ? { rescheduled } : {}) });
+});
+
+// ─── Sync (account) ───────────────────────────────────────────────────────────
+// Opt-in. Signed out, nothing leaves the machine. Signed in, tasks, threads,
+// profile and journal meet the person's other devices through their account
+// (src/sync/). settings.json never travels; the refresh token is stored in it,
+// encrypted like the API key, and the short-lived access token lives in memory.
+const syncClient = createSyncClient();
+let syncAccess = null;   // { accessToken, expiresAt }
+const syncSession = () => {
+  const s = readSettings();
+  return s.syncRefreshToken ? { email: s.syncEmail, refreshToken: s.syncRefreshToken, ...(syncAccess || {}) } : null;
+};
+async function storeSyncSession({ email, refreshToken, accessToken, expiresAt }) {
+  syncAccess = accessToken ? { accessToken, expiresAt } : null;
+  const current = readSettings();
+  await saveSettings({ ...current, ...(email !== undefined ? { syncEmail: email } : {}), syncRefreshToken: refreshToken || '' });
+}
+const syncEngine = createSyncEngine({
+  dataDir: DATA_DIR, readData, saveData: saveDataQuiet, client: syncClient,
+  getSession: syncSession, setSession: storeSyncSession,
+  onApplied: () => { const tasks = readData().tasks; scheduleAnalysis(tasks); scheduleProfileRecompute(tasks); },
+});
+function syncNow() {
+  if (!syncSession()) return Promise.resolve(null);
+  return syncEngine.run().catch(err => {
+    // A refresh token refused for good (revoked, account deleted): signed out.
+    if (err instanceof SyncError && err.code === 'unauthorized' && /refresh|token/i.test(err.message)) {
+      storeSyncSession({ refreshToken: '' }).catch(() => {});
+    }
+    return null;
+  });
+}
+let syncTimer = null;
+function syncSoon() {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => { syncTimer = null; syncNow(); }, 5000);
+  syncTimer.unref?.();
+}
+setInterval(() => syncNow(), 60 * 1000).unref();
+
+const SYNC_ERROR_STATUS = { offline: 503, 'rate-limited': 429, unauthorized: 401, rejected: 400, server: 502, 'signed-out': 409 };
+const syncFail = (res, err) => res.status(SYNC_ERROR_STATUS[err.code] || 500).json({ error: err.message, code: err.code || 'error' });
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+
+app.get('/api/sync/status', (req, res) => {
+  const s = syncSession();
+  res.json({ signedIn: !!s, email: s?.email || null, ...syncEngine.status() });
+});
+app.post('/api/sync/send-code', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!EMAIL.test(email)) return res.status(400).json({ error: 'invalid email', code: 'invalid-email' });
+  try { await syncClient.sendCode(email); res.json({ sent: true }); }
+  catch (err) { syncFail(res, err); }
+});
+app.post('/api/sync/verify', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const code = String(req.body?.code || '').replace(/\s+/g, '');
+  if (!EMAIL.test(email) || !/^\d{6,10}$/.test(code)) return res.status(400).json({ error: 'invalid code', code: 'invalid-code' });
+  try {
+    const s = await syncClient.verifyCode(email, code);
+    // A new sign-in merges from scratch: whatever this device remembered of a
+    // previous account must not turn into deletions on this one.
+    syncEngine.reset();
+    // Safety net before the first merge: the task file as it was. Outside the
+    // tasks-* rotation, so the daily backups never trim it away.
+    try { if (existsSync(DATA_FILE)) copyFileSync(DATA_FILE, join(BACKUPS_DIR, `presync-${localDateStamp()}.json`)); } catch { /* best effort */ }
+    await storeSyncSession({ email, refreshToken: s.refresh_token, accessToken: s.access_token, expiresAt: s.expires_at });
+    const first = await syncEngine.run().catch(err => ({ error: err.code || 'error' }));
+    res.json({ signedIn: true, email, first });
+  } catch (err) { syncFail(res, err); }
+});
+app.post('/api/sync/now', async (req, res) => {
+  if (!syncSession()) return res.status(409).json({ error: 'not signed in', code: 'signed-out' });
+  try { res.json(await syncEngine.run()); }
+  catch (err) { syncFail(res, err); }
+});
+app.post('/api/sync/sign-out', async (req, res) => {
+  const s = syncSession();
+  if (s?.accessToken) await syncClient.signOut(s.accessToken);
+  await storeSyncSession({ email: '', refreshToken: '' });
+  syncEngine.reset();   // tasks stay on this device; nothing is deleted anywhere
+  res.json({ signedIn: false });
 });
 
 // ─── Auto-reschedule ──────────────────────────────────────────────────────────
@@ -1181,7 +1273,9 @@ app.get('/api/backups/:name', (req, res) => {
 // the daily backups are deliberately left in place, so a reset is survivable.
 app.post('/api/reset', (req, res) => {
   const removed = [];
-  for (const file of [DATA_FILE, SETTINGS_FILE, join(DATA_DIR, 'profile.json'), join(DATA_DIR, 'journal.jsonl')]) {
+  // sync.json goes too: kept, its memory of what was synced would read every
+  // task as « deleted here » at the next sign-in and empty the account.
+  for (const file of [DATA_FILE, SETTINGS_FILE, join(DATA_DIR, 'profile.json'), join(DATA_DIR, 'journal.jsonl'), join(DATA_DIR, 'sync.json')]) {
     if (!existsSync(file)) continue;
     try { unlinkSync(file); removed.push(file.split(/[\\/]/).pop()); }
     catch (err) { console.error(`[Clarity] reset could not remove ${file}: ${err.message}`); }

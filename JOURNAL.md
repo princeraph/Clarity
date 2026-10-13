@@ -900,6 +900,45 @@ Réglages affichait « 1.2.0 » en dur : une copie qui l'affiche peut être une
 
 ---
 
+## 13 octobre — la synchro par compte (1.6.0)
+
+Demandée : retrouver ses tâches sur ses autres ordinateurs, et que l'amie
+testeuse ait les siennes. Option retenue : un compte en ligne (Supabase,
+projet dédié au Canada), connexion par code à 6 chiffres reçu par e-mail,
+sans mot de passe. Facultative : sans compte, rien ne quitte l'ordinateur.
+
+**La base** : une table `records`, une ligne par élément (tâche, fil,
+profil, journal), lisible et modifiable par son seul propriétaire ; un
+déclencheur garde l'édition la plus récente et estampille le curseur de
+lecture côté serveur ; les suppressions voyagent en pierres tombales.
+Vérifié sur la vraie base, deux comptes fictifs, tout annulé ensuite : modif
+plus ancienne ignorée, B ne lit ni n'écrit A, anonyme refusé, envoi en lot
+dont une ligne est plus ancienne — ignorée sans casser le lot.
+
+**Le moteur** (`src/sync/`) : un plan pur (quoi appliquer, quoi envoyer), un
+client HTTPS sans SDK, une orchestration fichiers ↔ lignes. Deux appareils
+simulés contre un faux serveur aux mêmes règles. Trois défauts trouvés par
+ces tests, aucun par la relecture :
+- une suppression datée « maintenant » sur une machine dont l'horloge
+  retarde était plus vieille que la version supprimée — ignorée par le
+  serveur. Elle est désormais toujours postérieure à ce qu'elle supprime ;
+- le profil réécrit son horodatage à chaque recalcul : deux appareils se le
+  seraient renvoyé sans fin. Il compte comme modifié sur son contenu seul ;
+- les lectures se chevauchent de deux minutes (le serveur peut valider ses
+  écritures dans le désordre) : une tâche supprimée ici, relue, ressuscitait.
+
+Ce qui ne voyage jamais : settings.json (clé d'API, choix de la machine), la
+couche `observed` et l'analyse IA, recalculées sur chaque appareil. Le jeton
+de session est chiffré comme la clé d'API. Une remise à zéro efface aussi
+`sync.json`, sinon la connexion suivante lirait chaque tâche comme supprimée
+et viderait le compte. Avant la première synchro, `presync-<date>.json`.
+
+Pas prouvé d'ici : l'aller-retour réel avec le serveur d'authentification —
+le mandataire de la session refuse supabase.co. À essayer sur deux
+ordinateurs réels.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

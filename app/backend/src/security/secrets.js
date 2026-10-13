@@ -15,7 +15,9 @@
 //
 // Pure apart from the injected `box` and `proc`: tested without Electron.
 
-export const SECRET_FIELDS = ['apiKey', 'tunnelSecret'];
+// syncRefreshToken: the account session. Whoever holds it can read and write
+// the person's synced tasks — exactly as sensitive as the API key.
+export const SECRET_FIELDS = ['apiKey', 'tunnelSecret', 'syncRefreshToken'];
 
 const isEnc = v => !!v && typeof v === 'object' && typeof v.enc === 'string';
 

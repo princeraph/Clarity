@@ -62,7 +62,7 @@ describe('secret store, without the shell (node server.js)', () => {
   });
 
   test('covers exactly the two secrets', () => {
-    expect(SECRET_FIELDS).toEqual(['apiKey', 'tunnelSecret']);
+    expect(SECRET_FIELDS).toEqual(['apiKey', 'tunnelSecret', 'syncRefreshToken']);
   });
 });
 
