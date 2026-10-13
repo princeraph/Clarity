@@ -27,6 +27,8 @@ import { createConnector, findByRef, findSubtask, taskDetail, listView, overview
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
+import { nextDeadline, anchorDayOf } from './src/recurrence.js';
+import { secretField } from './src/security/secretField.js';
 import { createCrashReporter, WHERE as CRASH_WHERE } from './src/crash/crash.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -243,21 +245,17 @@ function scheduleProfileRecompute(tasks) {
 
 // ─── Recurring helpers ────────────────────────────────────────────────────────
 
-function nextDeadline(deadline, recurring) {
-  if (!deadline) return null;
-  const d = new Date(deadline + 'T00:00:00');
-  if (recurring === 'daily')   d.setDate(d.getDate() + 1);
-  if (recurring === 'weekly')  d.setDate(d.getDate() + 7);
-  if (recurring === 'monthly') d.setMonth(d.getMonth() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
 
 function spawnRecurringTask(data, source) {
+  const anchor = source.recurring === 'monthly' ? anchorDayOf(source) : null;
   const task = {
     id:           uuidv4(),
     title:        source.title,
     description:  source.description  || '',
-    deadline:     nextDeadline(source.deadline, source.recurring),
+    deadline:     nextDeadline(source.deadline, source.recurring, anchor),
+    // A monthly series set for the 31st keeps aiming at the 31st after a
+    // short month clamped it to the 28th (src/recurrence.js).
+    ...(anchor ? { recurrenceDay: anchor } : {}),
     // The next one happens at the same hour and takes as long: a weekly
     // 14:00 meeting came back with no hour and no duration.
     time:              source.time              || null,
@@ -596,7 +594,7 @@ cv1.post('/tasks/:ref/status', (req, res) => {
   const task = updateTask(found.task.id, { status: req.body.status });
   // Ticking a repeating task creates the next one: say so, and when.
   const repeats = req.body.status === 'done' && found.task.status !== 'done' && task.recurring && task.recurring !== 'none';
-  res.json({ updated: taskDetail(task, found.data.analysis, null), ...(repeats ? { nextOccurrence: nextDeadline(task.deadline, task.recurring) } : {}) });
+  res.json({ updated: taskDetail(task, found.data.analysis, null), ...(repeats ? { nextOccurrence: nextDeadline(task.deadline, task.recurring, anchorDayOf(task)) } : {}) });
 });
 cv1.post('/tasks/:ref/ways-forward', (req, res) => {
   const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
@@ -800,13 +798,16 @@ app.post('/api/settings', async (req, res) => {
       || (localModel && !localModel.endsWith('.gguf')))) {
     return res.status(400).json({ error: 'Invalid model name', code: 'invalid-model' });
   }
+  // Empty never erases a stored secret; null does (src/security/secretField.js).
+  const keyUpdate = secretField(apiKey);
+  const tunnelUpdate = secretField(tunnelSecret);
   const next = {
     ...current,
     ...(providerType        !== undefined && { providerType }),
     ...(llmEndpoint         !== undefined && { llmEndpoint }),
     ...(ollamaModel         !== undefined && { ollamaModel }),
-    ...(tunnelSecret        !== undefined && tunnelSecret !== '••••••••' && { tunnelSecret }),
-    ...(apiKey              !== undefined && apiKey       !== '••••••••' && { apiKey }),
+    ...(tunnelUpdate.set && { tunnelSecret: tunnelUpdate.value }),
+    ...(keyUpdate.set    && { apiKey: keyUpdate.value }),
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
@@ -1333,11 +1334,14 @@ function updateTask(id, body) {
   }
   const history = [...(prev.history || []), ...newEntries].slice(-200);
   const updated = { ...prev, ...patch, id: id, updatedAt: at, history };
+  // A deadline moved by hand sets a new day for the series: the old anchor
+  // would pull the next occurrence back to a day the person just left.
+  if (patch.deadline !== undefined && patch.deadline !== prev.deadline) delete updated.recurrenceDay;
   data.tasks[idx] = updated;
 
   // Spawn next occurrence when recurring task is marked done — guard against double-click
   if (patch.status === 'done' && prev.status !== 'done' && updated.recurring && updated.recurring !== 'none') {
-    const next = nextDeadline(updated.deadline, updated.recurring);
+    const next = nextDeadline(updated.deadline, updated.recurring, anchorDayOf(updated));
     const alreadySpawned = data.tasks.some(t =>
       t.title === updated.title && t.deadline === next && t.recurring === updated.recurring && t.status !== 'done'
     );

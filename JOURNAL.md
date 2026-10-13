@@ -810,6 +810,33 @@ clic droit de l'icône la cherchent tout de suite. Trois tests de plus dans
 
 ---
 
+## 13 octobre — deux défauts restés ouverts depuis l'audit de septembre
+
+**La récurrence mensuelle sautait un mois.** `setMonth(+1)` garde le jour et
+déborde : une tâche due le 31 janvier revenait le 3 mars, février sauté — le
+loyer, la facture, le bilan de fin de mois, soit justement les tâches
+mensuelles qu'on a. Borner au dernier jour du mois court ne suffit pas : 31
+janv. → 28 févr. → 28 mars, et la série ne revient jamais au 31. Elle retient
+donc son jour (`recurrenceDay`) et chaque occurrence le vise, borné à la
+longueur de son mois : 31 janv. → 28 févr. → 31 mars → 30 avr. → 31 mai.
+Un déplacement à la main fixe un nouveau jour ; un report automatique, non.
+`src/recurrence.js`, pur, 7 tests ; remettre l'ancien `setMonth` en fait
+échouer 3.
+
+**Changer de fournisseur effaçait la clé d'API.** Un seul emplacement sert à
+tous les fournisseurs, et l'écran vidait le champ au changement : l'envoi
+portait `apiKey: ''`, que le serveur écrivait par-dessus la vraie clé. Même
+chose avec « Remplacer » puis Enregistrer sans rien taper. Mesuré sur un vrai
+serveur, avant : clé enregistrée → changement → `''`. Après : la clé reste ;
+seul `null` efface, exprès. L'écran n'envoie plus qu'une clé tapée et dit
+« laisser vide pour garder la clé enregistrée ». `src/security/secretField.js`,
+3 tests.
+
+    tests backend    412, en 27 suites
+    contrôles        les 4 de qualite.json, verts
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

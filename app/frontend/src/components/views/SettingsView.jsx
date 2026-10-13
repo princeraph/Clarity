@@ -1209,8 +1209,8 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
     set('providerType', pid);
     if (DEFAULT_MODEL[pid]) set('ollamaModel', DEFAULT_MODEL[pid]);
     if (pid === 'ollama') set('llmEndpoint', 'http://localhost:11434');
-    // Reset key state when switching provider
-    setApiKeySet(false);
+    // One key slot serves every cloud provider. Switching opens the field for a
+    // new key but must not forget the saved one: leaving it empty keeps it.
     setEditingKey(true);
     set('apiKey', '');
   }
@@ -1221,8 +1221,10 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
     setStatus(null);
     try {
       const payload = { ...form };
-      // Send masked sentinel if key is set and user hasn't changed it
-      if (apiKeySet && !editingKey) payload.apiKey = '••••••••';
+      // Only a key the person typed is sent. An empty field used to reach the
+      // server as '' and erase the saved key (provider switch, or « Replace »
+      // then Save without typing).
+      if (!editingKey || !String(payload.apiKey || '').trim()) delete payload.apiKey;
       const resp = await fetch(`${API}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1230,7 +1232,8 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
       });
       if (resp.ok) {
         setStatus({ type: 'success', message: t('settings.saved') });
-        if (form.apiKey) { setApiKeySet(true); setEditingKey(false); }
+        if (String(form.apiKey || '').trim()) setApiKeySet(true);
+        if (String(form.apiKey || '').trim() || apiKeySet) { setEditingKey(false); set('apiKey', ''); }
         onSaved?.();
       } else {
         const err = await resp.json().catch(() => ({}));
@@ -1526,14 +1529,21 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
                       >{t('settings.ai.replace')}</button>
                     </div>
                   ) : (
-                    <input
-                      type="password"
-                      value={form.apiKey}
-                      onChange={e => set('apiKey', e.target.value)}
-                      placeholder="sk-..."
-                      autoComplete="new-password"
-                      style={field}
-                    />
+                    <div>
+                      <input
+                        type="password"
+                        value={form.apiKey}
+                        onChange={e => set('apiKey', e.target.value)}
+                        placeholder={apiKeySet ? t('settings.ai.apiKeyKeepPlaceholder') : 'sk-...'}
+                        autoComplete="new-password"
+                        style={field}
+                      />
+                      {apiKeySet && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: T.ink60, fontFamily: T.fontUI }}>
+                          {t('settings.ai.apiKeyKeepHint')}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </FieldRow>
               </Section>
