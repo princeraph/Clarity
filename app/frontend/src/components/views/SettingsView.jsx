@@ -7,6 +7,7 @@ import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 import OllamaSetup from '../OllamaSetup.jsx';
 import ConnectorAnimation from '../ConnectorAnimation.jsx';
 import { updates } from '../../updates.js';
+import SyncAccount from '../SyncAccount.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -34,6 +35,7 @@ const DEFAULT_MODEL = {
 };
 
 const SECTIONS = [
+  { id: 'account',    labelKey: 'settings.section.account' },
   { id: 'appearance', labelKey: 'settings.section.appearance' },
   { id: 'daily',      labelKey: 'settings.section.daily' },
   { id: 'ai',         labelKey: 'settings.section.ai' },
@@ -1284,6 +1286,11 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
       <main style={{ padding: '36px 56px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 32 }}>
         {loading ? (
           <div style={{ color: T.ink60, fontSize: 13.5 }}>{t('settings.loading')}</div>
+        ) : section === 'account' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <PageHeader section={t('settings.section.account')} title={t('sync.title')} T={T} />
+            <SyncAccount T={T} />
+          </div>
         ) : section === 'appearance' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             <PageHeader section={t('settings.section.appearance')} title={t('settings.section.appearance')} T={T} />
