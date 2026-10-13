@@ -86,7 +86,11 @@ export function createSyncEngine({
       if (h !== state.profileHash) {
         // First look in this agreement (fresh sign-in): not "newer than the
         // server". The server's copy is merged in first, then the union is sent.
-        state.profileAt = state.profileHash == null ? new Date(0).toISOString() : now.toISOString();
+        // Otherwise: changed here, so strictly newer than the copy last agreed
+        // on — an edit in the same millisecond as the last sync tied with it,
+        // and a tie is not sent (a rejection was lost that way: 8 test runs in 30).
+        state.profileAt = state.profileHash == null ? new Date(0).toISOString()
+          : new Date(Math.max(now.getTime(), (Date.parse(state.profileAt) || 0) + 1)).toISOString();
         state.profileHash = h;
       }
       put('profile', 'profile', part, state.profileAt);
