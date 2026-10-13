@@ -118,6 +118,94 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
   );
 }
 
+// Notes, written in place. The panel used to show `description` under the
+// heading « Notes », read-only — while the form's Notes field wrote `notes`,
+// which the panel never displayed. Nowhere could a note be written and seen.
+// Saved as you type (after a pause) and on leaving the field; the 5-second
+// refresh never overwrites what is being typed.
+function NotesEditor({ task, onSaved, T, t }) {
+  const [value, setValue] = useState(task.notes || '');
+  const [state, setState] = useState('idle');   // idle | saving | saved | error
+  const dirty = useRef(false);
+  const timer = useRef(null);
+  const lastSaved = useRef(task.notes || '');
+
+  // Another task opened: start from its notes.
+  useEffect(() => {
+    clearTimeout(timer.current);
+    dirty.current = false;
+    lastSaved.current = task.notes || '';
+    setValue(task.notes || '');
+    setState('idle');
+  }, [task.id]);
+  // Changed elsewhere (form, assistant) while nothing is being typed here.
+  useEffect(() => {
+    if (!dirty.current && (task.notes || '') !== lastSaved.current) {
+      lastSaved.current = task.notes || '';
+      setValue(task.notes || '');
+    }
+  }, [task.notes]);
+  // Closed mid-sentence (Escape, ✕): what was typed is sent, not dropped.
+  const pending = useRef(null);
+  pending.current = { id: task.id, value };
+  useEffect(() => () => {
+    clearTimeout(timer.current);
+    const { id, value: v } = pending.current;
+    if (dirty.current && v !== lastSaved.current) {
+      fetch(`${API}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: v }) })
+        .then(() => onSaved?.()).catch(() => {});
+    }
+  }, []);
+
+  async function save(text) {
+    clearTimeout(timer.current);
+    if (text === lastSaved.current) { dirty.current = false; return; }
+    setState('saving');
+    try {
+      const resp = await fetch(`${API}/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: text }),
+      });
+      if (!resp.ok) throw new Error();
+      lastSaved.current = text;
+      dirty.current = false;
+      setState('saved');
+      onSaved?.();
+    } catch {
+      setState('error');
+    }
+  }
+
+  return (
+    <div>
+      <textarea
+        value={value}
+        placeholder={t('detail.notesPlaceholder')}
+        onChange={e => {
+          const v = e.target.value;
+          setValue(v); dirty.current = true; setState('idle');
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => save(v), 800);
+        }}
+        onBlur={() => save(value)}
+        rows={4}
+        style={{
+          width: '100%', boxSizing: 'border-box', resize: 'vertical',
+          minHeight: 66, padding: '10px 12px',
+          background: T.paperSubtle, borderRadius: T.r6,
+          border: `1px solid ${state === 'error' ? T.dangerBorder : T.hairlineSoft}`,
+          fontSize: 13.5, color: T.ink, lineHeight: 1.65, fontFamily: T.fontUI,
+          outline: 'none',
+        }}
+      />
+      <div style={{ minHeight: 16, marginTop: 4, fontSize: 11.5, color: state === 'error' ? T.danger : T.ink40, fontFamily: T.fontUI }}>
+        {state === 'saving' ? t('common.saving') : state === 'saved' ? t('detail.notesSaved') : state === 'error' ? t('detail.notesSaveFailed') : ''}
+      </div>
+    </div>
+  );
+}
+
 export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onFocusMode }) {
   const { T } = useTheme();
   const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
@@ -328,15 +416,12 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           {/* Notes / Description */}
           <div>
             <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.notes')}</div>
-            <div style={{
-              minHeight: 66, padding: '10px 12px',
-              background: T.paperSubtle, borderRadius: T.r6,
-              border: `1px solid ${T.hairlineSoft}`,
-              fontSize: 13.5, color: task.description ? T.ink : T.ink40,
-              lineHeight: 1.65,
-            }}>
-              {task.description || t('detail.noNotesYet')}
-            </div>
+            {task.description && (
+              <div style={{ fontSize: 13.5, color: T.ink80, lineHeight: 1.65, marginBottom: 10, whiteSpace: 'pre-wrap' }}>
+                {task.description}
+              </div>
+            )}
+            <NotesEditor key={task.id} task={task} onSaved={onSaved} T={T} t={t} />
 
             {/* Deadline reschedule inline */}
             <div style={{ marginTop: 12 }}>

@@ -3,11 +3,13 @@ import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { useUpdates, updates } from '../updates.js';
 import ApertureMark from './ApertureMark.jsx';
+import { useBackdropClose } from '../hooks/useBackdropClose.js';
 
 // The update, said in the middle of the screen: a new version as Clarity
 // opens ("now" or "later"), its download, the seconds before Clarity closes
 // to install it — and, at the next launch, that it is up to date.
 export default function UpdateDialog() {
+  const backdrop = useBackdropClose(() => dismiss?.());
   const { t } = useLocale();
   const { T } = useTheme();
   const { state, updated, open } = useUpdates();
@@ -23,12 +25,16 @@ export default function UpdateDialog() {
     : view === 'installing' ? null
     : updates.later;
 
+  // Only while shown. With no update on screen `view` is null but `dismiss`
+  // still fell through to `updates.later`, so this capture-phase listener
+  // swallowed Escape everywhere in Clarity — quick capture, the task form,
+  // every panel — and Escape closed nothing (tester, 13 October).
   useEffect(() => {
-    if (!dismiss) return undefined;
+    if (!dismiss || !view) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); dismiss(); } };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [dismiss]);
+  }, [dismiss, view]);
 
   if (!view) return null;
 
@@ -88,7 +94,8 @@ export default function UpdateDialog() {
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(25,25,26,0.35)', zIndex: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: T.fontUI }}
-      onClick={e => { if (e.target === e.currentTarget && dismiss) dismiss(); }}
+      {...backdrop}
+      className="clarity-backdrop"
     >
       <div role={view === 'installing' ? 'alertdialog' : 'dialog'} aria-modal="true" aria-labelledby="update-title" aria-describedby="update-body" style={{
         background: T.paper, borderRadius: T.r14, border: `1px solid ${T.hairline}`,

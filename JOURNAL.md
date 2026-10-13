@@ -837,6 +837,43 @@ seul `null` efface, exprès. L'écran n'envoie plus qu'une clé tapée et dit
 
 ---
 
+## 13 octobre, suite — neuf retours de testeur, 1.5.9
+
+- **Échap ne fermait rien, nulle part.** La fenêtre de mise à jour, même
+  invisible, écoutait Échap en phase de capture et l'avalait : sans vue,
+  `dismiss` retombait sur `updates.later`. Écoute limitée à la fenêtre
+  affichée. Trouvé en pilotant l'app, pas en relisant.
+- **La saisie se fermait en sélectionnant du texte.** Un clic va à l'ancêtre
+  commun de l'appui et du relâchement : appui dans le champ, relâché hors de la
+  boîte → le fond. `useBackdropClose` exige que l'appui commence sur le fond ;
+  cinq boîtes. Le brouillon de saisie rapide survit à une fermeture
+  accidentelle (Échap, lui, annule).
+- **Notes impossibles à écrire.** Le panneau affichait `description` sous le
+  titre « Notes », en lecture seule ; le champ Notes du formulaire écrivait
+  `notes`, jamais affiché. Notes éditables sur place, enregistrées après une
+  pause, à la sortie du champ et à la fermeture.
+- **« Boîte de réception » ouvrait un sujet.** Même vue que la liste d'un
+  sujet, filtre gardé. `goTo('tasks')` le vide.
+- **Pas d'ajout depuis un sujet** → bouton « Ajouter une tâche à ce sujet » ;
+  le formulaire ne s'intitule plus « Modifier » quand il reçoit des valeurs.
+- **Tâche taguée introuvable.** Un tag tapé sans Entrée était jeté à
+  l'enregistrement ; idem sous-tâche. Gardés. (Un `onBlur` essayé d'abord
+  décalait le formulaire et faisait rater le clic sur « Ajouter » — retiré.)
+- **Plan du jour sans « Ignorer »** → ajouté, même mécanisme qu'Accepter.
+- **Textes IA en anglais.** Langue devinée sur les titres. Clarity envoie
+  `uiLanguage` ; analyse, bilan, chat et découpage l'utilisent ; changer de
+  langue relance l'analyse.
+- **Pas de fluidité** → transition entre vues, entrée des cartes, fondu des
+  fonds, retour au clic ; coupé si Windows demande moins d'animations.
+  `fill-mode: backwards` exprès : un `transform` resté actif aurait recalé tout
+  `position: fixed` intérieur.
+
+Vérifié dans Chromium sur un vrai backend : 14 contrôles, tous verts.
+
+    tests backend    415, en 28 suites
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

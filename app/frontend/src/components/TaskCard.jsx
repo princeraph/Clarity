@@ -15,6 +15,8 @@ function CircleCheck({ done, focus, stale, T }) {
   const size = T.taskCheckSize || 16;
   return (
     <div style={{
+      transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+      transform: done ? 'scale(1)' : undefined,
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
       border: `1.5px solid ${done ? T.done : color}`,
       background: done ? T.done : 'transparent',
@@ -59,6 +61,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
   return (
     <div
+      className="clarity-card"
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, task); } : undefined}
@@ -67,7 +70,9 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
         padding: `${T.taskPadV || 12}px ${T.taskPadH || 4}px`,
         borderBottom: `1px solid ${T.hairlineSoft}`,
         opacity: isDone ? 0.5 : 1,
-        transition: 'opacity 0.15s',
+        background: hov ? T.paperSubtle : 'transparent',
+        borderRadius: T.r6,
+        transition: 'opacity 0.3s ease, background-color 0.15s ease',
       }}
     >
       {/* Check circle */}

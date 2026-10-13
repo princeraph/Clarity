@@ -78,7 +78,7 @@ function TaskGroup({ label, count, tasks, onOpenDetail, T }) {
   );
 }
 
-export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onBack }) {
+export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onBack, onAddTask }) {
   const { t } = useLocale();
   const { T } = useTheme();
   const today = getTodayStr();
@@ -132,7 +132,21 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
           {t('nav.topics')}
         </button>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('topic.label')}</div>
-        <h1 style={{ margin: 0, fontSize: 36, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{topic}</h1>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0, fontSize: 36, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{topic}</h1>
+          {/* A topic page had no way to add to the topic: the task had to be
+              created elsewhere and tagged by hand. Opens the form already in it. */}
+          {onAddTask && (
+            <button
+              onClick={() => onAddTask({ tags: [topic] })}
+              style={{
+                padding: '8px 14px', background: T.ink, color: T.paper,
+                border: 'none', borderRadius: T.r6, cursor: 'pointer',
+                fontSize: 13, fontWeight: 500, fontFamily: T.fontUI,
+              }}
+            >+ {t('topic.addTask')}</button>
+          )}
+        </div>
       </header>
 
       {/* Progress summary strip */}

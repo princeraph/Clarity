@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { useBackdropClose } from '../hooks/useBackdropClose.js';
 
 const API = 'http://localhost:3001/api';
 const MAX_MESSAGE = 5000;   // per field; the backend refuses longer (src/feedback/feedback.js)
@@ -26,6 +27,7 @@ const EMPTY_COMMENTS = { usability: '', bugs: '', suggestions: '', other: '' };
 // answers, and so is closing the dialog (a snooze): otherwise a dismissed prompt
 // would come back at the very next launch.
 export default function FeedbackDialog({ mode = 'manual', onClose }) {
+  const backdrop = useBackdropClose(close);
   const { t } = useLocale();
   const { T } = useTheme();
   const [rating, setRating]   = useState(null);     // 1..5, or null
@@ -127,7 +129,8 @@ export default function FeedbackDialog({ mode = 'manual', onClose }) {
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(25,25,26,0.35)', zIndex: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: T.fontUI }}
-      onClick={e => e.target === e.currentTarget && close()}
+      {...backdrop}
+      className="clarity-backdrop"
     >
       <div role="dialog" aria-modal="true" aria-labelledby="feedback-title" style={{
         background: T.paper, borderRadius: T.r14,

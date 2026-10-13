@@ -68,3 +68,43 @@
 
 .animate-fade-up { animation: fadeUp 0.18s ease-out; }
 .animate-blink   { animation: clarityBlink 1s steps(2) infinite; }
+
+/* ── Motion ────────────────────────────────────────────────────────────────
+   "No animation or fluidity" (tester, 13 October): views swapped in one frame,
+   lists popped in, buttons gave no answer to a press. A small, consistent set:
+   short (≤ 260 ms), ease-out, movement of a few pixels — felt, not watched.
+   Everything here stops for someone who asked Windows for less motion. */
+@keyframes clarityViewIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes clarityCardIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes clarityBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes clarityPopIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.clarity-view     { height: 100%; animation: clarityViewIn 0.24s cubic-bezier(.2,.7,.2,1) backwards; }
+.clarity-card     { animation: clarityCardIn 0.22s cubic-bezier(.2,.7,.2,1) backwards; }
+.clarity-backdrop { animation: clarityBackdropIn 0.16s ease-out backwards; }
+.clarity-pop      { animation: clarityPopIn 0.2s cubic-bezier(.2,.7,.2,1) backwards; }
+
+/* Every control answers a hover and a press. Inline `transition` styles still
+   win where a component sets its own. */
+button, [role="button"], a, input, textarea, select {
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease,
+              box-shadow .15s ease, opacity .15s ease, transform .12s ease;
+}
+button:not(:disabled):active, [role="button"]:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

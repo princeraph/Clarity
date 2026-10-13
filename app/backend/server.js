@@ -17,7 +17,7 @@ import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
 import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 import { allowedHosts, hostGuard } from './src/security/host.js';
-import { buildAnalysisPrompt, restoreIds } from './src/llm/analysisPrompt.js';
+import { buildAnalysisPrompt, restoreIds, promptLanguage } from './src/llm/analysisPrompt.js';
 import { createSecretStore, probeBox } from './src/security/secrets.js';
 import { createDownloader, recommend, freeBytes } from './src/llm/modelDownloads.js';
 import { unloadAll } from './src/llm/LocalProvider.js';
@@ -315,7 +315,7 @@ async function runAnalysis(allTasks) {
   analysisError = null;
   console.log(`[AI] Analyzing ${tasks.length} of ${allTasks.length} task(s)...`);
 
-  const prompt = buildAnalysisPrompt(tasks);
+  const prompt = buildAnalysisPrompt(tasks, promptLanguage(readSettings().uiLanguage, tasks));
 
   try {
     const provider = getProvider();
@@ -778,7 +778,11 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features, uiLanguage } = req.body;
+  // The language picked in Clarity, so text the AI writes matches the screen.
+  if (uiLanguage !== undefined && (typeof uiLanguage !== 'string' || !/^[a-z]{2}-[A-Z]{2}$/.test(uiLanguage))) {
+    return res.status(400).json({ error: 'Invalid language', code: 'invalid-setting' });
+  }
   if (wakeSummary !== undefined && typeof wakeSummary !== 'boolean') {
     return res.status(400).json({ error: 'wakeSummary must be true or false', code: 'invalid-setting' });
   }
@@ -811,6 +815,7 @@ app.post('/api/settings', async (req, res) => {
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
+    ...(uiLanguage          !== undefined && { uiLanguage }),
     ...(features            !== undefined && { features: { ...featuresOf(current), ...features } }),
   };
   try { await saveSettings(next); }
@@ -818,6 +823,10 @@ app.post('/api/settings', async (req, res) => {
     // Never fall back to writing the key in clear because encryption failed.
     console.error('[secrets] could not store settings:', err.message);
     return res.status(500).json({ error: 'Could not store the settings securely', code: 'store-failed' });
+  }
+  // The plan on screen was written in the old language: write it again.
+  if (uiLanguage !== undefined && uiLanguage !== current.uiLanguage) {
+    try { scheduleAnalysis(readData().tasks); } catch { /* next edit will */ }
   }
   // Turned on: overdue tasks move now, not at the next check.
   const rescheduled = features?.autoReschedule ? autoReschedule() : 0;
@@ -1490,6 +1499,10 @@ app.post('/api/weekly-summary', asyncRoute(async (req, res) => {
   const active = data.tasks.filter(t => !t.archived);
   const fmt = ts => ts.length ? ts.map(t => `• ${t.title}${t.deadline ? ` (due ${t.deadline})` : ''}`).join('\n') : 'None.';
 
+  const language = promptLanguage(readSettings().uiLanguage, active);
+  const sections = language === 'French'
+    ? ['Cette semaine', 'En cours', 'Ce que ça montre', 'La semaine prochaine']
+    : ['This Week', 'In Motion', 'Insight', 'Next Week'];
   const prompt = `You are a personal productivity coach. Write a warm, motivating weekly review.
 
 COMPLETED THIS WEEK:\n${fmt(active.filter(t => t.status === 'done' && (t.history || []).some(h => h.type === 'status' && h.to === 'done' && new Date(h.at) >= weekAgo)))}
@@ -1497,12 +1510,9 @@ IN PROGRESS:\n${fmt(active.filter(t => t.status === 'in_progress'))}
 NOT YET STARTED:\n${fmt(active.filter(t => t.status === 'not_started'))}
 
 Write a review with these sections:
-## This Week
-## In Motion
-## Insight
-## Next Week
+${sections.map(h => `## ${h}`).join('\n')}
 
-Be direct, warm, under 250 words.`;
+Be direct, warm, under 250 words. Write everything, headings included, in ${language}.`;
 
   let fullContent = '';
   try {
@@ -1547,7 +1557,8 @@ app.post('/api/chat', asyncRoute(async (req, res) => {
       providerIsLocal: providerIsLocal(settings),
     });
 
-    const systemPrompt = `You are a productivity coach inside Clarity, a personal task manager. Be concise, warm, and actionable. Refer to specific tasks by name when relevant.
+    const chatLanguage = promptLanguage(settings.uiLanguage, data.tasks);
+    const systemPrompt = `You are a productivity coach inside Clarity, a personal task manager. Be concise, warm, and actionable. Refer to specific tasks by name when relevant. Answer in the language the person writes in; if that is unclear, in ${chatLanguage}.
 
 ${ctx.text}${data.analysis?.whatToDoNext ? `\n\nAI recommendation: ${data.analysis.whatToDoNext}` : ''}`;
 
@@ -1641,7 +1652,8 @@ app.post('/api/tasks/:id/breakdown', asyncRoute(async (req, res) => {
     ? `\n\nExisting incomplete subtasks (keep unless clearly superseded):\n${existingTodo.map(s => `- ${s.title}`).join('\n')}`
     : '';
 
-  const prompt = `Break this task into 3–6 concrete, actionable subtasks (each ≤2 hours).
+  const breakdownLanguage = promptLanguage(readSettings().uiLanguage, [task]);
+  const prompt = `Break this task into 3–6 concrete, actionable subtasks (each ≤2 hours). Write every title and note in ${breakdownLanguage}.
 
 Task: ${task.title}${task.description ? `\nDescription: ${task.description}` : ''}${existingNote}
 
@@ -1658,7 +1670,7 @@ Return ONLY a JSON array — no markdown, no commentary:
     const jsonMatch = fullContent.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const newSubtasks = JSON.parse(jsonMatch[0]).map(s => ({
-        id: uuidv4(), title: s.title?.trim() || 'Subtask', notes: s.notes?.trim() || '', done: false,
+        id: uuidv4(), title: s.title?.trim() || (breakdownLanguage === 'French' ? 'Sous-tâche' : 'Subtask'), notes: s.notes?.trim() || '', done: false,
       }));
       // Re-read before writing to avoid overwriting concurrent task edits made during streaming
       const fresh = readData();

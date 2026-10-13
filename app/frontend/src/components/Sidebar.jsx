@@ -423,8 +423,9 @@ export default function Sidebar({
                 onChange={e => setNewTopicName(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' && newTopicName.trim()) {
+                    // onAreaClick opens the new topic's page; a setView('tasks')
+                    // here used to override it in the same batch.
                     onAreaClick?.(newTopicName.trim());
-                    setView('tasks');
                     setNewTopicName('');
                     setAddingTopic(false);
                   }
