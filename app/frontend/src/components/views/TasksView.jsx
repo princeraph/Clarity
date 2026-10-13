@@ -73,7 +73,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
             {undatedOnly ? t('nav.anytime') : t('tasks.allTasks')}
           </div>
           <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
-            {t('tasks.count', { n: filtered.length })}
+            {t(filtered.length === 1 ? 'tasks.countOne' : 'tasks.count', { n: filtered.length })}
             {hiddenDone > 0 && <span style={{ fontSize: 13, color: T.ink40, marginLeft: 12, fontWeight: 400 }}>{t('tasks.doneHidden', { n: hiddenDone })}</span>}
             {analyzing && <span style={{ fontSize: 14, color: T.accent, marginLeft: 12, fontWeight: 400 }}>{t('tasks.analyzing')}</span>}
           </h1>
@@ -185,12 +185,18 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
           </button>
         </div>
       ) : (
+        // Nothing shown, and no filter to clear: say why (all done and hidden,
+        // or nothing undated) instead of « clear filters », which did nothing.
         <div style={{ textAlign: 'center', paddingTop: 48 }}>
-          <p style={{ fontSize: 13.5, color: T.ink60, marginBottom: 16 }}>{t('tasks.noMatch')}</p>
-          <button onClick={clearFilters} style={{
-            fontSize: 13, color: T.accent, background: 'transparent', border: 'none',
-            cursor: 'pointer', fontFamily: T.fontUI,
-          }}>{t('tasks.clearFilters')}</button>
+          <p style={{ fontSize: 13.5, color: T.ink60, marginBottom: 16 }}>
+            {hasFilters ? t('tasks.noMatch') : hiddenDone > 0 ? t(hiddenDone === 1 ? 'tasks.allDoneOne' : 'tasks.allDone', { n: hiddenDone }) : t('tasks.noUndated')}
+          </p>
+          {(hasFilters || hiddenDone > 0) && (
+            <button onClick={hasFilters ? clearFilters : () => setHideDone(false)} style={{
+              fontSize: 13, color: T.accent, background: 'transparent', border: 'none',
+              cursor: 'pointer', fontFamily: T.fontUI,
+            }}>{t(hasFilters ? 'tasks.clearFilters' : 'tasks.showDoneTasks')}</button>
+          )}
         </div>
       )}
     </div>

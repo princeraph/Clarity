@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import ApertureMark from './ApertureMark.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import useEscape from '../hooks/useEscape.js';
 
 const SESSION_SECS = 25 * 60; // 25-minute pomodoro session
 const R = 70;
@@ -14,6 +15,7 @@ function fmtTime(sec) {
 }
 
 export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTimerStart, onTimerStop, onSubtaskToggle }) {
+  useEscape(onExit);
   const { t } = useLocale();
   const { T } = useTheme();
 

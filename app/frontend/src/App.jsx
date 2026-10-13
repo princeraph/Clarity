@@ -68,6 +68,14 @@ function keysMatchEvent(e, keys) {
   return ek.toUpperCase() === mainKey.toUpperCase() || ek === mainKey;
 }
 
+function changedFields(before, after) {
+  const out = {};
+  for (const [k, v] of Object.entries(after)) {
+    if (JSON.stringify(v ?? null) !== JSON.stringify(before?.[k] ?? null)) out[k] = v;
+  }
+  return out;
+}
+
 function ToastUndoBtn({ onClick, label, T }) {
   const [hov, setHov] = useState(false);
   return (
@@ -179,7 +187,7 @@ function AppInner() {
         showToast(t('toast.lostConnection'), 'error');
       }
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -278,7 +286,10 @@ function AppInner() {
       const resp = await fetch(isEdit ? `${API}/tasks/${editingTask.id}` : `${API}/tasks`, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskData),
+        // An edit sends only what the form changed. The form opened on a copy
+        // of the task: sending all of it wrote back the copy's notes over a
+        // note saved meanwhile (typed, then « + Add subtask » at once).
+        body: JSON.stringify(isEdit ? changedFields(editingTask, taskData) : taskData),
       });
       if (!resp.ok) throw new Error();
       if (!isEdit && planPending.current) markPlanHandled(planPending.current);
@@ -292,6 +303,8 @@ function AppInner() {
   }
 
   function handleDeleteTask(taskId) {
+    // Already on its way out: a second timer would outlive « Undo ».
+    if (pendingDeleteTimers.current.has(taskId)) return;
     if (detailTask?.id === taskId) setDetailTask(null);
     setContextMenu(null);
     setHiddenTaskIds(prev => new Set([...prev, taskId]));
@@ -324,16 +337,28 @@ function AppInner() {
       pendingDeleteTimers.current.delete(taskId);
       setHiddenTaskIds(prev => { const s = new Set(prev); s.delete(taskId); return s; });
     }
-    await fetch(`${API}/tasks/${taskId}/archive`, { method: 'POST' });
+    if (!(await post(`/tasks/${taskId}/archive`))) return;
     if (detailTask?.id === taskId) setDetailTask(null);
     await loadData();
     showToast(t('toast.archived'));
   }
 
   async function handleRestore(taskId) {
-    await fetch(`${API}/tasks/${taskId}/restore`, { method: 'POST' });
+    if (!(await post(`/tasks/${taskId}/restore`))) return;
     await loadData();
     showToast(t('toast.restored'));
+  }
+
+  // A refused or unreachable request says so: these used to fail in silence.
+  async function post(path) {
+    try {
+      const resp = await fetch(`${API}${path}`, { method: 'POST' });
+      if (!resp.ok) throw new Error();
+      return true;
+    } catch {
+      showToast(t('toast.actionFailed'), 'error');
+      return false;
+    }
   }
 
   async function handleStatusChange(task, status) {
@@ -351,32 +376,35 @@ function AppInner() {
         const freq = { daily: 'recurFreq.daily', weekly: 'recurFreq.weekly', monthly: 'recurFreq.monthly' }[task.recurring];
         showToast(t('toast.recurringCreated', { freq: freq ? t(freq) : task.recurring }));
       }
-      return fresh;
+      return fresh ?? null;
     } catch {
+      // Said here, once. Callers (cards, menus) never see a rejection: false
+      // is the failure, so a click cannot raise an unhandled error.
       showToast(t('toast.statusFailed'), 'error');
-      throw new Error('status update failed');
+      return false;
     }
   }
 
   async function handleSubtaskToggle(task, subtaskId) {
     const subtasks = task.subtasks.map(s => s.id === subtaskId ? { ...s, done: !s.done } : s);
     try {
-      await fetch(`${API}/tasks/${task.id}`, {
+      const resp = await fetch(`${API}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subtasks }),
       });
+      if (!resp.ok) throw new Error();
       await loadData();
     } catch { showToast(t('toast.subtaskFailed'), 'error'); }
   }
 
   async function handleTimerStart(taskId) {
-    await fetch(`${API}/tasks/${taskId}/timer/start`, { method: 'POST' });
+    if (!(await post(`/tasks/${taskId}/timer/start`))) return;
     await loadData();
   }
 
   async function handleTimerStop(taskId) {
-    await fetch(`${API}/tasks/${taskId}/timer/stop`, { method: 'POST' });
+    if (!(await post(`/tasks/${taskId}/timer/stop`))) return;
     await loadData();
     showToast(t('toast.timeLogged'));
   }
@@ -525,12 +553,8 @@ function AppInner() {
   function enterFocusMode(task) { setFocusTask(task); setDetailTask(null); setContextMenu(null); }
 
   async function handleFocusDone(task) {
-    let fresh;
-    try {
-      fresh = await handleStatusChange(task, 'done');
-    } catch {
-      return; // toast already shown by handleStatusChange
-    }
+    const fresh = await handleStatusChange(task, 'done');
+    if (fresh === false) return;   // toast already shown by handleStatusChange
     const liveTasks = fresh?.tasks ?? rankedTasks;
     const remaining = liveTasks.filter(t => t.id !== task.id && t.status !== 'done' && !hiddenTaskIds.has(t.id));
     setFocusTask(remaining[0] || null);
@@ -630,7 +654,7 @@ function AppInner() {
             <CalendarView rankedTasks={rankedTasks} onEdit={openEditTask} onAddTask={openAddTask} />
           )}
           {view === 'archive' && (
-            <ArchiveView archivedTasks={data.archivedTasks} onRestore={handleRestore} onDelete={handleDeleteTask} onAddTask={openAddTask} />
+            <ArchiveView archivedTasks={data.archivedTasks.filter(x => !hiddenTaskIds.has(x.id))} onRestore={handleRestore} onDelete={handleDeleteTask} onAddTask={openAddTask} />
           )}
           {view === 'weekly' && (
             <WeeklySummaryView weeklySummary={data.weeklySummary} health={health} onRefresh={loadData} onOpenSettings={openAiSettings} />
@@ -766,7 +790,9 @@ function AppInner() {
       {askCrash && <CrashConsent onClose={() => setAskCrash(false)} />}
       {detailTask && (
         <TaskDetailPanel
-          task={detailTask}
+          // The live, ranked copy: the 5 s refresh used to swap in the bare
+          // task and the AI's reasoning vanished from an open panel.
+          task={rankedTasks.find(x => x.id === detailTask.id) || detailTask}
           allTasks={data.tasks}
           onClose={() => setDetailTask(null)}
           onEdit={openEditTask}

@@ -46,7 +46,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
   const subtasksDone  = task.subtasks?.filter(s => s.done).length || 0;
   const subtasksTotal = task.subtasks?.length || 0;
-  const timeLabel     = fmtDuration(task.timeTracked);
+  const timeLabel     = Math.round(task.timeTracked) >= 1 ? fmtDuration(task.timeTracked) : '';
   const timerRunning  = !!task.timerStarted;
   const [elapsedMin, setElapsedMin] = useState(0);
 

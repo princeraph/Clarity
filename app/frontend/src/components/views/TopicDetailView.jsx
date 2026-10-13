@@ -99,7 +99,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
     t.status !== 'done' && (t.status === 'in_progress' || (t.deadline && t.deadline <= today))
   );
   const upcomingTasks = topicTasks.filter(t =>
-    t.status !== 'in_progress' && t.deadline && t.deadline > today
+    t.status !== 'in_progress' && t.status !== 'done' && t.deadline && t.deadline > today
   );
   const anytimeTasks = topicTasks.filter(t =>
     t.status !== 'in_progress' && !t.deadline && t.status !== 'done'
