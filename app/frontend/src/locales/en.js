@@ -718,7 +718,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'No need to quit Clarity to see an update: it looks for one every 30 minutes and when you come back to its window, and offers it right away.\nSettings › About › “Check for updates”, and the same from a right-click on the icon by the clock.\nSettings › AI assistant › Recent requests: the same request several times in a row fits on one line (“Archived a task · 4 times”), and the list starts over at each reconnection.',
+  'update.news': 'A monthly task due on the 29th, 30th or 31st no longer skips a month: due January 31, it comes back on February 28, then March 31 — it keeps its day.\nSettings › AI assistant: switching provider, or “Replace” then Save without typing, no longer erases your saved API key. Leave the field empty to keep it.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
