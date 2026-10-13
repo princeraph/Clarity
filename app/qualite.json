@@ -33,6 +33,10 @@
     {
       "nom": "une sélection qui finit hors d'une fenêtre ne la ferme pas",
       "commande": "node frontend/tools/verifier-fond.mjs"
+    },
+    {
+      "nom": "la visite guidée montre des éléments qui existent, dans les deux langues",
+      "commande": "node frontend/tools/verifier-visite.mjs"
     }
   ]
 }

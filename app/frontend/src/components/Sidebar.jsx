@@ -62,6 +62,7 @@ function AskClarityNavItem({ active, onClick, T }) {
   const [hov, setHov] = useState(false);
   return (
     <button
+      data-tour="ask"
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -210,7 +211,7 @@ function getUserName() {
 }
 
 export default function Sidebar({
-  view, setView, health, analyzing, onAddTask, onChat, onExport, onReanalyze,
+  view, setView, health, analyzing, onAddTask, onCapture, onChat, onExport, onReanalyze,
   taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings, onOpenAiSettings,
   onFeedback,   // null while no feedback form is configured: nothing is shown
 }) {
@@ -293,8 +294,16 @@ export default function Sidebar({
           <ApertureMark s={20} />
         </button>
 
+        {onCapture && (
+          <button data-tour="capture" onClick={onCapture} title={`${t('nav.newTask')} (Ctrl+K)`} aria-label={t('nav.newTask')} style={{
+            width: 34, height: 30, marginBottom: 6, borderRadius: T.r6,
+            background: T.ink, color: T.paper, border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, lineHeight: 1,
+          }}>+</button>
+        )}
+
         {/* Nav items */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+        <div data-tour="nav" style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           {NAV_ITEMS.map(item => (
             <NavItemCollapsed
               key={item.id}
@@ -328,6 +337,7 @@ export default function Sidebar({
         {/* Bottom: status dot + gear + avatar */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div
+            data-tour="ai-status"
             title={health.ollama ? (health.model ? t('sidebar.aiModel', { model: health.model }) : t('sidebar.aiConnected')) : t('sidebar.aiOfflineLong')}
             onClick={() => !health.ollama && (onOpenAiSettings ? onOpenAiSettings() : setView('settings'))}
             style={{ cursor: health.ollama ? 'default' : 'pointer' }}
@@ -382,8 +392,22 @@ export default function Sidebar({
         </button>
       </div>
 
+      {onCapture && (
+        <button data-tour="capture" onClick={onCapture} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          padding: '8px 10px', marginTop: -6, width: '100%', boxSizing: 'border-box',
+          background: T.ink, color: T.paper, border: 'none', borderRadius: T.r6,
+          cursor: 'pointer', fontFamily: T.fontUI, fontSize: 13, fontWeight: 500,
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>{t('nav.newTask')}
+          </span>
+          <span style={{ fontFamily: T.fontMono, fontSize: 10, opacity: 0.6 }}>Ctrl+K</span>
+        </button>
+      )}
+
       {/* Primary nav + Ask Clarity */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <div data-tour="nav" style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {NAV_ITEMS.map(item => (
           <NavItemExpanded
             key={item.id}
@@ -400,7 +424,7 @@ export default function Sidebar({
       </div>
 
       {/* Topics section */}
-      <div>
+      <div data-tour="topics">
         <div style={{
           fontFamily: T.fontMono, fontSize: 10.5, letterSpacing: '0.1em',
           textTransform: 'uppercase', color: T.ink40, padding: '0 10px 10px',
@@ -470,6 +494,7 @@ export default function Sidebar({
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* LocalBadge */}
         <div
+          data-tour="ai-status"
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 10px',
@@ -569,6 +594,7 @@ function SettingsGearBtn({ onClick, T }) {
   const [hov, setHov] = useState(false);
   return (
     <button
+      data-tour="settings"
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}

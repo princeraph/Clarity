@@ -93,6 +93,25 @@
 .clarity-backdrop { animation: clarityBackdropIn 0.16s ease-out backwards; }
 .clarity-pop      { animation: clarityPopIn 0.2s cubic-bezier(.2,.7,.2,1) backwards; }
 
+/* The guided tour (TourOverlay.jsx): a ring that breathes around what is lit. */
+@keyframes clarityTourRing {
+  0%   { opacity: .9; transform: scale(1); }
+  70%  { opacity: 0;  transform: scale(1.06); }
+  100% { opacity: 0;  transform: scale(1.06); }
+}
+.clarity-tour-ring { animation: clarityTourRing 1.8s ease-out infinite; }
+
+/* Ticking a task off (TaskCard.jsx): the circle fills with a small bounce and
+   the check draws itself, before the list moves the task away. */
+@keyframes clarityCheckPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+@keyframes clarityCheckDraw { from { stroke-dashoffset: 12; } to { stroke-dashoffset: 0; } }
+.clarity-check-pop { animation: clarityCheckPop .32s cubic-bezier(.2,.7,.2,1); }
+.clarity-check-pop polyline { stroke-dasharray: 12; animation: clarityCheckDraw .28s ease-out .06s backwards; }
+
 /* Every control answers a hover and a press. Inline `transition` styles still
    win where a component sets its own. */
 button, [role="button"], a, input, textarea, select {

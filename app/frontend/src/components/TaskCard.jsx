@@ -10,11 +10,21 @@ function daysUntil(deadline) {
   return Math.ceil((new Date(deadline + 'T00:00:00') - new Date()) / 86400000);
 }
 
-function CircleCheck({ done, focus, stale, T }) {
+// Tasks ticked in the last moments. The list moves a finished task to another
+// group, which mounts a new card: the bounce is remembered here, not in the
+// card, so it plays where the task lands.
+const justTicked = new Map();
+const TICK_MS = 900;
+function recentlyTicked(id) {
+  const at = justTicked.get(id);
+  return at != null && Date.now() - at < TICK_MS;
+}
+
+function CircleCheck({ done, focus, stale, pop, T }) {
   const color = focus ? T.accent : stale ? T.warn : T.ink40;
   const size = T.taskCheckSize || 16;
   return (
-    <div style={{
+    <div className={pop ? 'clarity-check-pop' : undefined} style={{
       transition: 'background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
       transform: done ? 'scale(1)' : undefined,
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
@@ -36,6 +46,9 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
   const { t, fmtDate, fmtDuration } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [hov, setHov] = useState(false);
+  // Shown done from the click, not from the server's answer a moment later.
+  const [ticking, setTicking] = useState(false);
+  useEffect(() => { setTicking(false); }, [task.status]);
   const { aiData } = task;
   const days = daysUntil(task.deadline);
   const isOverdue  = days !== null && days < 0 && task.status !== 'done';
@@ -77,11 +90,17 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
     >
       {/* Check circle */}
       <button
-        onClick={() => onStatusChange(task, isDone ? 'not_started' : 'done')}
+        onClick={async () => {
+          if (isDone) { onStatusChange(task, 'not_started'); return; }
+          justTicked.set(task.id, Date.now());
+          setTicking(true);
+          const r = await onStatusChange(task, 'done');
+          if (r === false) { justTicked.delete(task.id); setTicking(false); }
+        }}
         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}
         title={isDone ? t('task.markIncomplete') : t('task.markComplete')}
       >
-        <CircleCheck done={isDone} focus={isFocus} T={T} />
+        <CircleCheck done={isDone || ticking} focus={isFocus} pop={(isDone || ticking) && recentlyTicked(task.id)} T={T} />
       </button>
 
       {/* Content */}

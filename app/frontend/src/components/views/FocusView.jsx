@@ -262,7 +262,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       fontFamily: T.fontUI,
     }}>
       {/* Header */}
-      <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+      <header data-tour="today-header" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
             {dateStr}
@@ -284,7 +284,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
 
       {/* AI Plan strip — Settings › Day to day › Planning › Daily plan strip */}
       {analysis?.whatToDoNext && analysis.whatToDoNext !== handledPlan && features?.dailyPlan !== false && (
-        <div style={{
+        <div data-tour="plan" style={{
           display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 16,
           padding: '14px 18px',
           background: T.accentSoft,
@@ -355,7 +355,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
 
       {/* Task groups */}
       {activeTasks.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: T.groupGap || 28, paddingBottom: 48 }}>
+        <div data-tour="today-list" style={{ display: 'flex', flexDirection: 'column', gap: T.groupGap || 28, paddingBottom: 48 }}>
           {focusTasks.length > 0 && (
             <TaskGroup title={t('focus.firstFocus')} subtitle={t('focus.topPriority')} T={T}>
               {focusTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
@@ -399,7 +399,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, paddingTop: 64, paddingBottom: 48, textAlign: 'center' }}>
+        <div data-tour="today-list" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, paddingTop: 64, paddingBottom: 48, textAlign: 'center' }}>
           {/* Calendar illustration */}
           <svg width="96" height="80" viewBox="0 0 96 80" fill="none">
             <rect x="14" y="16" width="68" height="56" rx="6" fill={T.paperSubtle} stroke={T.hairline} strokeWidth="1.2" />
