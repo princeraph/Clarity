@@ -766,7 +766,7 @@ export default {
   'update.done.ok': 'Continuer',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Nouveau : vos tâches sur tous vos ordinateurs. Réglages › Compte → votre e-mail → le code à 6 chiffres reçu. Tâches, sujets, notes et suivis vous suivent alors partout où Clarity est installée.\nFacultatif : sans compte, rien ne quitte cet ordinateur. Votre clé d\u2019API et vos réglages ne voyagent jamais.',
+  'update.news': 'Corrections : une fenêtre ne se ferme plus quand une sélection à la souris finit hors du cadre ; Échap ferme le panneau du dessus ; les tâches du jour apparaissent toutes dans Aujourd\u2019hui ; une note n\u2019est plus écrasée par le formulaire.\nSynchro plus sûre : un fichier abîmé ou une réinitialisation ne peut plus vider votre compte, et deux ordinateurs fusionnent ce que Clarity sait de vous.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

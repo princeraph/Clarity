@@ -939,6 +939,57 @@ ordinateurs réels.
 
 ---
 
+## 13 octobre, soir — audit complet, 1.6.1
+
+Quatre relectures parallèles (synchro, serveur, interface, Electron/CI), chaque
+défaut reproduit par un script avant d'être corrigé. Un défaut annoncé et non
+reproduit n'a pas été touché.
+
+**Une régression que j'avais livrée.** La fenêtre qui se fermait quand une
+sélection à la souris finissait hors du cadre (corrigée en 1.5.9) revenait
+dès 1.5.9 : le crochet `useBackdropClose` armait la fermeture au lieu de la
+désarmer, et ma vérification avait lu la mauvaise ligne. Corrigé, et gardé
+désormais par `frontend/tools/verifier-fond.mjs` dans la barrière et la CI —
+qui échoue bien si l'on remet le défaut.
+
+Synchro — neuf défauts, dont trois pouvaient vider un compte :
+- un fichier local illisible valait « tout supprimé » sur tous les appareils.
+  La passe s'arrête désormais ;
+- une réinitialisation pendant une passe envoyait la suppression de chaque
+  tâche. La passe en cours est annulée et n'écrit plus rien ;
+- juste après une récupération (fichier abîmé, sauvegarde), aucune
+  suppression ne part ; au-delà de la moitié de ce qui est synchronisé, la
+  passe refuse, sauf après « Supprimer toutes les tâches » ;
+- un second appareil écrasait le profil du premier : fusion, renvoyée dans
+  la même passe ; un rejet l'emporte toujours ;
+- effacer l'historique ici l'efface ailleurs ; un jeton refusé dit « session
+  expirée », pas « code faux » ; une tâche récurrente terminée sur deux
+  appareils ne crée plus deux occurrences (identifiant déterministe).
+
+Serveur : écritures des réglages en file (deux à la fois s'écrasaient) ; un
+champ non textuel bloquait l'analyse pour toujours ; réinitialisation
+complète ; lignes Ollama coupées en deux ; flux abandonnés par le client sans
+écriture ; rapports de plantage arrivés pendant l'envoi conservés.
+
+Interface — vérifié dans un navigateur, pas seulement relu : archive
+supprimée deux fois puis annulée ; note écrasée par le formulaire ouvert
+avant elle ; tâches du jour absentes d'Aujourd'hui ; « terminées
+aujourd'hui » qui comptait tout ; Échap (le panneau du dessus seulement) ;
+tutoriel illisible en sombre ; pluriels réglés une fois dans `t()` ; états
+vides qui proposaient un bouton sans effet.
+
+Electron/CI : la publication attend la CI verte (elle partait en même
+temps) ; jamais une version plus ancienne marquée « latest », brouillon
+vérifié ; la CI lit le paquet livré (electron-updater, app-update.yml) ; la
+version arrivée par mise à jour doit démarrer et servir la tâche témoin ; le
+service qui s'arrête est relancé, puis un dialogue au troisième arrêt ; un
+arrêt de Windows n'est plus un plantage ; `setup.bat` dit quand il échoue.
+
+Mesuré : 450 tests backend, 4 contrôles, 31 tests de synchro dont 10 issus
+de l'audit.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

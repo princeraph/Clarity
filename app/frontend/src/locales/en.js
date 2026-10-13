@@ -765,7 +765,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'New: your tasks on all your computers. Settings › Account → your e-mail → the 6-digit code you receive. Tasks, topics, notes and follow-ups then follow you everywhere Clarity is installed.\nOptional: without an account, nothing leaves this computer. Your API key and settings never travel.',
+  'update.news': 'Fixes: a window no longer closes when a mouse selection ends outside it; Escape closes the panel on top; every task due today shows on Today; a note is no longer overwritten by the form.\nSafer sync: a damaged file or a reset can no longer empty your account, and two computers merge what Clarity knows about you.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
