@@ -7,6 +7,8 @@
 // and a move the person did not make, repeated every morning, would have
 // counted as one slip a day.
 
+import { anchorDayOf } from './recurrence.js';
+
 const pad = (n) => String(n).padStart(2, '0');
 export const localDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -37,8 +39,12 @@ export function rescheduleOverdue(tasks, now = new Date()) {
     const due = String(t.deadline).slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || due >= today) return t;
     moved.push(t.id);
+    // A monthly task due the 31st, moved to today, would otherwise repeat on
+    // today's day from then on: the series keeps the day it was set for.
+    const anchor = t.recurring === 'monthly' ? anchorDayOf(t) : null;
     return {
       ...t,
+      ...(anchor ? { recurrenceDay: anchor } : {}),
       deadline: today,
       updatedAt: at,
       history: [...(t.history || []), { at, type: 'deadline', from: t.deadline, to: today, auto: true }].slice(-200),

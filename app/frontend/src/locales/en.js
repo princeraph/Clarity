@@ -318,6 +318,8 @@ export default {
   'settings.ai.model': 'Model',
   'settings.ai.apiKey': 'API Key',
   'settings.ai.apiKeyHint': 'Your {provider} secret key. Stored locally on your device.',
+  'settings.ai.apiKeyKeepPlaceholder': 'Leave empty to keep the saved key',
+  'settings.ai.apiKeyKeepHint': 'A key is already saved. Leave this empty to keep it, or type a new one to replace it.',
   'settings.ai.replace': 'Replace',
   'settings.ai.connection': 'Connection',
   'settings.ai.tunnelPlaceholder': 'Leave blank if not using a tunnel',

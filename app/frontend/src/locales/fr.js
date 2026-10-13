@@ -319,6 +319,8 @@ export default {
   'settings.ai.model': 'Modèle',
   'settings.ai.apiKey': 'Clé d\u2019API',
   'settings.ai.apiKeyHint': 'Votre clé secrète {provider}. Stockée localement sur votre appareil.',
+  'settings.ai.apiKeyKeepPlaceholder': 'Laisser vide pour garder la clé enregistrée',
+  'settings.ai.apiKeyKeepHint': 'Une clé est déjà enregistrée. Laissez ce champ vide pour la garder, ou tapez-en une nouvelle pour la remplacer.',
   'settings.ai.replace': 'Remplacer',
   'settings.ai.connection': 'Connexion',
   'settings.ai.tunnelPlaceholder': 'Laisser vide si vous n\u2019utilisez pas de tunnel',
