@@ -118,6 +118,21 @@ jobs:
         shell: cmd
         run: call npm run package
 
+      # Sans electron-updater dans le paquet, startUpdateChecks() se tait
+      # (require en try/catch) : l'app installée ne se mettrait plus jamais à
+      # jour, et rien ne le montrerait. Ce que l'installateur livre est lu ici.
+      - name: le paquet contient de quoi se mettre à jour
+        working-directory: app
+        shell: pwsh
+        run: |
+          $res = 'dist-electron/win-unpacked/resources'
+          $liste = node -e "console.log(require('@electron/asar').listPackage(process.argv[1]).join('\n'))" "$res/app.asar"
+          if ($LASTEXITCODE -ne 0) { "::error::app.asar illisible"; exit 1 }
+          $dedans = ($liste -match '[\\/]node_modules[\\/]electron-updater[\\/]package\.json$') -or (Test-Path "$res/app.asar.unpacked/node_modules/electron-updater/package.json")
+          if (-not $dedans) { "::error::electron-updater absent du paquet : l'app installée ne se mettrait plus à jour"; exit 1 }
+          if (-not (Test-Path "$res/app-update.yml")) { "::error::app-update.yml absent : l'app ne saurait pas où chercher ses mises à jour"; exit 1 }
+          Get-Content "$res/app-update.yml"
+
       # La mise à jour suivante est refusée dès qu'un fichier suivi a bougé.
       - name: aucun fichier suivi modifié par la mise à jour
         shell: pwsh
@@ -454,3 +469,21 @@ jobs:
           if ($tasks -notmatch 'temoin-maj') { "::error::la tâche témoin a disparu avec la mise à jour"; exit 1 }
           'tâche témoin conservée'
           Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      # Installée ne veut pas dire qui marche : la version arrivée par mise à
+      # jour doit démarrer sur les données d'avant, et les servir.
+      - name: la version mise à jour démarre et sert les tâches d'avant
+        shell: pwsh
+        timeout-minutes: 4
+        run: |
+          $exe = (Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter Clarity.exe | Select-Object -First 1).FullName
+          Start-Process -FilePath $exe -ArgumentList '--background'
+          $body = $null
+          for ($i = 0; $i -lt 60 -and -not $body; $i++) {
+            Start-Sleep -Seconds 2
+            try { $body = (Invoke-WebRequest 'http://localhost:3001/api/tasks' -UseBasicParsing -TimeoutSec 5).Content } catch { }
+          }
+          Get-Process Clarity -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $body) { "::error::la version mise à jour ne répond pas après 2 min"; exit 1 }
+          if ($body -notmatch 'temoin-maj') { "::error::la version mise à jour démarre mais ne sert plus la tâche témoin"; exit 1 }
+          "::notice::la version mise à jour sert la tâche témoin"

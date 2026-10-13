@@ -7,24 +7,26 @@ echo.
 cd /d "%~dp0"
 
 echo  [1/4] Installing Electron...
-call npm install
+REM  Une etape qui echoue arrete tout : sinon "Setup complete!" s affichait
+REM  sous une erreur rouge, et l'app ne demarrait pas.
+call npm install || goto :failed
 REM  Depuis Electron 42, "npm install" ne telecharge plus le moteur d'Electron
 REM  (~110 Mo) : il se telecharge au PREMIER lancement. Or Clarity.vbs lance
 REM  l'app dans une fenetre cachee - ce premier lancement durerait une a deux
 REM  minutes sans rien afficher, et ressemblerait a une app cassee. On le
 REM  telecharge donc ici, ou l'on voit ce qui se passe. Sans effet s'il est la.
-call npx install-electron
+call npx install-electron || goto :failed
 echo.
 
 echo  [2/4] Installing backend...
 cd backend
-call npm install
+call npm install || goto :failed
 cd ..
 echo.
 
 echo  [3/4] Installing frontend...
 cd frontend
-call npm install
+call npm install || goto :failed
 cd ..
 echo.
 
@@ -61,3 +63,15 @@ echo   your Desktop: it runs Clarity from this folder.
 echo  ============================================
 echo.
 pause
+exit /b 0
+
+:failed
+echo.
+echo  ============================================
+echo   Setup FAILED at the step above.
+echo   Check your internet connection, then run
+echo   setup.bat again. Nothing needs to be removed.
+echo  ============================================
+echo.
+pause
+exit /b 1
