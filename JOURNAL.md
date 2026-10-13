@@ -874,6 +874,32 @@ Vérifié dans Chromium sur un vrai backend : 14 contrôles, tous verts.
 
 ---
 
+## 13 octobre, fin — l'Inbox qui ne montrait pas tout, et la preuve des mises à jour
+
+**Les badges comptaient autre chose que leur page.** « Aujourd'hui » portait
+le total de toutes les tâches, terminées comprises, au-dessus d'une page qui
+en liste cinq. La boîte de réception comptait les terminées qu'elle masque,
+son titre aussi. « Quand je veux » ouvrait la même liste qu'elle. Une tâche
+ajoutée depuis la dernière analyse se rangeait sous toutes les classées — en
+bas d'une longue liste, elle semblait perdue. Chaque badge compte ce que sa
+page liste ; « Quand je veux » = sans date ; les nouvelles en tête jusqu'à
+leur classement ; « Voir les N tâches » sur Aujourd'hui. Vérifié dans
+Chromium : 8 ouvertes, 8 cartes, badge 8 ; nouvelle tâche en premier.
+
+**Une copie ancienne rejoint-elle la dernière version ?** Job CI
+`ancienne-version` : installe la 1.3.0 publiée (la plus ancienne qui sait se
+mettre à jour), la laisse chercher et télécharger seule, installe par-dessus
+sans désinstaller. Mesuré : 1.3.0 → 1.5.9, 163 Mo, tâche témoin conservée.
+Premier passage rouge à tort — le test prenait `temp-Clarity-Setup.exe`, le
+fichier en cours d'écriture ; il attend maintenant le fichier final.
+
+Limite qui ne se contourne pas : une copie d'avant 1.3.0 n'a aucun code qui
+cherche une mise à jour. Une installation par-dessus, une fois. Avant 1.3.1,
+Réglages affichait « 1.2.0 » en dur : une copie qui l'affiche peut être une
+1.3.0, qui se met à jour seule.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

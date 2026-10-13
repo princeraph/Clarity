@@ -725,7 +725,7 @@ export default {
   'update.done.ok': 'Continue',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'Escape closes again — quick capture, the task form, panels.\nSelecting text with the mouse no longer closes the new-task box; if it closes, your text is still there when you reopen it.\nNotes can be written right in a task\u2019s panel, and are saved as you type.\nInbox shows all your tasks again, not the last topic.\nA topic page has its own “Add a task to this topic” button.\nA tag typed in the task form is kept even without pressing Enter.\nToday\u2019s plan can be dismissed.\nAI text (plan, weekly review, subtasks) follows the language chosen in Clarity.\nSmoother: views, lists and dialogs now move in.',
+  'update.news': 'Inbox lists every open task, newest additions first until they are ranked; its title says how many done tasks are hidden.\nEach badge now counts what its page shows — Today no longer shows the total of all tasks.\n“Anytime” lists tasks without a date, as its name says.\nToday offers “See all tasks” when it shows only part of them.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
