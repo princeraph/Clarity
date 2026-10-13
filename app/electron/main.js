@@ -229,7 +229,8 @@ function createWindow() {
   });
   mainWindow.on('closed', () => { mainWindow = null; });
   // Windows logging off or shutting down (Windows sends no 'shutdown' to
-  // powerMonitor): the backend's end that follows is not a crash.
+  // powerMonitor; the tray panel hears it too): the backend's end that
+  // follows is not a crash.
   mainWindow.on('session-end', () => { quittingForReal = true; });
   mainWindow.on('show', checkForUpdatesOnReturn);
   mainWindow.on('focus', checkForUpdatesOnReturn);
@@ -310,6 +311,9 @@ function createTrayWindow() {
   lockNavigation(trayWindow);
   trayWindow.loadFile(getFrontendPath(), { hash: 'tray' });
   // Unpinned, it is dismissed when it loses focus, like a Windows flyout.
+  // Always created, even with the main window closed: Windows' session end
+  // reaches Clarity through it when nothing else is open.
+  trayWindow.on('session-end', () => { quittingForReal = true; });
   trayWindow.on('blur', () => {
     panelLostFocusAt = Date.now();
     if (!trayWindow || trayWindow.webContents.isDevToolsFocused() || readPanelState().pinned) return;
