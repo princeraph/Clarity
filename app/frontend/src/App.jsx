@@ -21,7 +21,8 @@ import GraphView from './components/views/GraphView.jsx';
 import PatternsView from './components/views/PatternsView.jsx';
 import FocusMode from './components/FocusMode.jsx';
 import SchedulingPopover from './components/SchedulingPopover.jsx';
-import TutorialOverlay from './components/TutorialOverlay.jsx';
+import TourOverlay from './components/TourOverlay.jsx';
+import { DISCOVER, TOUR_EVENT, whatsNewSteps } from './tour/tours.js';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
 import UpdateDialog from './components/UpdateDialog.jsx';
@@ -115,13 +116,44 @@ function AppInner() {
   const [detailTask, setDetailTask]   = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [scheduling, setScheduling] = useState(null); // { task, x, y }
-  const [showTutorial, setShowTutorial] = useState(() => {
+  // The guided tour on screen, if any (tour/tours.js): offered once after the
+  // welcome, and on demand from Settings › About, the command list, or the
+  // window that says Clarity was updated.
+  const [tour, setTour] = useState(() => {
     try {
       const onboardingDone = localStorage.getItem('clarity-onboarding-done');
       const tutorialSeen   = localStorage.getItem('clarity-tutorialSeen');
-      return !!onboardingDone && !tutorialSeen;
-    } catch { return false; }
+      return onboardingDone && !tutorialSeen ? { id: 'discover', steps: DISCOVER } : null;
+    } catch { return null; }
   });
+  const showTutorial = !!tour;
+  const tourFrom = useRef(null);   // where the person was, to bring them back
+  const settingsOpen = useRef('appearance');   // the Settings page on screen
+  useEffect(() => {
+    const onTour = (e) => {
+      const { id, from, to } = e.detail || {};
+      const steps = id === 'whatsnew' ? whatsNewSteps(from, to) : DISCOVER;
+      if (!steps.length) return;
+      setDetailTask(null); setContextMenu(null); setShowCapture(false); setShowChat(false);
+      tourFrom.current = null;
+      setTour({ id, steps, label: id === 'whatsnew' ? t('tour.newsLabel', { version: to }) : null });
+    };
+    window.addEventListener(TOUR_EVENT, onTour);
+    return () => window.removeEventListener(TOUR_EVENT, onTour);
+  }, [t]);
+  function tourStep(step) {
+    if (tourFrom.current == null) tourFrom.current = { view, settingsSection: view === 'settings' ? settingsOpen.current : settingsSection };
+    if (step.settings) { setSettingsSection(step.settings); setView('settings'); }
+    else if (step.view) setView(step.view);
+  }
+  const onSettingsSection = useCallback((id) => { settingsOpen.current = id; }, []);
+  function endTour() {
+    try { localStorage.setItem('clarity-tutorialSeen', '1'); } catch {}
+    const back = tourFrom.current;
+    tourFrom.current = null;
+    setTour(null);
+    if (back) { setSettingsSection(back.settingsSection); setView(back.view); }
+  }
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [suggestion, setSuggestion] = useState(null);
   const [focusTask, setFocusTask] = useState(null);
@@ -615,14 +647,14 @@ function AppInner() {
       {showOnboarding && <OnboardingView onComplete={() => {
         setShowOnboarding(false);
         try { localStorage.setItem('clarity-onboarding-done', '1'); } catch {}
-        setShowTutorial(true);
+        setTour({ id: 'discover', steps: DISCOVER });
       }} />}
       <TitleBar isDark={isDark} toggleTheme={toggleTheme} />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
           view={view} setView={goTo} health={health}
-          analyzing={data.analyzing} onAddTask={openAddTask}
+          analyzing={data.analyzing} onAddTask={openAddTask} onCapture={() => setShowCapture(true)}
           onChat={() => setShowChat(true)} onExport={() => setShowExport(true)}
           onFeedback={feedbackEnabled ? openFeedback : null}
           onReanalyze={handleReanalyze}
@@ -660,7 +692,7 @@ function AppInner() {
             <WeeklySummaryView weeklySummary={data.weeklySummary} health={health} onRefresh={loadData} onOpenSettings={openAiSettings} />
           )}
           {view === 'settings' && (
-            <SettingsView key={settingsSection} initialSection={settingsSection}
+            <SettingsView key={settingsSection} initialSection={settingsSection} onSectionChange={onSettingsSection}
               onFeedback={feedbackEnabled ? openFeedback : null}
               onSaved={() => { checkHealth(); showToast(t('toast.settingsSaved')); }} />
           )}
@@ -832,8 +864,10 @@ function AppInner() {
           onSaved={() => { loadData(); setScheduling(null); }}
         />
       )}
-      {showTutorial && (
-        <TutorialOverlay onDone={() => setShowTutorial(false)} />
+      {/* Never over the welcome: it comes first, and starts the tour itself. */}
+      {tour && !showOnboarding && (
+        <TourOverlay key={tour.id + tour.steps.length} steps={tour.steps} label={tour.label}
+          onStep={tourStep} onDone={endTour} />
       )}
     </div>
   );

@@ -990,6 +990,54 @@ de l'audit.
 
 ---
 
+## 13 octobre, nuit — guider plutôt qu'annoncer (1.6.2)
+
+Demandé : l'app ne montrait ni où une mise à jour avait changé quelque chose,
+ni comment s'en servir, et rien ne permettait de « faire le tour ».
+
+**Le tutoriel visait des pixels.** Ses cinq étapes éclairaient des rectangles
+écrits en dur (`top: 114, left: 20`…), dessinés pour une seule taille de
+fenêtre : à toute autre, barre repliée ou densité changée, la lumière tombait à
+côté. Il ne se relançait pas. Remplacé par `TourOverlay` : chaque étape nomme un
+élément (`data-tour`), Clarity va d'abord à la bonne vue ou au bon réglage, la
+lumière glisse d'un élément à l'autre et suit la fenêtre redimensionnée ; une
+étape facultative dont l'élément n'est pas affiché (pas de plan sans assistant,
+barre repliée) est sautée au lieu de pointer le vide. Clavier : ← → Échap.
+Relançable depuis Réglages › À propos et la liste des commandes (Ctrl+K) ; à la
+fin, retour là où l'on était.
+
+**Les nouveautés montrées sur place.** La fenêtre « Clarity est à jour » propose
+« Montrer où » : une visite des seuls changements qui ont une place à l'écran,
+pour chaque version entre l'ancienne et la nouvelle (`WHATS_NEW` dans
+`tour/tours.js`). Une copie trop ancienne pour savoir d'où elle vient ne voit
+que la dernière.
+
+Aussi : un bouton « Nouvelle tâche » visible en haut de la barre latérale (on
+ne pouvait ajouter depuis Aujourd'hui qu'en connaissant Ctrl+K) ; la coche se
+remplit et se dessine dès le clic, avant la réponse du serveur ; l'accueil ne
+dit plus « aucun compte, aucune synchro » depuis que la synchro existe.
+
+Un défaut trouvé par le test, pas par la relecture : une visite lancée depuis
+Réglages › À propos ramenait sur Apparence — App ne savait pas quelle page des
+Réglages était ouverte. Corrigé ; le retirer refait échouer le scénario.
+
+`tools/verifier-visite.mjs` (barrière et CI) : chaque élément visé existe dans
+les sources, chaque texte dans les deux langues — clés calculées, invisibles
+pour `verifier-locales` —, et le choix des versions. Trois défauts plantés dans
+une copie, trois refus ; le premier jeu de cas laissait passer une comparaison
+de versions en texte (« 1.6.10 » < « 1.6.2 »), cas ajouté.
+
+Vérifié dans Chromium sur un vrai backend, 43 contrôles, trois passages verts :
+1280×820 puis 1000×660 barre repliée, agrandie en pleine visite (écart de la
+lumière ≤ 1 px), mise à jour simulée 1.6.1 → 1.6.2, coche avant la réponse.
+Pas vérifié : dans Electron sous Windows — la CI Windows installe et démarre,
+elle ne parcourt pas la visite.
+
+    tests backend    450, en 31 suites
+    contrôles        5 de qualite.json, verts
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

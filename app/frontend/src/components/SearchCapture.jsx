@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { startTour } from '../tour/tours.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { parseInput } from '../lib/saisie.js';
@@ -127,11 +128,11 @@ function CommandRow({ icon, label, kbd, active, onClick, T }) {
     >
       <span style={{ width: 13, textAlign: 'center', fontSize: 12, color: T.ink40 }}>{icon}</span>
       <span style={{ fontSize: 13, color: T.ink60, flex: 1 }}>{label}</span>
-      <span style={{
+      {kbd && <span style={{
         fontFamily: T.fontMono, fontSize: 10, color: T.ink40,
         padding: '2px 6px', background: T.paperMuted, borderRadius: 3,
         border: `1px solid ${T.hairline}`,
-      }}>{kbd}</span>
+      }}>{kbd}</span>}
     </div>
   );
 }
@@ -181,6 +182,7 @@ export default function SearchCapture({
     { icon: '✉', label: t('capture.goInbox'),      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    finish(); } },
     { icon: '↗', label: t('capture.openChat'), kbd: 'Ctrl+/', action: () => { onOpenChat?.();           finish(); } },
     { icon: '⚙', label: t('capture.openSettings'),    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); finish(); } },
+    { icon: '✦', label: t('capture.takeTour'),        kbd: '',       action: () => { finish(); startTour('discover'); } },
   ], [onNavigate, onOpenChat, onClose, t]);
 
   // Flat list of navigable items for keyboard selection

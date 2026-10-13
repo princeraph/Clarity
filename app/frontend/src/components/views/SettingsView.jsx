@@ -7,6 +7,7 @@ import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 import OllamaSetup from '../OllamaSetup.jsx';
 import ConnectorAnimation from '../ConnectorAnimation.jsx';
 import { updates } from '../../updates.js';
+import { startTour, latestWhatsNew } from '../../tour/tours.js';
 import SyncAccount from '../SyncAccount.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -555,6 +556,28 @@ function UpdateCheck({ T }) {
         cursor: check && result !== 'checking' ? 'pointer' : 'not-allowed', opacity: check ? 1 : 0.6,
       }}>{result === 'checking' ? t('settings.about.updatesChecking') : t('settings.about.updatesCheck')}</button>
       {said && <span role="status" style={{ fontSize: 12.5, color: T.ink60 }}>{said}</span>}
+    </div>
+  );
+}
+
+// Settings › About: the guided tour, and what the latest version brought,
+// shown where it lives (tour/tours.js).
+function TourButtons({ version, T }) {
+  const { t } = useLocale();
+  const news = version ? latestWhatsNew(version) : null;
+  const btn = (primary) => ({
+    padding: '8px 16px', fontSize: 13, fontWeight: 500, fontFamily: T.fontUI, borderRadius: T.r6, cursor: 'pointer',
+    ...(primary ? { color: T.paper, background: T.ink, border: 'none' }
+                : { color: T.ink80, background: T.paperSubtle, border: `1px solid ${T.hairline}` }),
+  });
+  return (
+    <div data-tour="about-tour" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignSelf: 'flex-start' }}>
+      <button type="button" style={btn(true)} onClick={() => startTour('discover')}>{t('settings.about.tourStart')}</button>
+      {news && (
+        <button type="button" style={btn(false)} onClick={() => startTour('whatsnew', { to: news, from: null })}>
+          {t('settings.about.tourNews', { version: news })}
+        </button>
+      )}
     </div>
   );
 }
@@ -1127,7 +1150,7 @@ async function triggerExport(fmt, t) {
   } catch {}
 }
 
-export default function SettingsView({ onSaved, onFeedback = null, initialSection = 'appearance' }) {
+export default function SettingsView({ onSaved, onFeedback = null, initialSection = 'appearance', onSectionChange }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
   const { t, locale, setLocale, fmtDate } = useLocale();
   const [form, setForm] = useState({
@@ -1147,6 +1170,8 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState(initialSection);
+  // App needs to know which page is open: a tour started here comes back here.
+  useEffect(() => { onSectionChange?.(section); }, [section, onSectionChange]);
   const [backups, setBackups] = useState([]);
   const [userName, setUserName] = useState(() => {
     try { return localStorage.getItem('clarity-userName') || ''; } catch { return ''; }
@@ -1271,7 +1296,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
           <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.02em' }}>{t('settings.title')}</span>
         </div>
         {SECTIONS.map(({ id, labelKey }) => (
-          <button key={id} onClick={() => setSection(id)} style={{
+          <button key={id} data-tour={`settings-${id}`} onClick={() => setSection(id)} style={{
             padding: '7px 10px', borderRadius: T.r6, width: '100%', textAlign: 'left',
             background: section === id ? T.paper : 'transparent',
             boxShadow: section === id ? `inset 0 0 0 1px ${T.hairline}` : 'none',
@@ -1880,6 +1905,10 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
                   </div>
                 </div>
               ))}
+            </Section>
+
+            <Section title={t('settings.about.tourTitle')} subtitle={t('settings.about.tourBody')} T={T}>
+              <TourButtons version={health?.version} T={T} />
             </Section>
 
             <Section title={t('settings.about.updatesTitle')} subtitle={t('settings.about.updatesBody')} T={T}>

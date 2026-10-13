@@ -70,6 +70,10 @@ jobs:
         working-directory: app/frontend
         run: node tools/verifier-fond.mjs
 
+      - name: la visite guidée montre des éléments qui existent, dans les deux langues
+        working-directory: app/frontend
+        run: node tools/verifier-visite.mjs
+
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app
         run: node tools/verifier-paquet.mjs frontend/dist

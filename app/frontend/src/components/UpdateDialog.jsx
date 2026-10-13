@@ -4,6 +4,7 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 import { useUpdates, updates } from '../updates.js';
 import ApertureMark from './ApertureMark.jsx';
 import { useBackdropClose } from '../hooks/useBackdropClose.js';
+import { startTour, whatsNewSteps } from '../tour/tours.js';
 
 // The update, said in the middle of the screen: a new version as Clarity
 // opens ("now" or "later"), its download, the seconds before Clarity closes
@@ -60,7 +61,15 @@ export default function UpdateDialog() {
         </div>
       );
     }
-    actions = <button style={primaryBtn} onClick={updates.closeUpdated} autoFocus>{t('update.done.ok')}</button>;
+    // What can be pointed at is shown where it lives, not only listed.
+    const showable = whatsNewSteps(updated.from, updated.to).length > 0;
+    const show = () => { const { from, to } = updated; updates.closeUpdated(); startTour('whatsnew', { from, to }); };
+    actions = showable ? (
+      <>
+        <button style={secondaryBtn} onClick={updates.closeUpdated}>{t('update.done.later')}</button>
+        <button style={primaryBtn} onClick={show} autoFocus>{t('update.done.show')}</button>
+      </>
+    ) : <button style={primaryBtn} onClick={updates.closeUpdated} autoFocus>{t('update.done.ok')}</button>;
   } else if (view === 'installing') {
     title = t('update.installing.title', { version });
     body = t('update.installing.body');
