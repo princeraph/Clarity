@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage, screen, safeStorage, powerMonitor, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage, screen, safeStorage, powerMonitor, globalShortcut, dialog } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -60,17 +60,52 @@ function startBackend() {
     backendErrTail.splice(0, Math.max(0, backendErrTail.length - 40));
   });
   backendProcess.on('exit', (code, signal) => {
+    if (quittingForReal) return;
     // Stopped on its own, not by quitting: the crash that leaves nothing alive
     // to report it. Written down; the next launch sends it (if reports are on).
-    if (quittingForReal || code === 0) return;
-    const message = backendErrTail.filter(l => /Error|exception|rejection/i.test(l)).at(-1) || '';
-    queueCrash('service', {
-      message: `background service stopped (code ${code}, signal ${signal || 'none'})${message ? ` — ${message}` : ''}`,
-      stack: backendErrTail.filter(l => /^\s*at /.test(l)).join('\n'),
-    });
+    if (code !== 0) {
+      const message = backendErrTail.filter(l => /Error|exception|rejection/i.test(l)).at(-1) || '';
+      queueCrash('service', {
+        message: `background service stopped (code ${code}, signal ${signal || 'none'})${message ? ` — ${message}` : ''}`,
+        stack: backendErrTail.filter(l => /^\s*at /.test(l)).join('\n'),
+      });
+    }
+    restartBackend();
   });
   backendProcess.on('error', (err) => console.error('[Backend] Failed to start:', err.message));
   backendProcess.on('message', answerSecretRequest);
+}
+
+// It used to stay dead: the window kept polling a backend that would never come
+// back, with nothing on screen to say so. Restarted, a little later each time;
+// three stops in five minutes (a port taken by another program, a damaged
+// install) are said in a dialog instead of looping.
+const backendStops = [];
+function restartBackend() {
+  const now = Date.now();
+  while (backendStops.length && now - backendStops[0] > 5 * 60 * 1000) backendStops.shift();
+  backendStops.push(now);
+  if (backendStops.length <= 3) {
+    setTimeout(() => { if (!quittingForReal) startBackend(); }, 1000 * 2 ** (backendStops.length - 1));
+    return;
+  }
+  const fr = chosenLocale().startsWith('fr');
+  const portTaken = backendErrTail.some(l => /already in use|EADDRINUSE/.test(l));
+  dialog.showMessageBox({
+    type: 'error',
+    title: 'Clarity',
+    message: fr ? 'Le service de Clarity ne démarre pas.' : 'Clarity\u2019s background service will not start.',
+    detail: portTaken
+      ? (fr ? 'Un autre programme occupe le port 3001 (souvent une seconde copie de Clarity). Fermez-le, puis rouvrez Clarity.'
+            : 'Another program is using port 3001 (often a second copy of Clarity). Close it, then reopen Clarity.')
+      : (fr ? 'Redémarrez l\u2019ordinateur. Si le problème revient, réinstallez Clarity depuis la page de téléchargement : vos tâches sont conservées.'
+            : 'Restart the computer. If it happens again, reinstall Clarity from the download page: your tasks are kept.'),
+    buttons: [fr ? 'Réessayer' : 'Try again', fr ? 'Quitter' : 'Quit'],
+    defaultId: 0, cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) { backendStops.length = 0; startBackend(); }
+    else { quittingForReal = true; app.quit(); }
+  }).catch(() => {});
 }
 
 // ─── Crash reports ────────────────────────────────────────────────────────────
@@ -193,6 +228,10 @@ function createWindow() {
     }
   });
   mainWindow.on('closed', () => { mainWindow = null; });
+  // Windows logging off or shutting down (Windows sends no 'shutdown' to
+  // powerMonitor; the tray panel hears it too): the backend's end that
+  // follows is not a crash.
+  mainWindow.on('session-end', () => { quittingForReal = true; });
   mainWindow.on('show', checkForUpdatesOnReturn);
   mainWindow.on('focus', checkForUpdatesOnReturn);
 }
@@ -272,6 +311,9 @@ function createTrayWindow() {
   lockNavigation(trayWindow);
   trayWindow.loadFile(getFrontendPath(), { hash: 'tray' });
   // Unpinned, it is dismissed when it loses focus, like a Windows flyout.
+  // Always created, even with the main window closed: Windows' session end
+  // reaches Clarity through it when nothing else is open.
+  trayWindow.on('session-end', () => { quittingForReal = true; });
   trayWindow.on('blur', () => {
     panelLostFocusAt = Date.now();
     if (!trayWindow || trayWindow.webContents.isDevToolsFocused() || readPanelState().pinned) return;
@@ -492,6 +534,8 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
+    // First: whatever goes wrong below, a fix can still arrive by update.
+    startUpdateChecks();
     startBackend();
     await waitForBackend();
     createWindow();
@@ -499,8 +543,10 @@ if (!gotTheLock) {
     registerPanelShortcut();
     setTaskbarTasks();
     if (process.argv.includes(PANEL_ARG)) setTimeout(showPanel, 800);
-    startUpdateChecks();
     watchForWake();
+    // Windows shutting down ends the backend before this process: without
+    // this, that read as a crash (and was reported, and restarted).
+    powerMonitor.on('shutdown', () => { quittingForReal = true; });
   });
 }
 

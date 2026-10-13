@@ -131,7 +131,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
       }}
       {...backdrop}
       className="clarity-backdrop"
-      onKeyDown={e => e.key === 'Escape' && onClose()}
+      onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } }}
     >
       <div style={{
         background: T.paper, borderRadius: T.r14,

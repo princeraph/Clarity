@@ -33,14 +33,17 @@ export function useFeatures() {
 }
 
 /** Saves one switch. Resolves to the server's answer, or null if it failed (and the switch goes back). */
-export async function setFeature(key, value) {
+export function setFeature(key, value) { return setFeatures({ [key]: value }); }
+
+/** Several switches in one request: two requests at once could each undo the other. */
+export async function setFeatures(change) {
   const before = features;
-  features = { ...(features || {}), [key]: value };
+  features = { ...(features || {}), ...change };
   notify();
   try {
     const r = await fetch(`${API}/settings`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ features: { [key]: value } }),
+      body: JSON.stringify({ features: change }),
     });
     if (!r.ok) throw new Error(String(r.status));
     return await r.json();

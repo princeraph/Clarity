@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
-import { setFeature } from '../features.js';
+import { setFeatures } from '../features.js';
 
 // Asked once: may Clarity send crash reports? Off until the answer is yes, and
 // the answer can be changed in Settings › Privacy. Says exactly what leaves —
@@ -13,8 +13,7 @@ export default function CrashConsent({ onClose }) {
   useEffect(() => { yesRef.current?.focus(); }, []);
 
   async function answer(yes) {
-    await setFeature('crashReports', yes);
-    await setFeature('crashAsked', true);
+    await setFeatures({ crashReports: yes, crashAsked: true });
     onClose();
   }
 

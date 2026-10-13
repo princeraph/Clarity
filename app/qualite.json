@@ -29,6 +29,10 @@
     {
       "nom": "la saisie rapide comprend les deux langues",
       "commande": "node frontend/tools/verifier-saisie.mjs"
+    },
+    {
+      "nom": "une sélection qui finit hors d'une fenêtre ne la ferme pas",
+      "commande": "node frontend/tools/verifier-fond.mjs"
     }
   ]
 }

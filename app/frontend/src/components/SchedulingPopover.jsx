@@ -65,7 +65,7 @@ export default function SchedulingPopover({ task, anchorX, anchorY, onClose, onS
   }, [anchorX, anchorY]);
 
   useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); onClose(); } }   // handled: the panel under it stays
     function onDown(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDown);

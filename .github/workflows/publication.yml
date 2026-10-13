@@ -1,10 +1,10 @@
 # Portée : ce dépôt. Publie une version de Clarity pour les testeurs.
 #
-# Déclenché quand la version de app/package.json change sur main — donc sur
-# un commit que la CI (qualite) a déjà validé, Windows compris, puisque rien
-# n'est fusionné dans main avant. Ce workflow ne refait pas ces contrôles : il
-# fabrique l'installateur et le publie, une seule fois par version (il regarde
-# d'abord si clarity-releases l'a déjà).
+# Déclenché quand la CI (qualité) a fini AU VERT sur main — pas au push : les
+# deux partaient ensemble, et rien n'empêchait de publier un commit que la CI
+# allait refuser (audit du 13 octobre). Un premier job, sous Linux, regarde si
+# la version de app/package.json est déjà publiée ; Windows ne démarre que s'il
+# y a quelque chose à fabriquer. Une seule publication par version.
 #
 # Pas de tag à pousser : la session de travail ne peut pas pousser de tags
 # (refusé, 6 octobre), et un tag oublié laisserait une version non publiée
@@ -19,28 +19,35 @@
 name: publication
 
 on:
-  push:
+  workflow_run:
+    workflows: [qualité]
+    types: [completed]
     branches: [main]
-    paths: ['app/package.json', '.github/workflows/publication.yml']
   workflow_dispatch:
 
 # Jamais annulée en cours : une publication coupée laisserait une release à
 # moitié déposée. Deux déclenchements se suivent au lieu de s'interrompre.
-# Coût estimé : ~15 min Windows × 2 = ~30 min par version publiée.
+# Coût estimé : ~15 min Windows × 2 = ~30 min par version publiée, plus
+# ~1 min Linux par passage de la CI sur main (dépôt public : gratuit).
 concurrency:
   group: publication
   cancel-in-progress: false
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 60
+  verifier:
+    # Une CI rouge ne publie rien. Lancé à la main : la décision est prise.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      existe: ${{ steps.version.outputs.existe }}
+      publier: ${{ steps.version.outputs.publier }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          # Le commit que la CI a validé, pas la pointe de main à cet instant.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       # Publiée = la release existe ET porte les trois fichiers dont la mise à
       # jour a besoin. Le premier essai (6 octobre) a laissé une release v1.3.0
@@ -69,8 +76,21 @@ jobs:
           # (échec du 6 octobre sur la v1.3.1 ; la v1.3.0 existait déjà).
           exit 0
 
+  windows:
+    needs: verifier
+    if: needs.verifier.outputs.publier == 'oui'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: le jeton de publication est configuré
-        if: steps.version.outputs.publier == 'oui'
         shell: pwsh
         env:
           TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
@@ -81,7 +101,6 @@ jobs:
           }
 
       - name: dépendances
-        if: steps.version.outputs.publier == 'oui'
         working-directory: app
         shell: cmd
         run: |
@@ -94,13 +113,11 @@ jobs:
       # GitHub la refusait (« Published releases must have a valid tag »,
       # 6 octobre). La release est créée plus bas, avec un tag explicite.
       - name: fabriquer l'installateur
-        if: steps.version.outputs.publier == 'oui'
         working-directory: app
         shell: cmd
         run: call npm run package
 
       - name: les fichiers de la mise à jour sont là
-        if: steps.version.outputs.publier == 'oui'
         shell: pwsh
         run: |
           foreach ($f in 'Clarity-Setup.exe', 'Clarity-Setup.exe.blockmap', 'latest.yml') {
@@ -111,7 +128,6 @@ jobs:
       # La page d'abord : elle donne au dépôt (vide au départ) le commit sur
       # lequel poser le tag de la release.
       - name: mettre à jour la page de téléchargement
-        if: steps.version.outputs.publier == 'oui'
         shell: pwsh
         env:
           TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
@@ -124,26 +140,37 @@ jobs:
           git checkout -B main
           git add -A
           git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) { "page inchangée" } else { git commit -m "Page de téléchargement : v${{ steps.version.outputs.version }}" }
+          if ($LASTEXITCODE -eq 0) { "page inchangée" } else { git commit -m "Page de téléchargement : v${{ needs.verifier.outputs.version }}" }
           git push -u origin main
 
       - name: publier la version
-        if: steps.version.outputs.publier == 'oui'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.CLARITY_RELEASES_TOKEN }}
         run: |
-          $v = "v${{ steps.version.outputs.version }}"
+          $v = "v${{ needs.verifier.outputs.version }}"
           $files = 'app/dist-electron/Clarity-Setup.exe', 'app/dist-electron/Clarity-Setup.exe.blockmap', 'app/dist-electron/latest.yml'
-          if ('${{ steps.version.outputs.existe }}' -eq 'oui') {
+          if ('${{ needs.verifier.outputs.existe }}' -eq 'oui') {
             # Une release incomplète est complétée, pas recréée : --clobber
             # remplace un fichier du même nom.
             gh release upload $v --repo princeraph/clarity-releases --clobber @files
           } else {
-            gh release create $v --repo princeraph/clarity-releases --target main --title "Clarity ${{ steps.version.outputs.version }}" --notes "Téléchargez Clarity-Setup.exe ci-dessous, ou passez par la page : https://princeraph.github.io/clarity-releases/" @files
+            gh release create $v --repo princeraph/clarity-releases --target main --title "Clarity ${{ needs.verifier.outputs.version }}" --notes "Téléchargez Clarity-Setup.exe ci-dessous, ou passez par la page : https://princeraph.github.io/clarity-releases/" @files
           }
           if ($LASTEXITCODE -ne 0) { exit 1 }
           # Publiée et marquée « latest » : c'est ce que lisent le lien de la
           # page (releases/latest/download/…) et la mise à jour automatique.
-          gh release edit $v --repo princeraph/clarity-releases --draft=false --latest
+          # Jamais une version plus ancienne que la « latest » actuelle (une
+          # 1.5.x complétée après coup ferait redescendre toutes les applis).
+          $actuelle = gh release view --repo princeraph/clarity-releases --json tagName --jq .tagName 2>$null
+          $marquer = -not $actuelle -or ([version]$v.TrimStart('v') -ge [version]$actuelle.TrimStart('v'))
+          gh release edit $v --repo princeraph/clarity-releases --draft=false --latest=$($marquer.ToString().ToLower())
+          if ($LASTEXITCODE -ne 0) { Write-Error "gh release edit a échoué"; exit 1 }
+          # Vérifié, pas supposé : un brouillon n'est lu par aucune appli.
+          $etat = gh release view $v --repo princeraph/clarity-releases --json isDraft,tagName | ConvertFrom-Json
+          if ($etat.isDraft) { Write-Error "$v est encore un brouillon"; exit 1 }
+          if ($marquer) {
+            $latest = gh release view --repo princeraph/clarity-releases --json tagName --jq .tagName
+            if ($latest -ne $v) { Write-Error "« latest » est $latest au lieu de $v"; exit 1 }
+          }
           gh release view $v --repo princeraph/clarity-releases

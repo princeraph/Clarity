@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useFeatures } from '../features.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import useEscape from '../hooks/useEscape.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -10,6 +11,7 @@ const API = 'http://localhost:3001/api';
 const SUGGESTION_KEYS = ['chat.suggest1', 'chat.suggest2', 'chat.suggest3', 'chat.suggest4'];
 
 export default function ChatPanel({ onClose, taskCount }) {
+  useEscape(onClose);
   const { t } = useLocale();
   const { T } = useTheme();
   const [messages, setMessages] = useState([{
@@ -83,7 +85,9 @@ export default function ChatPanel({ onClose, taskCount }) {
           try {
             const data = JSON.parse(line.slice(6));
             if (data.error) {
-              setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: `⚠ ${data.error}`, error: true }; return u; });
+              // The provider's own words are English plumbing: logged, not shown.
+              console.warn('[Clarity] chat:', data.error);
+              setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: t('chat.aiFailed'), error: true }; return u; });
             } else if (data.token) {
               setMessages(prev => { const u = [...prev]; u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + data.token }; return u; });
             } else if (data.done) {

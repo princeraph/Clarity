@@ -5,14 +5,16 @@ export default function ArchiveView({ archivedTasks, onRestore, onDelete, onAddT
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
 
-  const statusLabel = (s) => s.replace('_', ' ');
+  // Shown raw (« not started ») in both languages.
+  const STATUS_KEYS = { not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
+  const statusLabel = (s) => (STATUS_KEYS[s] ? t(STATUS_KEYS[s]) : s);
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '36px 56px', fontFamily: T.fontUI, boxSizing: 'border-box' }}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('archive.label')}</div>
         <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink }}>
-          {t('archive.count', { n: archivedTasks.length })}
+          {t(archivedTasks.length === 1 ? 'archive.countOne' : 'archive.count', { n: archivedTasks.length })}
         </h1>
       </div>
 

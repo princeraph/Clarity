@@ -98,7 +98,7 @@ function Finding({ children, tone = 'neutral', samples, T }) {
         <div style={{ fontSize: 13.5, color: T.ink, lineHeight: 1.5 }}>{children}</div>
         {samples !== undefined && (
           <div style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40, marginTop: 5 }}>
-            {t('patterns.fromNTasks', { n: samples })}
+            {t(samples === 1 ? 'patterns.fromNTasksOne' : 'patterns.fromNTasks', { n: samples })}
           </div>
         )}
       </div>
@@ -542,7 +542,7 @@ export default function PatternsView() {
     <div style={wrap}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>
-          {t('patterns.fromNTasks', { n: o.tasksConsidered })} · {o.windowDays > 0 ? t('patterns.lastNDays', { n: o.windowDays }) : t('patterns.allHistory')}
+          {t(o.tasksConsidered === 1 ? 'patterns.fromNTasksOne' : 'patterns.fromNTasks', { n: o.tasksConsidered })} · {o.windowDays > 0 ? t('patterns.lastNDays', { n: o.windowDays }) : t('patterns.allHistory')}
         </div>
         <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{t('nav.patterns')}</h1>
         <p style={{ margin: '10px 0 0', fontSize: 13.5, color: T.ink60, maxWidth: '62ch', lineHeight: 1.6 }}>
@@ -669,7 +669,7 @@ export default function PatternsView() {
                   <Bar value={a.medianRatio ?? 0} max={Math.max(2, ...estimationAreas.map(x => x.medianRatio ?? 0))}
                     color={a.bias === 'under' ? T.warn : a.bias === 'accurate' ? T.done : T.accent} T={T} />
                   <div style={{ fontFamily: T.fontMono, fontSize: 11.5, color: a.enough ? T.ink60 : T.ink40, textAlign: 'right' }}>
-                    {a.medianRatio}× {!a.enough && <span title={t('patterns.onlyNTasks', { n: a.samples })}>·{a.samples}</span>}
+                    {a.medianRatio}× {!a.enough && <span title={t(a.samples === 1 ? 'patterns.onlyNTasksOne' : 'patterns.onlyNTasks', { n: a.samples })}>·{a.samples}</span>}
                   </div>
                 </div>
               ))}

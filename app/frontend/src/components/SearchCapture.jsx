@@ -213,6 +213,7 @@ export default function SearchCapture({
   function handleKeyDown(e) {
     if (e.key === 'Escape') {
       if (mode === 'capture') { setMode('search'); setRepeat(null); e.stopPropagation(); return; }
+      e.preventDefault();   // handled: the panel under this one stays open
       finish();   // Escape is a deliberate cancel: the draft goes with it
       return;
     }
@@ -267,6 +268,9 @@ export default function SearchCapture({
     } catch (err) {
       setSaveError(err.shown || t('capture.saveUnreachable'));
       setSaving(false);
+      // Disabled while saving, the field lost the cursor: give it back, so
+      // Enter retries without reaching for the mouse.
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   }
 

@@ -3,6 +3,7 @@ import FollowUp from './FollowUp.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { localDay } from './glance.js';
+import useEscape from '../hooks/useEscape.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -207,6 +208,7 @@ function NotesEditor({ task, onSaved, T, t }) {
 }
 
 export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onFocusMode }) {
+  useEscape(onClose);
   const { T } = useTheme();
   const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
   const [rescheduling, setRescheduling] = useState(false);

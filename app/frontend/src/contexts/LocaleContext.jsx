@@ -68,6 +68,14 @@ export function LocaleProvider({ children }) {
     try { localStorage.setItem(STORAGE_KEY, id); } catch {}
   }, []);
 
+  // The tray panel is another window: it learns a change made in the main one
+  // from the storage event, instead of keeping the old language until restart.
+  useEffect(() => {
+    const onStorage = e => { if (e.key === STORAGE_KEY && e.newValue && DICTIONARIES[e.newValue]) setLocaleState(e.newValue); };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   // Told to the app at every launch and every change: the installer of the
   // next update reads it, since it runs while Clarity is closed.
   useEffect(() => { window.clarity?.setLocale?.(locale)?.catch?.(() => {}); }, [locale]);
@@ -87,7 +95,10 @@ export function LocaleProvider({ children }) {
     // Fall back to English rather than showing a raw key: an untranslated
     // string is a small flaw, a screen full of `focus.greeting.morning` is a
     // broken app. The build-time checker is what keeps this path unused.
+    // One of a count: `key` + 'One' when the dictionary has it — « 1 tâches »
+    // showed wherever a caller forgot the singular.
     const t = (key, vars) => {
+      if (vars?.n === 1 && (dict.strings[key + 'One'] ?? DICTIONARIES[DEFAULT_LOCALE].strings[key + 'One']) !== undefined) key += 'One';
       const s = dict.strings[key] ?? DICTIONARIES[DEFAULT_LOCALE].strings[key];
       return s === undefined ? key : interpolate(s, vars);
     };

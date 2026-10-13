@@ -224,18 +224,21 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
     return () => ctrl.abort();
   }, []);
 
-  const activeTasks = rankedTasks.filter(t => t.status !== 'done');
-  const doneTasks   = rankedTasks.filter(t => t.status === 'done');
-  const focusTasks  = activeTasks.filter(t => t.aiData?.priority === 1).slice(0, 1);
-  const quickTasks  = activeTasks.filter(t => !focusTasks.includes(t)).slice(0, 4);
-  const lateTasks   = activeTasks.filter(t => {
-    if (!t.deadline) return false;
-    const d = Math.ceil((new Date(t.deadline + 'T00:00:00') - new Date()) / 86400000);
-    return d < 0;
-  });
-
   const _d = new Date();
   const todayISO = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
+  const dayOf = iso => { const x = new Date(iso); return Number.isNaN(x.getTime()) ? '' : `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+  // When it was marked done: the last « → done » of its history.
+  const doneAt = t => [...(t.history || [])].reverse().find(h => h.type === 'status' && h.to === 'done')?.at || t.updatedAt;
+
+  const activeTasks = rankedTasks.filter(t => t.status !== 'done');
+  // « Done today » counted every finished task ever.
+  const doneTasks   = rankedTasks.filter(t => t.status === 'done' && dayOf(doneAt(t)) === todayISO);
+  const focusTasks  = activeTasks.filter(t => t.aiData?.priority === 1).slice(0, 1);
+  const quickTasks  = activeTasks.filter(t => !focusTasks.includes(t)).slice(0, 4);
+  const lateTasks   = activeTasks.filter(t => t.deadline && t.deadline.slice(0, 10) < todayISO);
+  // Due today but ranked below the first five: the Today badge counted it and
+  // the page did not show it anywhere.
+  const dueToday    = activeTasks.filter(t => t.deadline?.slice(0, 10) === todayISO && !focusTasks.includes(t) && !quickTasks.includes(t));
   const taskBlocks = rankedTasks
     .filter(t => t.deadline === todayISO && t.time && t.status !== 'done')
     .map(t => {
@@ -271,7 +274,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <StatPill label={t('focus.stat.total')} value={stats.total} T={T} />
           {stats.inProgress > 0 && <StatPill label={t('focus.stat.inProgress')} value={stats.inProgress} T={T} />}
-          {stats.done > 0 && <StatPill label={t('focus.stat.done')} value={stats.done} accent={T.done} T={T} />}
+          {stats.done > 0 && <StatPill label={t('focus.stat.done', { n: stats.done })} value={stats.done} accent={T.done} T={T} />}
           {stats.overdue > 0 && <StatPill label={t('focus.stat.overdue')} value={stats.overdue} accent={T.warn} T={T} />}
         </div>
       </header>
@@ -371,6 +374,12 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
             </TaskGroup>
           )}
 
+          {dueToday.length > 0 && (
+            <TaskGroup title={t('focus.dueToday')} subtitle={t(dueToday.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: dueToday.length })} T={T}>
+              {dueToday.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
+            </TaskGroup>
+          )}
+
           {lateTasks.length > 0 && (
             <TaskGroup title={t('focus.overdue')} subtitle={t('focus.needsAttention')} muted T={T}>
               {lateTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
@@ -381,7 +390,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
             <TaskGroup title={t('focus.completed')} subtitle={t('focus.nDoneToday', { n: doneTasks.length })} muted T={T}>
               {doneTasks.slice(0, 3).map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
               {doneTasks.length > 3 && (
-                <button onClick={onViewTasks} style={{
+                <button onClick={onViewAll} style={{
                   fontSize: 12.5, color: T.ink60, background: 'transparent', border: 'none',
                   cursor: 'pointer', textAlign: 'left', padding: '8px 4px', fontFamily: T.fontUI,
                 }}>{t('focus.moreDone', { n: doneTasks.length - 3 })}</button>

@@ -56,11 +56,18 @@ describe('sync plan', () => {
     expect(push).toEqual([]);
   });
 
-  test('journal only grows: local trimming sends no tombstone, remote tombstone deletes nothing', () => {
+  test('journal: local trimming sends no tombstone; an explicit delete does, and is applied elsewhere', () => {
     const p1 = planSync({ local: new Map(), known: { 'journal:j1': T(8) }, now: NOW });
     expect(p1.push).toEqual([]);
-    const p2 = planSync({ local: new Map([item('j1', 8, {}, 'journal')]), known: { 'journal:j1': T(8) }, remote: [remote('j1', 11, { deleted: true, data: null }, 'journal')] });
-    expect(p2.apply).toEqual([]);
+    const p2 = planSync({ local: new Map(), known: { 'journal:j1': T(8) }, explicitDeletes: [{ kind: 'journal', id: 'j1' }], now: NOW });
+    expect(p2.push.map(p => [p.id, p.deleted])).toEqual([['j1', true]]);
+    const p3 = planSync({ local: new Map([item('j1', 8, {}, 'journal')]), known: { 'journal:j1': T(8) }, remote: [remote('j1', 11, { deleted: true, data: null }, 'journal')] });
+    expect(p3.apply).toEqual([{ kind: 'journal', id: 'j1', deleted: true }]);
+  });
+
+  test('allowDeletes: false — nothing missing is sent as a deletion (recovered files)', () => {
+    const { push } = planSync({ local: new Map(), known: { 'task:a': T(8), 'task:b': T(8) }, remote: [remote('a', 8)], now: NOW, allowDeletes: false });
+    expect(push).toEqual([]);
   });
 
   test('two devices converge whatever the order', () => {

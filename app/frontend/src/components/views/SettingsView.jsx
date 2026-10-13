@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale, LANGUAGES } from '../../contexts/LocaleContext.jsx';
-import { useFeatures, setFeature } from '../../features.js';
+import { useFeatures, setFeature, setFeatures } from '../../features.js';
 import ApertureMark from '../ApertureMark.jsx';
 import { useAssistant, AssistantModels } from '../AssistantSetup.jsx';
 import OllamaSetup from '../OllamaSetup.jsx';
@@ -955,7 +955,7 @@ function CrashSettings({ T }) {
   return (
     <>
       <SettingRow label={t('settings.crashReports')} hint={t('settings.crashReportsHint')} T={T}>
-        <Toggle on={features.crashReports} onChange={v => { setFeature('crashReports', v); setFeature('crashAsked', true); }} T={T} label={t('settings.crashReports')} />
+        <Toggle on={features.crashReports} onChange={v => setFeatures({ crashReports: v, crashAsked: true })} T={T} label={t('settings.crashReports')} />
       </SettingRow>
       {info.recent?.length > 0 && (
         <div style={{ padding: '10px 14px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { useBackdropClose } from '../hooks/useBackdropClose.js';
+import useEscape from '../hooks/useEscape.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -39,7 +40,14 @@ function toMarkdown(data, t, fmtDateTime) {
   return lines.join('\n');
 }
 
+// The person's date, not UTC's: an export made in the evening west of
+// Greenwich was named after tomorrow.
+function localDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function ExportModal({ onClose }) {
+  useEscape(onClose);
   const backdrop = useBackdropClose(onClose);
   const { t, fmtDateTime } = useLocale();
   const { T } = useTheme();
@@ -54,11 +62,11 @@ export default function ExportModal({ onClose }) {
       let content, filename, type;
       if (format === 'json') {
         content = JSON.stringify(data, null, 2);
-        filename = `clarity-export-${new Date().toISOString().split('T')[0]}.json`;
+        filename = `clarity-export-${localDate()}.json`;
         type = 'application/json';
       } else {
         content = toMarkdown(data, t, fmtDateTime);
-        filename = `clarity-export-${new Date().toISOString().split('T')[0]}.md`;
+        filename = `clarity-export-${localDate()}.md`;
         type = 'text/markdown';
       }
       const blob = new Blob([content], { type });

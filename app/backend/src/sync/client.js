@@ -52,7 +52,14 @@ export function createSyncClient({ url = SYNC_URL, key = SYNC_KEY, fetchImpl = g
     verifyCode: (email, code) => call('/auth/v1/verify', { method: 'POST', body: { type: 'email', email, token: code } }),
 
     /** A fresh session from the refresh token (tokens rotate: keep the new one). */
-    refresh: (refreshToken) => call('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: refreshToken } }),
+    // GoTrue answers a revoked, expired or already-used refresh token with 400
+    // (refresh_token_not_found / _already_used). That is not a wrong code and
+    // not a passing failure: the session is over and must end visibly.
+    refresh: (refreshToken) => call('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: refreshToken } })
+      .catch(err => {
+        if (err instanceof SyncError && (err.status === 400 || err.status === 401 || err.status === 403)) throw new SyncError('session-expired', err.message, err.status);
+        throw err;
+      }),
 
     signOut: (token) => call('/auth/v1/logout', { method: 'POST', token }).catch(() => null),
 

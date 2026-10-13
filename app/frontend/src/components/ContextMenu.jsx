@@ -24,8 +24,21 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
     });
   }, [x, y]);
 
+  const keyActions = useRef({});
+  keyActions.current = {
+    ' ':      () => onStatusChange(task, task.status === 'done' ? 'not_started' : 'done'),
+    'Enter':  () => onOpenDetail?.(task),
+    'Delete': () => onDelete(task.id),
+  };
   useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose(); }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }   // handled: the panel under it stays
+      // The keys the menu shows next to its items: they used to do nothing.
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (tag === 'BUTTON' && ref.current?.contains(e.target)) || e.ctrlKey || e.metaKey || e.altKey) return;
+      const act = keyActions.current[e.key];
+      if (act) { e.preventDefault(); act(); onClose(); }
+    }
     function onDown(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDown);

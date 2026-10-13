@@ -37,6 +37,11 @@ const STEPS = [
 
 const SCRIM = 'rgba(15,15,18,0.60)';
 
+// The card is dark in both themes. It took the theme's ink — light in dark
+// mode — under text written as translucent white: unreadable.
+const CARD = '#19191A';
+const CARD_TEXT = '#FAFAF7';
+
 function ScrimRect({ style }) {
   return <div style={{ position: 'absolute', background: SCRIM, ...style }} />;
 }
@@ -86,8 +91,9 @@ export default function TutorialOverlay({ onDone }) {
         top:  s.panel.top,
         left: s.panel.left,
         width: 320,
-        background: T.ink,
-        color: T.paper,
+        background: CARD,
+        color: CARD_TEXT,
+        border: '1px solid rgba(255,255,255,0.12)',
         borderRadius: T.r10,
         padding: '20px 22px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.28)',
@@ -110,7 +116,7 @@ export default function TutorialOverlay({ onDone }) {
           }}>{step + 1} / {total}</span>
         </div>
 
-        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 500, letterSpacing: '-0.02em', color: T.paper }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 500, letterSpacing: '-0.02em', color: CARD_TEXT }}>
           {t(s.titleKey)}
         </h3>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'rgba(255,255,255,0.68)', lineHeight: 1.55 }}>
@@ -131,7 +137,7 @@ export default function TutorialOverlay({ onDone }) {
             onClick={advance}
             style={{
               fontFamily: T.fontUI, fontSize: 13, fontWeight: 500,
-              color: T.ink, background: T.paper,
+              color: CARD, background: CARD_TEXT,
               border: 'none', padding: '8px 16px',
               borderRadius: T.r6, cursor: 'pointer',
             }}

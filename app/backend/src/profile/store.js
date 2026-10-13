@@ -148,13 +148,15 @@ export function createProfileStore({ dataDir, log = console }) {
   // "Clear history" in Settings › Privacy: the entries of these kinds leave the
   // journal for good. Everything else stays, and so does a line that does not
   // parse — deleting what cannot be read would be deleting blind.
-  function removeEntries(kinds) {
-    if (!existsSync(JOURNAL_FILE)) return 0;
+  function removeEntriesWithIds(kinds) {
+    if (!existsSync(JOURNAL_FILE)) return { removed: 0, ids: [] };
     const lines = readFileSync(JOURNAL_FILE, 'utf8').split('\n').filter(Boolean);
+    const ids = [];
     let removed = 0;
     const kept = lines.filter(line => {
       try {
-        if (kinds.includes(JSON.parse(line).kind)) { removed++; return false; }
+        const e = JSON.parse(line);
+        if (kinds.includes(e.kind)) { removed++; if (e.id) ids.push(e.id); return false; }
       } catch { /* unreadable: keep it */ }
       return true;
     });
@@ -163,8 +165,9 @@ export function createProfileStore({ dataDir, log = console }) {
       writeFileSync(tmp, kept.map(l => l + '\n').join(''));
       renameSync(tmp, JOURNAL_FILE);
     }
-    return removed;
+    return { removed, ids };
   }
+  const removeEntries = kinds => removeEntriesWithIds(kinds).removed;
 
   // ─── Proposals (Stage 2b) ───────────────────────────────────────────────────
 
@@ -214,7 +217,7 @@ export function createProfileStore({ dataDir, log = console }) {
   return {
     PROFILE_FILE, JOURNAL_FILE,
     readProfile, saveProfile, recompute, judgeInsight,
-    appendEntry, readEntries, removeEntries,
+    appendEntry, readEntries, removeEntries, removeEntriesWithIds,
     addProposals, readProposals, acceptProposal, declineProposal,
   };
 }
