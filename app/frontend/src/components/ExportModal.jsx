@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
+import { useBackdropClose } from '../hooks/useBackdropClose.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -39,6 +40,7 @@ function toMarkdown(data, t, fmtDateTime) {
 }
 
 export default function ExportModal({ onClose }) {
+  const backdrop = useBackdropClose(onClose);
   const { t, fmtDateTime } = useLocale();
   const { T } = useTheme();
   const [loading, setLoading] = useState(false);
@@ -73,7 +75,8 @@ export default function ExportModal({ onClose }) {
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(25,25,26,0.35)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: T.fontUI }}
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...backdrop}
+      className="clarity-backdrop"
     >
       <div style={{
         background: T.paper, borderRadius: T.r14,

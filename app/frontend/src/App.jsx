@@ -243,7 +243,7 @@ function AppInner() {
       if (keysMatchEvent(e, getShortcutKeys('chat')))     { e.preventDefault(); setShowChat(c => !c); }
       if (keysMatchEvent(e, getShortcutKeys('theme')))    { e.preventDefault(); toggleTheme(); }
       if (keysMatchEvent(e, getShortcutKeys('focus')))    { e.preventDefault(); setView('focus'); }
-      if (keysMatchEvent(e, getShortcutKeys('tasks')))    { e.preventDefault(); setView('tasks'); }
+      if (keysMatchEvent(e, getShortcutKeys('tasks')))    { e.preventDefault(); goTo('tasks'); }
       if (keysMatchEvent(e, getShortcutKeys('calendar'))) { e.preventDefault(); setView('calendar'); }
       if (keysMatchEvent(e, getShortcutKeys('graph')))    { e.preventDefault(); setView('graph'); }
       if (keysMatchEvent(e, getShortcutKeys('settings'))) { e.preventDefault(); setView('settings'); }
@@ -414,6 +414,14 @@ function AppInner() {
   }
 
   // A button's onClick passes its click event: that is not a set of defaults.
+  // Inbox shows every task. It is the same view as a topic's list with the
+  // filter off — and going there kept the last topic's filter, so « Inbox »
+  // opened that topic instead. Anything that navigates to the list clears it.
+  function goTo(v) {
+    if (v === 'tasks') setActiveArea('');
+    setView(v);
+  }
+
   function openAddTask(defaults = {}) {
     const given = defaults && !defaults.nativeEvent && Object.keys(defaults).length ? defaults : null;
     planPending.current = null;
@@ -582,7 +590,7 @@ function AppInner() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
-          view={view} setView={setView} health={health}
+          view={view} setView={goTo} health={health}
           analyzing={data.analyzing} onAddTask={openAddTask}
           onChat={() => setShowChat(true)} onExport={() => setShowExport(true)}
           onFeedback={feedbackEnabled ? openFeedback : null}
@@ -596,10 +604,12 @@ function AppInner() {
         />
 
         <main style={{ flex: 1, overflow: 'hidden', background: T.paper }}>
+          {/* Keyed on where you are: each move between views fades in. */}
+          <div key={`${view}:${view === 'topic-detail' ? activeArea : ''}`} className="clarity-view">
           {view === 'focus' && (
             <FocusView rankedTasks={rankedTasks} analysis={data.analysis} stats={stats}
               analyzing={data.analyzing} analysisError={data.analysisError} health={health} {...taskHandlers}
-              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
+              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} onDismissPlan={markPlanHandled} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
               onOpenSettings={openAiSettings} onReanalyze={handleReanalyze}
               onOpenChat={() => setShowChat(true)} />
           )}
@@ -642,8 +652,10 @@ function AppInner() {
               archivedTasks={data.archivedTasks}
               onOpenDetail={openDetail}
               onBack={() => setView('focus')}
+              onAddTask={openAddTask}
             />
           )}
+          </div>
         </main>
       </div>
 
@@ -731,7 +743,7 @@ function AppInner() {
           onSaved={loadData}
           onSavedAndOpen={task => { loadData(); setDetailTask(task); }}
           onOpenTask={task => { setDetailTask(task); }}
-          onNavigate={v => setView(v)}
+          onNavigate={goTo}
           onOpenChat={() => setShowChat(true)}
         />
       )}

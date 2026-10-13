@@ -71,6 +71,15 @@ export function LocaleProvider({ children }) {
   // Told to the app at every launch and every change: the installer of the
   // next update reads it, since it runs while Clarity is closed.
   useEffect(() => { window.clarity?.setLocale?.(locale)?.catch?.(() => {}); }, [locale]);
+  // The backend writes the AI's text (plan, weekly review, subtasks). It used to
+  // guess the language from task titles, and short French titles read as
+  // English. Tell it what was chosen; a backend not up yet learns at next change.
+  useEffect(() => {
+    fetch('http://localhost:3001/api/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uiLanguage: locale }),
+    }).catch(() => {});
+  }, [locale]);
 
   const value = useMemo(() => {
     const dict = DICTIONARIES[locale] ?? DICTIONARIES[DEFAULT_LOCALE];

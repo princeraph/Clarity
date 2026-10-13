@@ -209,7 +209,7 @@ function stalledWhy(s, t) {
   return s.why;
 }
 
-export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, handledPlan, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
+export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onOpenSettings, onOpenChat, ...handlers }) {
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
   const userName = getUserName();
@@ -317,6 +317,17 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
               border: `1px solid ${T.accent}`, padding: '6px 12px', borderRadius: T.r6,
               cursor: 'pointer',
             }}>{t('focus.editAndAdd')}</button>
+            {/* The plan could be accepted or edited, never refused: it sat there
+                until the next analysis. Put away the same way as accepting —
+                remembered by its words, so a new suggestion still shows. */}
+            {onDismissPlan && (
+              <button onClick={() => onDismissPlan(analysis.whatToDoNext)} aria-label={t('focus.dismissPlan')} title={t('focus.dismissPlan')} style={{
+                fontFamily: T.fontUI, fontSize: 12.5,
+                color: T.accentInk, background: 'transparent',
+                border: 'none', padding: '6px 8px', borderRadius: T.r6,
+                cursor: 'pointer', opacity: 0.75,
+              }}>{t('focus.dismissPlan')}</button>
+            )}
           </div>
         </div>
       )}

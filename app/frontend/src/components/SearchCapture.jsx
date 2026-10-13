@@ -6,6 +6,7 @@ import { localDay } from './glance.js';
 
 const REPEATS = [['none', 'form.oneTime'], ['daily', 'form.daily'], ['weekly', 'form.weekly'], ['monthly', 'form.monthly']];
 import { useFeatures } from '../features.js';
+import { useBackdropClose } from '../hooks/useBackdropClose.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -135,17 +136,26 @@ function CommandRow({ icon, label, kbd, active, onClick, T }) {
   );
 }
 
+// A half-typed task survives the box closing — Escape, a stray click, a
+// window switch. Kept in memory only (not on disk), dropped once saved.
+const draft = { query: '', mode: 'search' };
+
 export default function SearchCapture({
   allTasks = [], onClose, onSaved, onSavedAndOpen, onOpenTask, onNavigate, onOpenChat,
 }) {
+  const backdrop = useBackdropClose(onClose);
   const { T } = useTheme();
   // Ce composant appelait t() dix-sept fois et fmtDate une fois sans jamais
   // avoir eu ce hook : Ctrl+K levait « t is not defined » à chaque ouverture.
   // Le contrôle des locales ne le voyait pas — il exigeait la parenthèse
   // fermante des paramètres sur la même ligne, et ceux-ci tiennent sur deux.
   const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
-  const [query, setQuery] = useState('');
-  const [mode, setMode] = useState('search'); // 'search' | 'capture'
+  const [query, setQueryState] = useState(draft.query);
+  const [mode, setModeState] = useState(draft.mode); // 'search' | 'capture'
+  const setQuery = v => { draft.query = v; setQueryState(v); };
+  const setMode = v => { draft.mode = v; setModeState(v); };
+  // An action was taken (go somewhere, open a task): nothing left to keep.
+  const finish = () => { draft.query = ''; draft.mode = 'search'; onClose(); };
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -167,10 +177,10 @@ export default function SearchCapture({
   }, [query, allTasks]);
 
   const commands = useMemo(() => [
-    { icon: '◷', label: t('capture.goToday'),      kbd: 'Ctrl+1', action: () => { onNavigate?.('focus');    onClose(); } },
-    { icon: '✉', label: t('capture.goInbox'),      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    onClose(); } },
-    { icon: '↗', label: t('capture.openChat'), kbd: 'Ctrl+/', action: () => { onOpenChat?.();           onClose(); } },
-    { icon: '⚙', label: t('capture.openSettings'),    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); onClose(); } },
+    { icon: '◷', label: t('capture.goToday'),      kbd: 'Ctrl+1', action: () => { onNavigate?.('focus');    finish(); } },
+    { icon: '✉', label: t('capture.goInbox'),      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    finish(); } },
+    { icon: '↗', label: t('capture.openChat'), kbd: 'Ctrl+/', action: () => { onOpenChat?.();           finish(); } },
+    { icon: '⚙', label: t('capture.openSettings'),    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); finish(); } },
   ], [onNavigate, onOpenChat, onClose, t]);
 
   // Flat list of navigable items for keyboard selection
@@ -203,7 +213,7 @@ export default function SearchCapture({
   function handleKeyDown(e) {
     if (e.key === 'Escape') {
       if (mode === 'capture') { setMode('search'); setRepeat(null); e.stopPropagation(); return; }
-      onClose();
+      finish();   // Escape is a deliberate cancel: the draft goes with it
       return;
     }
     if (e.key === 'Tab') {
@@ -222,7 +232,7 @@ export default function SearchCapture({
       e.preventDefault();
       const nav = navItems[selectedIndex];
       if (!nav) return;
-      if (nav.type === 'task') { onOpenTask?.(nav.item); onClose(); }
+      if (nav.type === 'task') { onOpenTask?.(nav.item); finish(); }
       else if (nav.type === 'command') { nav.item.action?.(); }
       else if (nav.type === 'capture') { setMode('capture'); }
     }
@@ -250,6 +260,7 @@ export default function SearchCapture({
       // The answer is { task, analyzing }: reading it as the task itself left
       // "save & open" (Ctrl+Enter) without an id, and it never opened anything.
       const { task: newTask } = await resp.json();
+      draft.query = ''; draft.mode = 'search';
       onSaved?.();
       onClose();
       if (openAfter && onSavedAndOpen && newTask?.id) onSavedAndOpen(newTask);
@@ -271,7 +282,8 @@ export default function SearchCapture({
         paddingTop: 72,
         fontFamily: T.fontUI,
       }}
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...backdrop}
+      className="clarity-backdrop"
     >
       <div style={{
         width: 'min(600px, 88vw)',
@@ -380,7 +392,7 @@ export default function SearchCapture({
                   <TaskRow
                     key={task.id} task={task}
                     active={selectedIndex === i}
-                    onClick={() => { onOpenTask?.(task); onClose(); }}
+                    onClick={() => { onOpenTask?.(task); finish(); }}
                     T={T}
                   />
                 ))}
@@ -415,7 +427,7 @@ export default function SearchCapture({
                     key={task.id} task={task}
                     active={selectedIndex === i}
                     showScore={i === 0 ? t('capture.bestMatch') : null}
-                    onClick={() => { onOpenTask?.(task); onClose(); }}
+                    onClick={() => { onOpenTask?.(task); finish(); }}
                     T={T}
                   />
                 ))}

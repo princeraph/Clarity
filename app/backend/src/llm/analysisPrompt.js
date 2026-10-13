@@ -23,7 +23,20 @@ export function guessLanguage(tasks) {
   return fr > en ? 'French' : 'English';
 }
 
-export function buildAnalysisPrompt(tasks) {
+// The language chosen in Clarity, when the window has said it (POST
+// /api/settings { uiLanguage }). It wins over the guess: someone who set
+// Clarity to French and writes « RDV dentiste » got an English plan, because
+// four short titles held no French word the guess knew.
+const LANGUAGE_NAMES = { fr: 'French', en: 'English' };
+export function languageName(uiLanguage) {
+  const code = typeof uiLanguage === 'string' ? uiLanguage.slice(0, 2).toLowerCase() : '';
+  return LANGUAGE_NAMES[code] || null;
+}
+export function promptLanguage(uiLanguage, tasks = []) {
+  return languageName(uiLanguage) || guessLanguage(tasks);
+}
+
+export function buildAnalysisPrompt(tasks, language = guessLanguage(tasks)) {
   const taskList = tasks.map((t, i) =>
     `Task ${shortName(i)}:\nTitle: ${t.title}\nDescription: ${(t.description || 'N/A').slice(0, 300)}\n` +
     `Deadline: ${t.deadline || 'None'}\nDeliverable: ${(t.deliverable || 'N/A').slice(0, 160)}\nStatus: ${t.status}\n` +
@@ -32,7 +45,6 @@ export function buildAnalysisPrompt(tasks) {
     `Notes: ${(t.notes || 'N/A').slice(0, 300)}`
   ).join('\n\n');
 
-  const language = guessLanguage(tasks);
   const text = `You are a productivity assistant. Analyze these ${tasks.length} task(s) and return JSON.
 
 TASKS:

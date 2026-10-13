@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { localDay } from './glance.js';
+import { useBackdropClose } from '../hooks/useBackdropClose.js';
 
 function generateId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -33,6 +34,7 @@ export function tagColor(tag) {
 }
 
 export default function TaskForm({ task, onSave, onClose, saving }) {
+  const backdrop = useBackdropClose(onClose);
   const { t } = useLocale();
   const { T } = useTheme();
   // estimateValue + estimateUnit sont des champs de SAISIE, pas le modèle. Le
@@ -79,7 +81,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
   }
 
   function addTag() {
-    const t = newTag.trim().toLowerCase();
+    const t = newTag.trim().replace(/^#/, '').toLowerCase();
     if (!t) { setNewTag(''); return; }
     setForm(prev => {
       if (prev.tags.includes(t)) return prev;
@@ -94,8 +96,16 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
     // estimateValue/estimateUnit ne quittent pas ce composant : on envoie la
     // minute que le backend attend, et rien d'autre.
     const { estimateValue, estimateUnit, ...rest } = form;
+    // A tag or subtask typed but not confirmed with Enter was dropped on Save:
+    // the task was saved without it, and a tagged task never reached its
+    // topic (tester, 13 October). What is in the field is what was meant.
+    const pendingTag = newTag.trim().replace(/^#/, '').toLowerCase();
+    const pendingSub = newSubtask.trim();
+    const tags = pendingTag && !rest.tags.includes(pendingTag) ? [...rest.tags, pendingTag] : rest.tags;
+    const subtasks = pendingSub ? [...rest.subtasks, { id: generateId(), title: pendingSub, done: false }] : rest.subtasks;
     onSave({
       ...rest,
+      tags, subtasks,
       // A repeat counts from a deadline: without one, the first is today.
       deadline: form.deadline || (form.recurring !== 'none' ? localDay(new Date()) : null),
       estimatedDuration: joinEstimate(estimateValue, estimateUnit),
@@ -119,7 +129,8 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
         padding: 16,
         fontFamily: T.fontUI,
       }}
-      onClick={e => e.target === e.currentTarget && onClose()}
+      {...backdrop}
+      className="clarity-backdrop"
       onKeyDown={e => e.key === 'Escape' && onClose()}
     >
       <div style={{
@@ -138,7 +149,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
         }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 15.5, fontWeight: 500, letterSpacing: '-0.02em', color: T.ink }}>
-              {task ? t('form.editTitle') : t('form.newTitle')}
+              {task?.id ? t('form.editTitle') : t('form.newTitle')}
             </h2>
             <p style={{ margin: '3px 0 0', fontSize: 12, color: T.ink60 }}>
               {t('form.plainLanguage')}
@@ -336,7 +347,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
               opacity: saving || !form.title.trim() ? 0.4 : 1,
               fontFamily: T.fontUI,
             }}>
-              {saving ? t('common.saving') : task ? t('form.saveChanges') : t('form.addTask')}
+              {saving ? t('common.saving') : task?.id ? t('form.saveChanges') : t('form.addTask')}
             </button>
           </div>
         </form>
