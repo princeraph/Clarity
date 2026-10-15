@@ -44,6 +44,11 @@ export const WHATS_NEW = {
     { key: 'when',    view: 'focus', target: 'capture' },
     { key: 'weekly',  target: 'nav-weekly' },
   ],
+  '1.8.0': [
+    { key: 'levels', view: 'focus', target: 'today-list' },
+    { key: 'links',  view: 'focus', target: 'today-list' },
+    { key: 'graph',  target: 'nav-graph' },
+  ],
 };
 
 export function compareVersions(a, b) {

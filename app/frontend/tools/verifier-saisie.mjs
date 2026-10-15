@@ -109,6 +109,14 @@ const cas = [
   ['Lire les 12 chapitres',             { title: 'Lire les 12 chapitres', deadline: null }],
   ['Aller au marché mardi',             { title: 'Aller au marché', deadline: '2026-09-22' }],
 
+  // ── la priorité (1.8.0) : !1 … !6 ─────────────────────────────────────────
+  ['Payer le loyer !1 demain',          { title: 'Payer le loyer', priority: 'top', deadline: '2026-09-16' }],
+  ['!3 Relire le contrat',              { title: 'Relire le contrat', priority: 'high' }],
+  ['Ranger le garage !6',               { title: 'Ranger le garage', priority: 'very_low' }],
+  ['Lire la partie 1!1',                { title: 'Lire la partie 1!1', priority: null }],
+  ['Fêter ça !!!',                      { title: 'Fêter ça !!!', priority: null }],
+  ['Version !7',                        { title: 'Version !7', priority: null }],
+
   // ── rien à analyser ──────────────────────────────────────────────────────
   ['Réfléchir',                         { title: 'Réfléchir', deadline: null, estimatedDuration: null }],
   ['',                                  { title: '', deadline: null, estimatedDuration: null }],

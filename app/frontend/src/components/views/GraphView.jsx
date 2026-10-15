@@ -120,10 +120,21 @@ function buildEdges(nodes) {
   const edges      = [];
   const topicPairs = new Set();
 
+  // The person's links (1.8.0), then what the assistant guessed — faint, and
+  // only where no link of the person's already joins the pair.
+  const joined = new Set();
+  for (const node of nodes) {
+    for (const l of node.task.links || []) {
+      if (!idMap[l.to]) continue;
+      const type = l.type === 'related' ? 'related' : (l.strength === 'soft' ? 'soft' : 'hard');
+      edges.push({ fromId: node.id, toId: l.to, type });
+      joined.add([node.id, l.to].sort().join('|'));
+    }
+  }
   for (const node of nodes) {
     const deps = node.task.aiData?.dependencies || [];
     for (const depId of deps) {
-      if (idMap[depId]) edges.push({ fromId: depId, toId: node.id, type: 'dependency' });
+      if (idMap[depId] && !joined.has([depId, node.id].sort().join('|'))) edges.push({ fromId: depId, toId: node.id, type: 'dependency' });
     }
     for (const other of nodes) {
       if (other.id !== node.id && other.topic === node.topic) {
@@ -242,6 +253,22 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
   const topicOrder = useMemo(() => getTopicOrder(filteredTasks), [filteredTasks]);
 
   // ── (Re)start simulation ─────────────────────────────────────────────────────
+  // What the layout depends on: which tasks, which links, which grouping. The
+  // task list itself is a new object at every refresh (every 5 s): restarting
+  // on it threw every node back to a starting circle — the « jerky » graph.
+  // A refresh that changes only a title or a status now updates the nodes in
+  // place; a real change restarts from the positions already on screen.
+  const layoutKey = useMemo(() => filter + '|' + filteredTasks.map(t =>
+    t.id + ':' + (t.tags?.[0] || '') + ':' + (t.links || []).map(l => l.type + (l.strength || '') + l.to).join(',') + ':' + (t.aiData?.dependencies || []).join(',')
+  ).join(';'), [filteredTasks, filter]);
+
+  useEffect(() => {
+    const byId = new Map(filteredTasks.map(t => [t.id, t]));
+    let changed = false;
+    for (const nd of nodesRef.current) { const t = byId.get(nd.id); if (t && t !== nd.task) { nd.task = t; changed = true; } }
+    if (changed && !runningRef.current) setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
+  }, [filteredTasks]);
+
   useEffect(() => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     runningRef.current = false;
@@ -252,12 +279,31 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
       return;
     }
 
-    const nodes = initNodes(filteredTasks, topicOrder, byTopic);
+    const known = new Map(nodesRef.current.map(nd => [nd.id, nd]));
+    const fresh = initNodes(filteredTasks, topicOrder, byTopic);
+    const nodes = fresh.map(nd => {
+      const was = known.get(nd.id);
+      return was ? { ...nd, x: was.x, y: was.y, vx: 0, vy: 0 } : nd;
+    });
     const edges = buildEdges(nodes);
+    // A new node starts beside a node it is linked to, not across the canvas.
+    for (const nd of nodes) {
+      if (known.has(nd.id)) continue;
+      const e = edges.find(x => (x.fromId === nd.id && known.has(x.toId)) || (x.toId === nd.id && known.has(x.fromId)));
+      const near = e && nodes.find(m => m.id === (e.fromId === nd.id ? e.toId : e.fromId));
+      if (near) { nd.x = near.x + (Math.random() - 0.5) * 60; nd.y = near.y + (Math.random() - 0.5) * 60; }
+    }
     nodesRef.current = nodes;
     edgesRef.current = edges;
     pinnedRef.current = new Set();
     frameRef.current  = 0;
+
+    // Less motion asked for: settle out of sight, show the result once.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      for (let k = 0; k < 400 && tickPhysics(nodes, edges, pinnedRef.current, byTopic, topicOrder) >= 0.25; k++);
+      setNodeSnap(nodes.map(nd => ({ ...nd })));
+      return;
+    }
     setNodeSnap(nodes.map(nd => ({ ...nd })));
 
     runningRef.current = true;
@@ -266,7 +312,8 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
       if (!runningRef.current) return;
       frameRef.current++;
       const maxV = tickPhysics(nodesRef.current, edgesRef.current, pinnedRef.current, byTopic, topicOrder);
-      if (frameRef.current % 3 === 0) setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
+      // Every frame drawn: one in three made the motion step at ~20 a second.
+      setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
       if (maxV < 0.25 && pinnedRef.current.size === 0) {
         setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
         runningRef.current = false; rafRef.current = null;
@@ -281,7 +328,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
       runningRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTasks, filter]);
+  }, [layoutKey]);
 
   const restartLoop = useCallback(() => {
     if (runningRef.current) return;
@@ -291,7 +338,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
       if (!runningRef.current) return;
       frameRef.current++;
       const maxV = tickPhysics(nodesRef.current, edgesRef.current, pinnedRef.current, byTopic, topicOrder);
-      if (frameRef.current % 3 === 0) setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
+      setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
       if (maxV < 0.25 && pinnedRef.current.size === 0) {
         setNodeSnap(nodesRef.current.map(nd => ({ ...nd })));
         runningRef.current = false; rafRef.current = null;
@@ -327,7 +374,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
         if (!runningRef.current) return;
         frameRef.current++;
         tickPhysics(nodesRef.current, edgesRef.current, pinnedRef.current, byTopic, topicOrder);
-        if (frameRef.current % 3 === 0) setNodeSnap(nodesRef.current.map(n => ({ ...n })));
+        setNodeSnap(nodesRef.current.map(n => ({ ...n })));
         rafRef.current = requestAnimationFrame(loop);
       }
       rafRef.current = requestAnimationFrame(loop);
@@ -455,9 +502,17 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
             const x2 = to.x   - ux * (NW / 2 + 6);
             const y2 = to.y   - uy * (NH / 2 + 6);
 
+            if (e.type === 'hard' || e.type === 'soft') {
+              return <line key={i} data-edge={e.type} x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={T.ink60} strokeWidth={1.75} strokeDasharray={e.type === 'soft' ? '6 4' : undefined} markerEnd="url(#graph-arrow)" />;
+            }
+            if (e.type === 'related') {
+              return <line key={i} data-edge="related" x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={T.ink40} strokeWidth={1.25} strokeDasharray="1.5 4" strokeLinecap="round" />;
+            }
             if (e.type === 'dependency') {
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={T.ink40} strokeWidth={1.5} markerEnd="url(#graph-arrow)" />;
+              return <line key={i} data-edge="ai" x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={T.ink40} strokeWidth={1.25} opacity={0.4} markerEnd="url(#graph-arrow)" />;
             }
             // same-topic dashed
             return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
@@ -478,6 +533,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
             return (
               <g
                 key={nd.id}
+                data-node={nd.id}
                 style={{ cursor: 'pointer' }}
                 onPointerDown={(e) => onNodePointerDown(e, nd.id)}
                 onClick={(e) => onNodeClick(e, nd)}

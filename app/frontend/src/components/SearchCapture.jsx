@@ -3,6 +3,7 @@ import { startTour } from '../tour/tours.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { parseInput, dateOrderFor } from '../lib/saisie.js';
+import { LEVEL_STYLE } from '../lib/niveaux.js';
 import { localDay } from './glance.js';
 
 const REPEATS = [['none', 'form.oneTime'], ['daily', 'form.daily'], ['weekly', 'form.weekly'], ['monthly', 'form.monthly']];
@@ -254,7 +255,7 @@ export default function SearchCapture({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: parsed.title, tags: parsed.tags,
-          deadline, time: parsed.time || null,
+          deadline, time: parsed.time || null, priority: parsed.priority || null,
           estimatedDuration: parsed.estimatedDuration || null,
           status: 'not_started', recurring,
         }),
@@ -279,7 +280,7 @@ export default function SearchCapture({
   }
 
   const hasParseResult = features?.capturePreview !== false
-    && parsed && (parsed.tags?.length > 0 || deadline || parsed.time || parsed.estimatedDuration);
+    && parsed && (parsed.tags?.length > 0 || deadline || parsed.time || parsed.priority || parsed.estimatedDuration);
 
   return (
     <div
@@ -352,6 +353,7 @@ export default function SearchCapture({
                 {parsed.tags.map(tag => <ParsePill key={tag} label={t('capture.area')} value={tag} T={T} />)}
                 {deadline && <ParsePill label={t('capture.due')} value={fmtDate(deadline + 'T00:00:00')} T={T} />}
                 {parsed.time && <ParsePill label={t('capture.at')} value={parsed.time} T={T} />}
+                {parsed.priority && <ParsePill label={t('detail.priority')} value={t(LEVEL_STYLE[parsed.priority].key)} T={T} />}
                 {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={parsed.estimatedDuration >= 60 ? fmtHours(parsed.estimatedDuration) : fmtDuration(parsed.estimatedDuration)} T={T} />}
               </div>
             )}

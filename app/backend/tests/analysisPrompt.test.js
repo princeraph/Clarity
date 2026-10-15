@@ -82,3 +82,19 @@ describe('reply length', () => {
     expect(wouldTruncate(p.text.length, p.maxTokens)).toBe(false);
   });
 });
+
+describe('what the person decided reaches the assistant (1.8.0)', () => {
+  test('level, difficulty and « must be finished before », by short name', () => {
+    const tasks = [
+      { id: 'a', title: 'Payer le loyer', status: 'not_started', priority: 'top', difficulty: 2, links: [{ to: 'b', type: 'blocks', strength: 'hard' }, { to: 'c', type: 'blocks', strength: 'soft' }, { to: 'gone', type: 'blocks' }] },
+      { id: 'b', title: 'Fermer le mois', status: 'not_started' },
+      { id: 'c', title: 'Archiver les reçus', status: 'not_started' },
+    ];
+    const { text } = buildAnalysisPrompt(tasks, 'French');
+    expect(text).toContain('Priority set by the person: top priority');
+    expect(text).toContain('Difficulty: 2/5');
+    expect(text).toContain('Must be finished before: T2, T3 (preferably)');
+    expect(text).not.toContain('gone');
+    expect(text).toContain('A priority set by the person is never overruled');
+  });
+});

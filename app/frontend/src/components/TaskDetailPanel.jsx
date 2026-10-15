@@ -1,3 +1,4 @@
+import { PriorityRow, DifficultyRow, LinksSection } from './PriorityLinks.jsx';
 import { useState, useEffect, useRef } from 'react';
 import FollowUp from './FollowUp.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -516,6 +517,10 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               <option value="monthly">{t('recur.monthly')}</option>
             </select>
           </div>
+
+          <PriorityRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
+          <DifficultyRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
+          <LinksSection task={task} allTasks={allTasks} T={T} onSaved={onSaved} />
 
           {/* Subtasks — expandable cards */}
           <div>

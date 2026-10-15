@@ -84,7 +84,10 @@ export function taskView(task, analysis) {
     deadline: task.deadline || null,
     tags: task.tags || [],
     ...(task.recurring && task.recurring !== 'none' ? { repeats: task.recurring } : {}),
-    ...(a?.priorityLevel ? { priority: a.priorityLevel } : {}),
+    // The person's level wins; without one, the assistant's.
+    ...(task.priority ? { priority: task.priority, prioritySetBy: 'person' } : a?.priorityLevel ? { priority: a.priorityLevel } : {}),
+    ...(task.difficulty ? { difficulty: task.difficulty } : {}),
+    ...(task.links?.length ? { links: task.links.map(l => ({ type: l.type, task: ref({ id: l.to }), ...(l.strength ? { strength: l.strength } : {}) })) } : {}),
     ...(task.description ? { description: String(task.description).slice(0, 300) } : {}),
     ...(subtasks.length ? { subtasks: `${subtasks.filter(s => s.done).length}/${subtasks.length} done` } : {}),
   };

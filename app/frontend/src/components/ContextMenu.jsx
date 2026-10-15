@@ -1,3 +1,4 @@
+import { LEVEL_STYLE, LEVEL_IDS } from '../lib/niveaux.js';
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
@@ -5,6 +6,13 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 const API = 'http://localhost:3001/api';
 
 export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onOpenDetail, onSaved, onFocusMode, onSchedule }) {
+  async function setPriority(priority) {
+    try {
+      const r = await fetch(`http://localhost:3001/api/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority }) });
+      if (r.ok) onSaved?.();
+    } catch {}
+    onClose();
+  }
   const { T } = useTheme();
   const { t } = useLocale();
   const ref = useRef(null);
@@ -123,6 +131,24 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
           kbd="↵"
           onClick={() => { onOpenDetail?.(task); onClose(); }}
         />
+        <Divider />
+        {/* Priority (1.8.0): the six levels in one row, and « the assistant decides ». */}
+        <div data-menu="priority" style={{ padding: '6px 12px 4px' }}>
+          <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink40, marginBottom: 6 }}>{t('detail.priority')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {LEVEL_IDS.map(id => (
+              <button key={id} type="button" title={t(LEVEL_STYLE[id].key)} aria-label={t(LEVEL_STYLE[id].key)} aria-pressed={task.priority === id} data-level={id}
+                onClick={() => setPriority(id)} style={{
+                  width: 22, height: 22, borderRadius: 5, cursor: 'pointer', padding: 0,
+                  background: LEVEL_STYLE[id].color, border: `2px solid ${task.priority === id ? T.ink : 'transparent'}`,
+                }} />
+            ))}
+            <button type="button" onClick={() => setPriority(null)} aria-pressed={!task.priority} style={{
+              marginLeft: 4, fontSize: 11, fontFamily: T.fontUI, padding: '3px 6px', borderRadius: 4, cursor: 'pointer',
+              background: !task.priority ? T.paperSubtle : 'transparent', color: T.ink60, border: `1px solid ${T.hairline}`,
+            }}>{t('level.aiShort')}</button>
+          </div>
+        </div>
         <Divider />
         <MenuItem
           icon="◷"

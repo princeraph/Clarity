@@ -42,6 +42,10 @@ async function page(browser, storage = {}) {
     Object.entries({ 'clarity-onboarding-done': '1', 'clarity-tutorialSeen': '1', 'clarity-locale': 'fr', ...s }).forEach(([k, v]) => localStorage.setItem(k, v));
     sessionStorage.setItem('seeded', '1');
   }, storage);
+  // The crash-report question (after 8 s) and the feedback prompt (after
+  // 20 s) would cover the window mid-scenario: answered for it here.
+  await p.route('**/api/crash', r => r.request().method() === 'GET' ? r.fulfill({ json: { available: false, asked: true } }) : r.continue());
+  await p.route('**/api/feedback', r => r.request().method() === 'GET' ? r.fulfill({ json: { enabled: false } }) : r.continue());
   await p.goto(URL);
   await p.waitForSelector('main [data-task-id]');
   return { p, ctx, errors };

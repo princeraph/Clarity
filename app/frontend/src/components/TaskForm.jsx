@@ -1,3 +1,4 @@
+import { LEVEL_STYLE, LEVEL_IDS } from '../lib/niveaux.js';
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
@@ -44,6 +45,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
   const [form, setForm] = useState({
     title: '', description: '', deadline: '', deliverable: '',
     status: 'not_started', notes: '', subtasks: [], tags: [], recurring: 'none',
+    priority: '', difficulty: '',
     estimateValue: '', estimateUnit: 'min',
   });
   const [newSubtask, setNewSubtask] = useState('');
@@ -62,6 +64,8 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
         subtasks:    (task.subtasks    || []).filter(s => s?.id && s?.title),
         tags:        task.tags         || [],
         recurring:   task.recurring    || 'none',
+        priority:    task.priority     || '',
+        difficulty:  task.difficulty   ? String(task.difficulty) : '',
         // Les heures rondes se relisent en heures. 90 min reste en minutes
         // plutôt que de devenir « 1,5 h », qu'on ne pourrait pas ressaisir
         // sans décimale.
@@ -109,6 +113,8 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
       // A repeat counts from a deadline: without one, the first is today.
       deadline: form.deadline || (form.recurring !== 'none' ? localDay(new Date()) : null),
       estimatedDuration: joinEstimate(estimateValue, estimateUnit),
+      priority: form.priority || null,
+      difficulty: form.difficulty ? Number(form.difficulty) : null,
     });
   }
 
@@ -238,6 +244,28 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
                 </select>
                 <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: T.ink40, pointerEvents: 'none', fontSize: 10 }}>▾</span>
               </div>
+            </div>
+          </div>
+
+          {/* Priorité + Difficulté (1.8.0) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
+                {t('detail.priority')}
+              </label>
+              <select name="priority" value={form.priority} onChange={e => set('priority', e.target.value)} style={{ ...field, width: '100%', cursor: 'pointer' }}>
+                <option value="">{t('level.ai')}</option>
+                {LEVEL_IDS.map(id => <option key={id} value={id}>{t(LEVEL_STYLE[id].key)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontFamily: T.fontMono, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.ink60, marginBottom: 6 }}>
+                {t('detail.difficulty')}
+              </label>
+              <select name="difficulty" value={form.difficulty} onChange={e => set('difficulty', e.target.value)} style={{ ...field, width: '100%', cursor: 'pointer' }}>
+                <option value="">{t('difficulty.unknown')}</option>
+                {[1, 2, 3, 4, 5].map(n => <option key={n} value={String(n)}>{n} — {t(`difficulty.${n}`)}</option>)}
+              </select>
             </div>
           </div>
 
