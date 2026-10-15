@@ -39,6 +39,11 @@ export const WHATS_NEW = {
     { key: 'replay', settings: 'about', target: 'about-tour' },
     { key: 'check',  view: 'focus', target: 'today-list' },
   ],
+  '1.7.0': [
+    { key: 'keys',    view: 'focus', target: 'today-list' },
+    { key: 'when',    view: 'focus', target: 'capture' },
+    { key: 'weekly',  target: 'nav-weekly' },
+  ],
 };
 
 export function compareVersions(a, b) {

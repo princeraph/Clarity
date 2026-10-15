@@ -97,6 +97,14 @@ const IcoPatterns = ({ color }) => (
   </svg>
 );
 
+// A week, summed up: seven days, the last one marked.
+const IcoWeekly = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <rect x="1.75" y="3" width="12.5" height="10.5" rx="1.75" stroke={color} strokeWidth="1.2" />
+    <path d="M4 10.5V9M6 10.5V7.5M8 10.5V8.5M10 10.5V6.5M12 10.5V5.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
+  </svg>
+);
+
 // Labels are keys, not text: they are resolved at render time so switching
 // language re-renders them, rather than being frozen when this module loaded.
 const NAV_ITEMS = [
@@ -108,6 +116,8 @@ const NAV_ITEMS = [
   { id: 'history',  labelKey: 'nav.history',  view: 'history',  Icon: IcoHistory },
   { id: 'graph',    labelKey: 'nav.graph',    view: 'graph',    Icon: IcoGraph },
   { id: 'patterns', labelKey: 'nav.patterns', view: 'patterns', Icon: IcoPatterns },
+  // Built long ago, reachable from nowhere until 1.7.0.
+  { id: 'weekly',   labelKey: 'nav.weekly',   view: 'weekly',   Icon: IcoWeekly },
 ];
 
 function NavItemCollapsed({ item, active, onClick, accent, T, label }) {
@@ -115,6 +125,7 @@ function NavItemCollapsed({ item, active, onClick, accent, T, label }) {
   const color = active ? T.ink : hov ? T.ink80 : T.ink60;
   return (
     <button
+      data-tour={`nav-${item.id}`}
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -138,6 +149,7 @@ function NavItemExpanded({ item, active, onClick, count, T, label }) {
   const [hov, setHov] = useState(false);
   return (
     <button
+      data-tour={`nav-${item.id}`}
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -265,8 +277,8 @@ export default function Sidebar({
     if (item.id === 'upcoming') return view === 'calendar';
     if (item.id === 'someday') return view === 'archive';
     if (item.id === 'history') return view === 'history';
-    if (item.id === 'graph') return view === 'graph';
-    return false;
+    // Any other entry is lit by its own view — Patterns never was.
+    return view === item.view;
   };
 
   const w = collapsed ? 52 : 232;

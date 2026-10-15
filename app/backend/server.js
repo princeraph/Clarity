@@ -28,6 +28,7 @@ import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
+import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
 import { secretField } from './src/security/secretField.js';
 import { createSyncClient, SyncError } from './src/sync/client.js';
 import { createSyncEngine } from './src/sync/engine.js';
@@ -1537,6 +1538,13 @@ function updateTask(id, body) {
       t.title === updated.title && t.deadline === next && t.recurring === updated.recurring && t.status !== 'done'
     );
     if (!alreadySpawned) spawnRecurringTask(data, updated);
+  }
+
+  // « Undo » on a finished recurring task (src/undoOccurrence.js).
+  if (isUndoOfRecurring(prev, patch, updated)) {
+    const nextId = occurrenceId(updated.id, nextDeadline(updated.deadline, updated.recurring, anchorDayOf(updated)));
+    const i = data.tasks.findIndex(t => t.id === nextId);
+    if (i !== -1 && untouchedOccurrence(data.tasks[i])) data.tasks.splice(i, 1);
   }
 
   saveData(data);

@@ -66,6 +66,49 @@ const cas = [
   ['Rendre le devis #privé #urgent demain',
    { title: 'Rendre le devis', tags: ['privé', 'urgent'], deadline: '2026-09-16', estimatedDuration: null }],
 
+  // ── l'heure (1.7.0) : introduite, écrite, ou nue à partir de 7 h ─────────
+  ['Appeler Marc à 14h',                { title: 'Appeler Marc', time: '14:00', estimatedDuration: null }],
+  ['Appeler Marc à 14 h 30 demain',     { title: 'Appeler Marc', time: '14:30', deadline: '2026-09-16' }],
+  ['Réunion 9h',                        { title: 'Réunion', time: '09:00', estimatedDuration: null }],
+  ['Appeler Marc demain 14h pour 1h',   { title: 'Appeler Marc', time: '14:00', deadline: '2026-09-16', estimatedDuration: 60 }],
+  ['Dentiste vers 16h30',               { title: 'Dentiste', time: '16:30' }],
+  ['Call Ana at 3pm',                   { title: 'Call Ana', time: '15:00' }],
+  ['Call Ana at 15:30 tomorrow',        { title: 'Call Ana', time: '15:30', deadline: '2026-09-16' }],
+  ['Standup 9:15am',                    { title: 'Standup', time: '09:15' }],
+  ['Lunch 12pm',                        { title: 'Lunch', time: '12:00' }],
+  ['Pick up kids 12am',                 { title: 'Pick up kids', time: '00:00' }],
+  // Sous 7 h, nu : une durée, comme avant (« Monter le teaser 2h30 » plus haut).
+  ['Écrire le rapport 2h',              { title: 'Écrire le rapport', time: null, estimatedDuration: 120 }],
+  // « pour » / « for » : toujours une durée, même au-dessus de 7.
+  ['Inventaire pour 8h',                { title: 'Inventaire', time: null, estimatedDuration: 480 }],
+  ['Inventory for 8h',                  { title: 'Inventory', time: null, estimatedDuration: 480 }],
+  // Pas une heure : invalide, ou un simple nombre.
+  ['Corriger le bug 25h',               { title: 'Corriger le bug 25h', time: null }],
+  ['Corriger le bug 14h75',             { title: 'Corriger le bug 14h75', time: null }],
+  ['Meet at 3',                         { title: 'Meet at 3', time: null }],
+  ['Version 1.6.2 à publier',           { title: 'Version 1.6.2 à publier', time: null }],
+
+  // ── les dates écrites (1.7.0) ─ aujourd'hui est le mardi 15 septembre 2026 ─
+  ['Payer la facture 12 oct.',          { title: 'Payer la facture', deadline: '2026-10-12' }],
+  ['Payer la facture le 12 octobre',    { title: 'Payer la facture', deadline: '2026-10-12' }],
+  ['Payer la facture le 1er décembre',  { title: 'Payer la facture', deadline: '2026-12-01' }],
+  ['Pay the bill Oct 12th',             { title: 'Pay the bill', deadline: '2026-10-12' }],
+  ['Pay the bill October 12, 2027',     { title: 'Pay the bill', deadline: '2027-10-12' }],
+  ['Pay the bill 12 Oct',               { title: 'Pay the bill', deadline: '2026-10-12' }],
+  // Passée cette année : l'an prochain. Aujourd'hui : aujourd'hui.
+  ['Anniversaire de Léa 3 septembre',   { title: 'Anniversaire de Léa', deadline: '2027-09-03' }],
+  ['Rendre le dossier 15 sept',         { title: 'Rendre le dossier', deadline: '2026-09-15' }],
+  ['Rendre le dossier 12/10',           { title: 'Rendre le dossier', deadline: '2026-10-12' }],
+  ['Rendre le dossier 12/10/2027',      { title: 'Rendre le dossier', deadline: '2027-10-12' }],
+  ['Renouveler le passeport le 20',     { title: 'Renouveler le passeport', deadline: '2026-09-20' }],
+  ['Renouveler le passeport le 2',      { title: 'Renouveler le passeport', deadline: '2026-10-02' }],
+  ['Payer la facture le 12 octobre à 9h', { title: 'Payer la facture', deadline: '2026-10-12', time: '09:00' }],
+  // Impossibles ou ambiguës : restent dans le titre.
+  ['Fêter le 31 février',               { title: 'Fêter le 31 février', deadline: null }],
+  ['Noter 45/60 au contrôle',           { title: 'Noter 45/60 au contrôle', deadline: null }],
+  ['Lire les 12 chapitres',             { title: 'Lire les 12 chapitres', deadline: null }],
+  ['Aller au marché mardi',             { title: 'Aller au marché', deadline: '2026-09-22' }],
+
   // ── rien à analyser ──────────────────────────────────────────────────────
   ['Réfléchir',                         { title: 'Réfléchir', deadline: null, estimatedDuration: null }],
   ['',                                  { title: '', deadline: null, estimatedDuration: null }],
@@ -77,6 +120,8 @@ const ecarts = [];
 cas.push(
   ['Rendre le rapport #travail pour 2h demain', { title: 'Rendre le rapport #travail', tags: [], deadline: '2026-09-16', estimatedDuration: 120 }, { tags: false }],
   ['Rendre le rapport #travail pour 2h demain', { title: 'Rendre le rapport pour 2h', tags: ['travail'], deadline: '2026-09-16', estimatedDuration: null }, { duration: false }],
+  // « 12/10 » se lit selon la langue de l'interface : en anglais, 10 décembre.
+  ['Submit the file 12/10',             { title: 'Submit the file', deadline: '2026-12-10' }, { dateOrder: 'mdy' }],
 );
 
 for (const [entree, attendu, options] of cas) {

@@ -74,7 +74,10 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
 
   return (
     <div
-      className="clarity-card"
+      className="clarity-card clarity-task"
+      data-task-id={task.id}
+      tabIndex={0}
+      aria-label={task.title}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, task); } : undefined}
@@ -86,10 +89,12 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
         background: hov ? T.paperSubtle : 'transparent',
         borderRadius: T.r6,
         transition: 'opacity 0.3s ease, background-color 0.15s ease',
+        '--focus-ring': T.accent,
       }}
     >
       {/* Check circle */}
       <button
+        data-check
         onClick={async () => {
           if (isDone) { onStatusChange(task, 'not_started'); return; }
           justTicked.set(task.id, Date.now());

@@ -1038,6 +1038,55 @@ elle ne parcourt pas la visite.
 
 ---
 
+## 15 octobre — ce qui est promis marche (1.7.0)
+
+Premier des lots décidés le 13 (spécification :
+`docs/superpowers/specs/2026-10-13-lot-1-promesses-design.md`). Des promesses
+affichées sans être tenues, vérifiées dans le code avant d'être corrigées.
+
+- **Le clavier dans les listes.** Réglages › Clavier annonçait Espace, Entrée,
+  Suppr ; rien n'y répondait. ↑ ↓ passent d'une carte à l'autre (les cartes à
+  l'écran, dans leur ordre : aucun état de sélection à tenir), Espace termine
+  et passe à la suivante, Entrée ouvre, Suppr supprime. Les touches viennent de
+  Réglages : une touche remplacée marche, l'ancienne non. Contour visible au
+  clavier seulement. Les raccourcis vivent dans `src/shortcuts.js`, partagé.
+- **Annuler** une coche, un archivage, une modification (formulaire ; échéance
+  et répétition dans le détail — pas la note, enregistrée en continu, qui
+  ferait une notification par pause de frappe). Une tâche répétée terminée a
+  déjà créé la suivante : l'annuler la retire si personne n'y a touché
+  (`src/undoOccurrence.js`, 9 tests). Le panneau du jour, qui refusait
+  d'annuler une répétée pour cette raison, l'accepte.
+- **La saisie comprend l'heure et les dates écrites.** « à 14h », « vers 9h »,
+  « 3pm », « 14:30 » ; nue, une heure à partir de 7 h (« réunion 9h ») et une
+  durée en dessous (« 2h » devient une durée, « 2h30 » l'était déjà) — décidé
+  avec l'utilisateur. « le 12 octobre », « Oct 12th », « 12/10 » (jour/mois en
+  français, mois/jour en anglais), « le 12 ». Sans année : la prochaine fois.
+  35 cas nouveaux, dont 9 qui ne doivent RIEN avaler (« 14h75 », « Meet at 3 »,
+  « 45/60 », « le 31 février »). Un premier jet transformait « le 31 février »
+  en « février » dû le 31 octobre : attrapé par ces cas.
+- **Le bilan de la semaine** avait une vue et aucun chemin : entrée dans la
+  barre latérale et dans Ctrl+K. Au passage, Tendances ne s'allumait jamais
+  comme page active.
+- **Aide-mémoire** : `?`, Ctrl+K ou Réglages › Clavier ; il lit les touches
+  configurées.
+- « Montrer où » couvre la 1.7.0 ; chaque entrée de la barre latérale porte
+  désormais son repère (`nav-<id>`), que le vérificateur de la visite connaît.
+
+Vérifié dans Chromium sur un vrai backend :
+`frontend/tools/essai-navigateur-1.7.cjs`, 28 contrôles, verts sur quatre
+passages — écrit dans le dépôt cette fois, pas dans un brouillon de session.
+Hors CI (il faut Playwright et deux serveurs) ; la façon de le lancer est en
+tête du fichier. Mutation : le seuil de l'heure à 0 fait échouer 5 cas.
+
+    tests backend    459, en 32 suites
+    contrôles        5 de qualite.json, verts
+
+Décisions pour la suite (priorité à six niveaux, liens enregistrés, durée et
+difficulté, graphe fluide, journée réaliste) :
+`docs/superpowers/specs/2026-10-15-priorite-liens-journee-notes.md`.
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

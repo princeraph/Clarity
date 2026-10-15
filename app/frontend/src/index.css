@@ -112,6 +112,10 @@
 .clarity-check-pop { animation: clarityCheckPop .32s cubic-bezier(.2,.7,.2,1); }
 .clarity-check-pop polyline { stroke-dasharray: 12; animation: clarityCheckDraw .28s ease-out .06s backwards; }
 
+/* A task reached with the keyboard shows where it is (App.jsx, list keys). */
+.clarity-task { outline: none; }
+.clarity-task:focus-visible { outline: 2px solid var(--focus-ring, currentColor); outline-offset: 2px; }
+
 /* Every control answers a hover and a press. Inline `transition` styles still
    win where a component sets its own. */
 button, [role="button"], a, input, textarea, select {
