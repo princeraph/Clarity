@@ -29,7 +29,7 @@ import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedb
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
-import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo } from './src/links.js';
+import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo, normalizeDismissed } from './src/links.js';
 import { secretField } from './src/security/secretField.js';
 import { createSyncClient, SyncError } from './src/sync/client.js';
 import { createSyncEngine } from './src/sync/engine.js';
@@ -1394,7 +1394,7 @@ function isCalendarDate(v) {
 const MUTABLE_FIELDS = [
   'title', 'description', 'deadline', 'time', 'estimatedDuration',
   'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
-  'priority', 'difficulty', 'links',
+  'priority', 'difficulty', 'links', 'dismissed',
 ];
 
 function pickMutable(body) {
@@ -1442,6 +1442,8 @@ function validateFields(body, res) {
     return res.status(400).json({ error: 'Difficulty must be 1 to 5' });
   if (body.links !== undefined && normalizeLinks(body.links, null) === null)
     return res.status(400).json({ error: 'Invalid links' });
+  if (body.dismissed !== undefined && normalizeDismissed(body.dismissed) === null)
+    return res.status(400).json({ error: 'Invalid dismissed proposals' });
 
   return null;
 }
@@ -1544,6 +1546,7 @@ function updateTask(id, body) {
   const patch = pickMutable(body);
   const at = new Date().toISOString();
   if (patch.links !== undefined) patch.links = normalizeLinks(patch.links, id, at) || prev.links || [];
+  if (patch.dismissed !== undefined) patch.dismissed = normalizeDismissed(patch.dismissed) || prev.dismissed || [];
   const newEntries = [];
   if (patch.priority !== undefined && patch.priority !== (prev.priority ?? null))
     newEntries.push({ at, type: 'priority', from: prev.priority ?? null, to: patch.priority });

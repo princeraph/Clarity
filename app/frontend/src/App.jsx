@@ -25,6 +25,7 @@ import TourOverlay from './components/TourOverlay.jsx';
 import ShortcutsSheet from './components/ShortcutsSheet.jsx';
 import { getShortcutKeys, keysMatchEvent } from './shortcuts.js';
 import { orderTasks, unblockedBy } from './lib/ordre.js';
+import { suggestionsFor } from './lib/suggestions.js';
 import { DISCOVER, TOUR_EVENT, whatsNewSteps } from './tour/tours.js';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
@@ -667,13 +668,18 @@ function AppInner() {
   // The order (lib/ordre.js): the person's level first, then the assistant's;
   // a blocked task under the rest; a blocker carrying the level and deadline
   // of what it holds up. Each task says why in `order`.
-  const rankedTasks = useMemo(() => orderTasks(
-    data.tasks
-      .filter(t => !hiddenTaskIds.has(t.id))
-      .map(task => ({ ...task, aiData: data.analysis?.taskAnalysis?.find(a => a.id === task.id) || null })),
-    analyzedAt,
+  // Then what Clarity proposes for each (lib/suggestions.js, 1.9.0).
+  const rankedTasks = useMemo(() => {
+    const ordered = orderTasks(
+      data.tasks
+        .filter(t => !hiddenTaskIds.has(t.id))
+        .map(task => ({ ...task, aiData: data.analysis?.taskAnalysis?.find(a => a.id === task.id) || null })),
+      analyzedAt,
+    );
+    const proposals = suggestionsFor(ordered, Date.now());
+    return ordered.map(t => ({ ...t, suggestions: proposals.get(t.id) || [] }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [data.tasks, data.analysis, hiddenTaskIds]);
+  }, [data.tasks, data.analysis, hiddenTaskIds]);
 
   const taskHandlers = {
     onEdit:          openEditTask,

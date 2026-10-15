@@ -49,6 +49,10 @@ export const WHATS_NEW = {
     { key: 'links',  view: 'focus', target: 'today-list' },
     { key: 'graph',  target: 'nav-graph' },
   ],
+  '1.9.0': [
+    { key: 'suggest',      view: 'focus', target: 'today-list' },
+    { key: 'suggestGraph', target: 'nav-graph' },
+  ],
 };
 
 export function compareVersions(a, b) {

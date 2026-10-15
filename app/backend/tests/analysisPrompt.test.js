@@ -22,21 +22,29 @@ describe('analysis prompt', () => {
     expect(list.minItems).toBe(3);
     expect(list.maxItems).toBe(3);
     expect(list.items.properties.id.enum).toEqual(['T1', 'T2', 'T3']);
-    expect(list.items.properties.dependencies.items.enum).toEqual(['T1', 'T2', 'T3']);
+    expect(list.items.properties.suggestedLinks.items.properties.to.enum).toEqual(['T1', 'T2', 'T3']);
+    expect(list.items.properties.suggestedLinks.maxItems).toBe(2);
+    expect(list.items.properties.suggestedLevel.enum).toEqual(['top', 'very_high', 'high', 'medium', 'low', 'very_low']);
   });
 
   test('names come back as real ids; unknown names are dropped, not guessed', () => {
     const out = restoreIds({
       whatToDoNext: 'x',
       taskAnalysis: [
-        { id: 'T1', dependencies: ['T2', 'T3', 'T9'], relatedTasks: ['t2'] },
-        { id: 'T7', dependencies: [] },
+        { id: 'T1', suggestedLinks: [{ to: 'T2', type: 'blocks', strength: 'soft', why: 'T2 first' }, { to: 't3', type: 'related' }, { to: 'T9', type: 'blocks' }, { to: 'T1', type: 'blocks' }], suggestedLevel: 'urgent', suggestedDifficulty: 9 },
+        { id: 'T7', suggestedLinks: [] },
       ],
     }, tasks);
     expect(out.taskAnalysis).toHaveLength(1);
     expect(out.taskAnalysis[0].id).toBe(tasks[0].id);
-    expect(out.taskAnalysis[0].dependencies).toEqual([tasks[1].id, tasks[2].id]);
-    expect(out.taskAnalysis[0].relatedTasks).toEqual([tasks[1].id]);
+    // Unknown names, and a link to itself, are dropped; the why is prose.
+    expect(out.taskAnalysis[0].suggestedLinks).toEqual([
+      { to: tasks[1].id, type: 'blocks', strength: 'soft', why: '« Page d’accueil » first' },
+      { to: tasks[2].id, type: 'related', strength: 'hard', why: '' },
+    ]);
+    // Outside the scale: no proposal rather than a wrong one.
+    expect(out.taskAnalysis[0].suggestedLevel).toBeNull();
+    expect(out.taskAnalysis[0].suggestedDifficulty).toBeNull();
     expect(out.whatToDoNext).toBe('x');
   });
 
@@ -51,12 +59,12 @@ describe('what the person reads', () => {
     const out = restoreIds({
       whatToDoNext: 'Start Task T3 to unblock T1.',
       overallInsight: 'tâche T2 first',
-      taskAnalysis: [{ id: 'T1', reasoning: 'Needs T3.', relationshipNote: 'T9 is unknown', actionPlan: ['Finish T2'] }],
+      taskAnalysis: [{ id: 'T1', reasoning: 'Needs T3.', suggestedLinks: [{ to: 'T2', type: 'related', why: 'T9 is unknown' }], actionPlan: ['Finish T2'] }],
     }, tasks);
     expect(out.whatToDoNext).toBe('Start « Certificat » to unblock « Lancer la v1 ».');
     expect(out.overallInsight).toBe('« Page d’accueil » first');
     expect(out.taskAnalysis[0].reasoning).toBe('Needs « Certificat ».');
-    expect(out.taskAnalysis[0].relationshipNote).toBe('T9 is unknown');   // not a task: left alone
+    expect(out.taskAnalysis[0].suggestedLinks[0].why).toBe('T9 is unknown');   // not a task: left alone
     expect(out.taskAnalysis[0].actionPlan).toEqual(['Finish « Page d’accueil »']);
   });
 

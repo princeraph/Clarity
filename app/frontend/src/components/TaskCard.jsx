@@ -236,6 +236,11 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               {t('links.inherited', { level: t(LEVEL_STYLE[task.order.level]?.key || 'level.medium'), title: getTitle(task.order.inheritedFrom) })}
             </span>
           )}
+          {task.status !== 'done' && task.suggestions?.length > 0 && onOpenDetail && (
+            <button type="button" data-chip="suggest" onClick={() => onOpenDetail(task)} title={t('propose.chipTitle')} style={{ ...chip(T, T.accentInk), background: T.accentSoft, cursor: 'pointer' }}>
+              ✦ {task.suggestions.length}
+            </button>
+          )}
           {task.status !== 'done' && task.order?.deadlineFor && (
             <span data-chip="before" style={chip(T, T.warn)}>
               {t('links.before', { date: fmtDate(task.order.deadline + 'T00:00:00'), title: getTitle(task.order.deadlineFor) })}
@@ -255,7 +260,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
         )}
 
         {/* Expand toggle */}
-        {(aiData?.reasoning || subtasksTotal > 0 || aiData?.actionPlan?.length) && (
+        {!!(aiData?.reasoning || subtasksTotal > 0 || aiData?.actionPlan?.length) && (
           <button
             onClick={() => setExpanded(v => !v)}
             style={{
@@ -311,18 +316,6 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               </div>
             )}
 
-            {aiData?.dependencies?.length > 0 && (
-              <div style={{ padding: '10px 12px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
-                <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.mustCompleteFirst')}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {aiData.dependencies.map(id => (
-                    <span key={id} style={{ fontSize: 12, padding: '3px 9px', background: T.paperMuted, color: T.ink60, borderRadius: T.rPill, border: `1px solid ${T.hairline}` }}>
-                      {getTitle(id)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

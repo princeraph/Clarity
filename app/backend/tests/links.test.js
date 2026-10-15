@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo } from '../src/links.js';
+import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo, normalizeDismissed } from '../src/links.js';
 
 const blocks = (to, strength) => ({ to, type: 'blocks', ...(strength ? { strength } : {}) });
 
@@ -44,4 +44,14 @@ describe('links', () => {
     expect(tasks[0]).toEqual({ id: 'a', links: [{ to: 'y', type: 'blocks' }], updatedAt: 'NOW' });
     expect(tasks[1].updatedAt).toBe('old');
   });
+});
+
+describe('proposals set aside (1.9.0)', () => {
+  test('kept as given, « never » only when said', () => {
+    expect(normalizeDismissed([{ key: 'level', fp: 'abc', at: '2026-10-15T10:00:00Z' }, { key: 'link:blocks:b', at: '2026-10-15T10:00:00Z', never: true }]))
+      .toEqual([{ key: 'level', fp: 'abc', at: '2026-10-15T10:00:00Z', never: false }, { key: 'link:blocks:b', fp: '', at: '2026-10-15T10:00:00Z', never: true }]);
+    expect(normalizeDismissed(null)).toEqual([]);
+  });
+  test.each([['not a list', 'x'], ['no key', [{ at: '2026-10-15T10:00:00Z' }]], ['no date', [{ key: 'level' }]], ['a bad date', [{ key: 'level', at: 'soon' }]]])(
+    'refused: %s', (_, v) => { expect(normalizeDismissed(v)).toBeNull(); });
 });

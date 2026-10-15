@@ -36,6 +36,7 @@ export function promptLanguage(uiLanguage, tasks = []) {
   return languageName(uiLanguage) || guessLanguage(tasks);
 }
 
+const LEVELS = ['top', 'very_high', 'high', 'medium', 'low', 'very_low'];
 const LEVEL_WORDS = { top: 'top priority', very_high: 'very high', high: 'high', medium: 'medium', low: 'low', very_low: 'very low' };
 
 export function buildAnalysisPrompt(tasks, language = guessLanguage(tasks)) {
@@ -74,14 +75,16 @@ Return ONLY this JSON:
       "priorityLevel": "high",
       "reasoning": "Why this priority (ONE short sentence)",
       "actionPlan": ["Step 1", "Step 2"],
-      "dependencies": ["names of tasks that must be done before this, e.g. T3"],
-      "relatedTasks": ["names of related tasks"],
-      "relationshipNote": "How tasks connect, or empty string"
+      "suggestedLinks": [{ "to": "T3", "type": "blocks", "strength": "hard", "why": "a few words" }],
+      "suggestedLevel": "high",
+      "suggestedDifficulty": 3
     }
   ]
 }
 
-Rules: priority 1 = do first. priorityLevel = high/medium/low. A priority set by the person is never overruled. A task that must be finished before another comes first. Include all ${tasks.length} tasks. Write every sentence in ${language}. In sentences, call a task by its title, never by its name (T1, T2…).`;
+Rules: priority 1 = do first. priorityLevel = high/medium/low. A priority set by the person is never overruled. A task that must be finished before another comes first.
+suggestedLinks: at most 2, only real ones. "blocks" = THIS task must be finished before the named one ("hard": impossible before; "soft": better before). "related" = they belong together. Never repeat a link the person already set; an empty list is fine.
+suggestedLevel: top, very_high, high, medium, low or very_low. suggestedDifficulty: 1 (trivial) to 5 (very hard). Include all ${tasks.length} tasks. Write every sentence in ${language}. In sentences, call a task by its title, never by its name (T1, T2…).`;
 
   // For providers that can enforce a shape (the built-in engine): exactly one
   // entry per task, only real names, bounded lengths — so the reply can neither
@@ -102,9 +105,23 @@ Rules: priority 1 = do first. priorityLevel = high/medium/low. A priority set by
             priorityLevel: { enum: ['high', 'medium', 'low'] },
             reasoning: { type: 'string', maxLength: 140 },
             actionPlan: { type: 'array', items: { type: 'string', maxLength: 80 }, minItems: 1, maxItems: 2 },
-            dependencies: { type: 'array', items: name, maxItems: 3 },
-            relatedTasks: { type: 'array', items: name, maxItems: 3 },
-            relationshipNote: { type: 'string', maxLength: 140 },
+            // 1.9.0: proposals, which the person confirms or sets aside.
+            suggestedLinks: {
+              type: 'array', maxItems: 2,
+              items: {
+                type: 'object',
+                properties: {
+                  to: name,
+                  type: { enum: ['blocks', 'related'] },
+                  strength: { enum: ['hard', 'soft'] },
+                  why: { type: 'string', maxLength: 50 },
+                },
+              },
+            },
+            // The level's and difficulty's « why » is `reasoning`, above: a
+            // field of their own made twelve long tasks overflow the context.
+            suggestedLevel: { enum: ['top', 'very_high', 'high', 'medium', 'low', 'very_low'] },
+            suggestedDifficulty: { type: 'integer', minimum: 1, maximum: 5 },
           },
         },
       },
@@ -156,8 +173,13 @@ export function restoreIds(analysis, tasks) {
     overallInsight: prose(analysis.overallInsight),
     taskAnalysis: analysis.taskAnalysis
       .map(a => ({
-        ...a, id: real(a?.id), dependencies: ids(a?.dependencies), relatedTasks: ids(a?.relatedTasks),
-        reasoning: prose(a?.reasoning), relationshipNote: prose(a?.relationshipNote),
+        ...a, id: real(a?.id),
+        suggestedLinks: (Array.isArray(a?.suggestedLinks) ? a.suggestedLinks : [])
+          .map(l => ({ to: real(l?.to), type: l?.type === 'related' ? 'related' : 'blocks', strength: l?.strength === 'soft' ? 'soft' : 'hard', why: prose(l?.why) || '' }))
+          .filter(l => l.to && l.to !== real(a?.id)),
+        suggestedLevel: LEVELS.includes(a?.suggestedLevel) ? a.suggestedLevel : null,
+        suggestedDifficulty: Number.isInteger(a?.suggestedDifficulty) && a.suggestedDifficulty >= 1 && a.suggestedDifficulty <= 5 ? a.suggestedDifficulty : null,
+        reasoning: prose(a?.reasoning),
         actionPlan: Array.isArray(a?.actionPlan) ? a.actionPlan.map(prose) : a?.actionPlan,
       }))
       .filter(a => a.id),
