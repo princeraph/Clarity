@@ -1138,6 +1138,51 @@ qui couvraient la fenêtre en plein test.
 
 ---
 
+## 15 octobre, soir — l'IA propose (1.9.0)
+
+Spécification : `docs/superpowers/specs/2026-10-15-1.9-ia-propose-design.md`
+(retenus : propositions dans le détail, ✦ sur la carte, pointillé dans le
+graphe ; seuils fixes).
+
+- **L'analyse** ne rend plus `dependencies` / `relatedTasks` /
+  `relationshipNote` (calculés, jamais confirmables, en partie jamais
+  affichés) mais `suggestedLinks` (≤ 2, avec une raison), `suggestedLevel`
+  (six crans), `suggestedDifficulty`. Un garde-fou existant a mordu au premier
+  jet : douze longues tâches et leur plus longue réponse ne tenaient plus dans
+  le contexte du modèle local. Raison des liens bornée à 50 caractères, le
+  « pourquoi » du niveau reprend `reasoning` : ça tient (3 467 jetons au plus).
+  Noms inconnus, liens vers soi, valeurs hors échelle : jetés, pas devinés.
+- **Les propositions** (`frontend/src/lib/suggestions.js`, pur) : lien, niveau,
+  difficulté venus de l'analyse — jamais sur ce que la personne a décidé, ni
+  entre deux tâches déjà liées, ni s'il fermait une boucle ; et deux règles
+  fixes, sans IA : « bloquant trop lourd » (2 h ou difficulté 4, retenant du
+  30 min ou difficulté 2) et « faire descendre » (repoussée 3 fois ou
+  intouchée 21 jours, ne débloque rien, coûte ; jamais une Priorité absolue
+  choisie ; un cran, jamais l'abandon).
+- **Pas maintenant / Jamais pour ça**, enregistrés sur la tâche (`dismissed`,
+  synchronisé) avec l'empreinte des tâches : la proposition revient si l'une
+  change ou après 60 jours ; « jamais » la tient à l'écart.
+  `tools/verifier-suggestions.mjs`, 26 cas aux seuils, barrière et CI ; cinq
+  règles cassées dans une copie, cinq refus.
+- **À l'écran** : ✦ et nombre sur la carte, bloc « Clarity suggère » dans le
+  détail (Confirmer passe par l'annulation de 1.7), pointillé de couleur dans
+  le graphe à la place des dépendances pâles de 1.8. Clés de texte en
+  `propose.*` : `suggest.*` appartenait déjà aux suggestions proactives.
+- **Trouvé en regardant l'écran** : un « 0 » orphelin sous une carte dont
+  l'analyse rend un plan vide (`{a || b || list.length && …}`), défaut
+  antérieur. Corrigé, et le scénario le vérifie dans les deux sens.
+
+Vérifié dans Chromium sur un vrai backend, analyse injectée :
+`frontend/tools/essai-navigateur-1.9.cjs`, 16 contrôles, verts ; scénarios
+1.8 et 1.7 rejoués, verts. Pas vérifié : une vraie analyse par le modèle local
+avec le nouveau schéma — la session n'a pas de modèle ; à regarder sur le PC
+au premier passage de l'analyse.
+
+    tests backend    476, en 33 suites
+    contrôles        7 de qualite.json, verts
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

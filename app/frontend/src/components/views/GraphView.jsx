@@ -131,10 +131,11 @@ function buildEdges(nodes) {
       joined.add([node.id, l.to].sort().join('|'));
     }
   }
+  // What Clarity proposes (1.9.0), pale and dotted until confirmed.
   for (const node of nodes) {
-    const deps = node.task.aiData?.dependencies || [];
-    for (const depId of deps) {
-      if (idMap[depId] && !joined.has([depId, node.id].sort().join('|'))) edges.push({ fromId: depId, toId: node.id, type: 'dependency' });
+    for (const s of node.task.suggestions || []) {
+      if (s.kind !== 'link' || !idMap[s.other] || joined.has([node.id, s.other].sort().join('|'))) continue;
+      edges.push({ fromId: node.id, toId: s.other, type: 'suggested' });
     }
     for (const other of nodes) {
       if (other.id !== node.id && other.topic === node.topic) {
@@ -259,7 +260,7 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
   // A refresh that changes only a title or a status now updates the nodes in
   // place; a real change restarts from the positions already on screen.
   const layoutKey = useMemo(() => filter + '|' + filteredTasks.map(t =>
-    t.id + ':' + (t.tags?.[0] || '') + ':' + (t.links || []).map(l => l.type + (l.strength || '') + l.to).join(',') + ':' + (t.aiData?.dependencies || []).join(',')
+    t.id + ':' + (t.tags?.[0] || '') + ':' + (t.links || []).map(l => l.type + (l.strength || '') + l.to).join(',') + ':' + (t.suggestions || []).filter(s => s.kind === 'link').map(s => s.key).join(',')
   ).join(';'), [filteredTasks, filter]);
 
   useEffect(() => {
@@ -510,9 +511,9 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
               return <line key={i} data-edge="related" x1={x1} y1={y1} x2={x2} y2={y2}
                 stroke={T.ink40} strokeWidth={1.25} strokeDasharray="1.5 4" strokeLinecap="round" />;
             }
-            if (e.type === 'dependency') {
-              return <line key={i} data-edge="ai" x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={T.ink40} strokeWidth={1.25} opacity={0.4} markerEnd="url(#graph-arrow)" />;
+            if (e.type === 'suggested') {
+              return <line key={i} data-edge="suggested" x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={T.accent} strokeWidth={1.25} strokeDasharray="2 4" opacity={0.55} />;
             }
             // same-topic dashed
             return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}

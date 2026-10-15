@@ -71,3 +71,22 @@ export function removeLinksTo(tasks, id, at = new Date().toISOString()) {
   }
   return n;
 }
+
+/**
+ * Proposals set aside (1.9.0), kept on the task so the sync carries them:
+ * [{ key, fp, at, never }]. `key` names the proposal (« link:blocks:<id> »,
+ * « level »…), `fp` is what the tasks looked like when it was set aside, so a
+ * change brings it back. Null when it is not that shape.
+ */
+export function normalizeDismissed(list) {
+  if (list === null) return [];
+  if (!Array.isArray(list) || list.length > 300) return null;
+  const out = [];
+  for (const d of list) {
+    if (!d || typeof d !== 'object' || typeof d.key !== 'string' || !d.key || d.key.length > 120) return null;
+    if (d.fp !== undefined && (typeof d.fp !== 'string' || d.fp.length > 400)) return null;
+    if (typeof d.at !== 'string' || Number.isNaN(Date.parse(d.at))) return null;
+    out.push({ key: d.key, fp: d.fp || '', at: d.at, never: d.never === true });
+  }
+  return out;
+}

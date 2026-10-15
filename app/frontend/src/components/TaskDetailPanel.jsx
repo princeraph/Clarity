@@ -1,4 +1,5 @@
 import { PriorityRow, DifficultyRow, LinksSection } from './PriorityLinks.jsx';
+import TaskSuggestions from './TaskSuggestions.jsx';
 import { useState, useEffect, useRef } from 'react';
 import FollowUp from './FollowUp.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -518,6 +519,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
             </select>
           </div>
 
+          <TaskSuggestions task={task} allTasks={allTasks} T={T} onSaved={onSaved} onEdited={onEdited} onBreakdown={handleBreakdown} />
           <PriorityRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
           <DifficultyRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
           <LinksSection task={task} allTasks={allTasks} T={T} onSaved={onSaved} />
@@ -632,22 +634,6 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                   </li>
                 ))}
               </ol>
-            </div>
-          )}
-
-          {/* Dependencies */}
-          {aiData?.dependencies?.length > 0 && (
-            <div>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.mustCompleteFirst')}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {aiData.dependencies.map(id => (
-                  <div key={id} style={{
-                    padding: '8px 12px', background: T.paperSubtle,
-                    border: `1px solid ${T.hairlineSoft}`, borderRadius: T.r6,
-                    fontSize: 13, color: T.ink60,
-                  }}>{getTitle(id)}</div>
-                ))}
-              </div>
             </div>
           )}
 

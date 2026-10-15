@@ -41,6 +41,10 @@
     {
       "nom": "l'ordre des tâches respecte niveaux, blocages et héritages",
       "commande": "node frontend/tools/verifier-ordre.mjs"
+    },
+    {
+      "nom": "les propositions respectent seuils, décisions et refus",
+      "commande": "node frontend/tools/verifier-suggestions.mjs"
     }
   ]
 }
