@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext.jsx';
 import TitleBar from './components/TitleBar.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -24,6 +24,7 @@ import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TourOverlay from './components/TourOverlay.jsx';
 import ShortcutsSheet from './components/ShortcutsSheet.jsx';
 import { getShortcutKeys, keysMatchEvent } from './shortcuts.js';
+import { orderTasks, unblockedBy } from './lib/ordre.js';
 import { DISCOVER, TOUR_EVENT, whatsNewSteps } from './tour/tours.js';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
@@ -402,7 +403,11 @@ function AppInner() {
         if (task.recurring && task.recurring !== 'none') {
           const freq = { daily: 'recurFreq.daily', weekly: 'recurFreq.weekly', monthly: 'recurFreq.monthly' }[task.recurring];
           showToast(t('toast.recurringCreated', { freq: freq ? t(freq) : task.recurring }), 'success', undo);
-        } else showToast(t('toast.done'), 'success', undo);
+        } else {
+          // What this finish sets free, said once (lib/ordre.js).
+          const freed = unblockedBy(data.tasks, task.id).map(id => data.tasks.find(x => x.id === id)?.title).filter(Boolean);
+          showToast(freed.length ? t('toast.doneUnblocked', { title: freed[0], n: freed.length }) : t('toast.done'), 'success', undo);
+        }
       }
       return fresh ?? null;
     } catch {
@@ -659,24 +664,16 @@ function AppInner() {
   // ── Derived data ────────────────────────────────────────────────────────────
 
   const analyzedAt = data.analysis?.analyzedAt ? new Date(data.analysis.analyzedAt) : null;
-  const rankedTasks = [...data.tasks]
-    .filter(t => !hiddenTaskIds.has(t.id))
-    .map(task => ({
-      ...task,
-      aiData: data.analysis?.taskAnalysis?.find(a => a.id === task.id) || null,
-    }))
-    .sort((a, b) => {
-      // A task added since the last analysis has no rank yet. It used to sort
-      // after every ranked one — at the bottom of a long list, where a task
-      // just typed looked lost. New ones lead, newest first, until ranked.
-      const isNew = t => !t.aiData && (!analyzedAt || new Date(t.createdAt) > analyzedAt);
-      if (isNew(a) !== isNew(b)) return isNew(a) ? -1 : 1;
-      if (isNew(a)) return new Date(b.createdAt) - new Date(a.createdAt);
-      if (a.aiData && b.aiData) return a.aiData.priority - b.aiData.priority;
-      if (a.aiData) return -1;
-      if (b.aiData) return 1;
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
+  // The order (lib/ordre.js): the person's level first, then the assistant's;
+  // a blocked task under the rest; a blocker carrying the level and deadline
+  // of what it holds up. Each task says why in `order`.
+  const rankedTasks = useMemo(() => orderTasks(
+    data.tasks
+      .filter(t => !hiddenTaskIds.has(t.id))
+      .map(task => ({ ...task, aiData: data.analysis?.taskAnalysis?.find(a => a.id === task.id) || null })),
+    analyzedAt,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [data.tasks, data.analysis, hiddenTaskIds]);
 
   const taskHandlers = {
     onEdit:          openEditTask,

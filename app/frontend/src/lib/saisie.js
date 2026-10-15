@@ -146,6 +146,11 @@ function prochainJourDuMois(jour, maintenant) {
   return null;
 }
 
+// ── La priorité (1.8.0) : « !1 » (priorité absolue) … « !6 » (très basse) ──
+// Collé à rien : « Partie 1!1 », « !!! » ou « !7 » restent dans le titre.
+const RE_PRIORITE = /(?<![\p{L}\d!])!([1-6])(?![\p{L}\d!])/u;
+const PRIORITES = ['top', 'very_high', 'high', 'medium', 'low', 'very_low'];
+
 function enMinutes(nombre, unite) {
   const n = parseFloat(String(nombre).replace(',', '.'));
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -174,7 +179,9 @@ export function parseInput(texte, maintenant = new Date(), { tags = true, durati
   let duree = null;
   let recurrence = 'none';
   let heure = null;
+  let priorite = null;
   let titre = String(texte ?? '');
+  titre = titre.replace(RE_PRIORITE, (_, n) => { priorite = PRIORITES[Number(n) - 1]; return ''; });
 
   if (tags) titre = titre.replace(/#([\p{L}\d-]+)/gu, (_, e) => { etiquettes.add(e.toLowerCase()); return ''; }).trim();
 
@@ -270,5 +277,5 @@ export function parseInput(texte, maintenant = new Date(), { tags = true, durati
   if (recurrence !== 'none' && !echeance) echeance = dateISO(maintenant);
 
   titre = titre.replace(/\s{2,}/g, ' ').trim();
-  return { title: titre, tags: [...etiquettes], deadline: echeance, time: heure, estimatedDuration: duree, recurring: recurrence };
+  return { title: titre, tags: [...etiquettes], deadline: echeance, time: heure, estimatedDuration: duree, recurring: recurrence, priority: priorite };
 }

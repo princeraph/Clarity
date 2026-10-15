@@ -37,6 +37,10 @@
     {
       "nom": "la visite guidée montre des éléments qui existent, dans les deux langues",
       "commande": "node frontend/tools/verifier-visite.mjs"
+    },
+    {
+      "nom": "l'ordre des tâches respecte niveaux, blocages et héritages",
+      "commande": "node frontend/tools/verifier-ordre.mjs"
     }
   ]
 }

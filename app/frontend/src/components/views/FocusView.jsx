@@ -233,7 +233,9 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
   const activeTasks = rankedTasks.filter(t => t.status !== 'done');
   // « Done today » counted every finished task ever.
   const doneTasks   = rankedTasks.filter(t => t.status === 'done' && dayOf(doneAt(t)) === todayISO);
-  const focusTasks  = activeTasks.filter(t => t.aiData?.priority === 1).slice(0, 1);
+  // The first of the order (lib/ordre.js), unless it waits on another task.
+  // It was « the one the assistant ranks 1 »: without an assistant, empty.
+  const focusTasks  = activeTasks.filter(t => !t.order?.blocked).slice(0, 1);
   const quickTasks  = activeTasks.filter(t => !focusTasks.includes(t)).slice(0, 4);
   const lateTasks   = activeTasks.filter(t => t.deadline && t.deadline.slice(0, 10) < todayISO);
   // Due today but ranked below the first five: the Today badge counted it and

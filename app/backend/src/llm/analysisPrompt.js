@@ -36,13 +36,26 @@ export function promptLanguage(uiLanguage, tasks = []) {
   return languageName(uiLanguage) || guessLanguage(tasks);
 }
 
+const LEVEL_WORDS = { top: 'top priority', very_high: 'very high', high: 'high', medium: 'medium', low: 'low', very_low: 'very low' };
+
 export function buildAnalysisPrompt(tasks, language = guessLanguage(tasks)) {
+  // What the person decided (1.8.0): their level, the difficulty, and which
+  // task must be finished before which. Named by short name, like the rest.
+  const nameOf = new Map(tasks.map((t, i) => [t.id, shortName(i)]));
+  const decided = (t) => {
+    const lines = [];
+    if (t.priority) lines.push(`Priority set by the person: ${LEVEL_WORDS[t.priority] || t.priority}`);
+    if (t.difficulty) lines.push(`Difficulty: ${t.difficulty}/5`);
+    const blocks = (t.links || []).filter(l => l.type === 'blocks' && nameOf.has(l.to));
+    if (blocks.length) lines.push(`Must be finished before: ${blocks.map(l => nameOf.get(l.to) + (l.strength === 'soft' ? ' (preferably)' : '')).join(', ')}`);
+    return lines.length ? '\n' + lines.join('\n') : '';
+  };
   const taskList = tasks.map((t, i) =>
     `Task ${shortName(i)}:\nTitle: ${t.title}\nDescription: ${(t.description || 'N/A').slice(0, 300)}\n` +
     `Deadline: ${t.deadline || 'None'}\nDeliverable: ${(t.deliverable || 'N/A').slice(0, 160)}\nStatus: ${t.status}\n` +
     `Tags: ${t.tags?.join(', ') || 'None'}\nRecurring: ${t.recurring || 'none'}\n` +
     `Subtasks: ${t.subtasks?.length ? t.subtasks.map(s => `${s.done ? '[done]' : '[todo]'} ${s.title}`).join(', ') : 'None'}\n` +
-    `Notes: ${(t.notes || 'N/A').slice(0, 300)}`
+    `Notes: ${(t.notes || 'N/A').slice(0, 300)}` + decided(t)
   ).join('\n\n');
 
   const text = `You are a productivity assistant. Analyze these ${tasks.length} task(s) and return JSON.
@@ -68,7 +81,7 @@ Return ONLY this JSON:
   ]
 }
 
-Rules: priority 1 = do first. priorityLevel = high/medium/low. Include all ${tasks.length} tasks. Write every sentence in ${language}. In sentences, call a task by its title, never by its name (T1, T2…).`;
+Rules: priority 1 = do first. priorityLevel = high/medium/low. A priority set by the person is never overruled. A task that must be finished before another comes first. Include all ${tasks.length} tasks. Write every sentence in ${language}. In sentences, call a task by its title, never by its name (T1, T2…).`;
 
   // For providers that can enforce a shape (the built-in engine): exactly one
   // entry per task, only real names, bounded lengths — so the reply can neither

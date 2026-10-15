@@ -19,7 +19,7 @@ import { fileURLToPath } from 'url';
 const URL_BASE = process.env.CLARITY_URL || 'http://127.0.0.1:3001';
 const TOKEN = process.env.CLARITY_CONNECTOR_TOKEN || '';
 const APP = process.env.CLARITY_APP || '';
-const VERSION = '1.1.0';   // 1.1.0: recurring on add and update
+const VERSION = '1.2.0';   // 1.1.0: recurring on add and update · 1.2.0: priority and difficulty
 const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const WAKE_MS = Number(process.env.CLARITY_WAKE_MS) || 45000;
 
@@ -72,6 +72,14 @@ async function call(method, path, body) {
 
 // ─── Tools ───────────────────────────────────────────────────────────────────
 
+const PRIORITY = {
+  type: ['string', 'null'], enum: ['top', 'very_high', 'high', 'medium', 'low', 'very_low', null],
+  description: 'How much it matters, as the person says it: top (absolute priority), very_high, high, medium, low, very_low. Set it only when they say so; null gives the choice back to Clarity.',
+};
+const DIFFICULTY = {
+  type: ['integer', 'null'], minimum: 1, maximum: 5,
+  description: 'How hard it is, 1 (trivial) to 5 (very hard), when the person says so.',
+};
 const RECURRING = {
   type: 'string', enum: ['none', 'daily', 'weekly', 'monthly'],
   description: 'Repeats: when the person marks it done, Clarity creates the next one, due a day, a week or a month after this one’s deadline. Without a deadline, the first one is due today. "none" stops it repeating.',
@@ -118,6 +126,8 @@ export const TOOLS = [
         deadline: { type: 'string', description: 'YYYY-MM-DD' },
         tags: { type: 'array', items: { type: 'string' } },
         recurring: RECURRING,
+        priority: PRIORITY,
+        difficulty: DIFFICULTY,
       },
       required: ['title'],
     },
@@ -147,6 +157,8 @@ export const TOOLS = [
         deadline: { type: ['string', 'null'], description: 'YYYY-MM-DD, or null to remove the deadline' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Replaces the current tags' },
         recurring: RECURRING,
+        priority: PRIORITY,
+        difficulty: DIFFICULTY,
       },
       required: ['ref'],
     },

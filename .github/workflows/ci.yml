@@ -74,6 +74,10 @@ jobs:
         working-directory: app/frontend
         run: node tools/verifier-visite.mjs
 
+      - name: l'ordre des tâches respecte niveaux, blocages et héritages
+        working-directory: app/frontend
+        run: node tools/verifier-ordre.mjs
+
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app
         run: node tools/verifier-paquet.mjs frontend/dist

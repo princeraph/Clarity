@@ -29,6 +29,7 @@ import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedb
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
+import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo } from './src/links.js';
 import { secretField } from './src/security/secretField.js';
 import { createSyncClient, SyncError } from './src/sync/client.js';
 import { createSyncEngine } from './src/sync/engine.js';
@@ -635,6 +636,8 @@ cv1.post('/tasks', (req, res) => {
     ...(/^\d{4}-\d{2}-\d{2}$/.test(b.deadline || '') ? { deadline: b.deadline } : {}),
     ...(Array.isArray(b.tags) ? { tags: b.tags.filter(t => typeof t === 'string').slice(0, 5).map(t => t.slice(0, 40)) } : {}),
     ...(VALID_RECURRINGS.has(b.recurring) ? { recurring: b.recurring } : {}),
+    ...(b.priority !== undefined && validPriority(b.priority) ? { priority: b.priority } : {}),
+    ...(b.difficulty !== undefined && validDifficulty(b.difficulty) ? { difficulty: b.difficulty } : {}),
   };
   // A repeat counts from a deadline: without one, the first is due today.
   if (body.recurring && body.recurring !== 'none' && !body.deadline) body.deadline = localDay(new Date());
@@ -675,8 +678,10 @@ cv1.post('/tasks/:ref/update', (req, res) => {
     ...(b.deadline === null || /^\d{4}-\d{2}-\d{2}$/.test(b.deadline || '') ? { deadline: b.deadline } : {}),
     ...(Array.isArray(b.tags) ? { tags: b.tags.filter(t => typeof t === 'string').slice(0, 5).map(t => t.slice(0, 40)) } : {}),
     ...(VALID_RECURRINGS.has(b.recurring) ? { recurring: b.recurring } : {}),
+    ...(b.priority !== undefined && validPriority(b.priority) ? { priority: b.priority } : {}),
+    ...(b.difficulty !== undefined && validDifficulty(b.difficulty) ? { difficulty: b.difficulty } : {}),
   };
-  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nothing to change: give a title, description, deadline (YYYY-MM-DD, or null to remove it), tags or recurring.' });
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nothing to change: give a title, description, deadline (YYYY-MM-DD, or null to remove it), tags, recurring, priority or difficulty.' });
   const probe = probeRes();
   if (validateUpdate(patch, probe)) return res.status(probe.code || 400).json(probe.body);
   const found = knownTask(req, res); if (!found) return;
@@ -1389,6 +1394,7 @@ function isCalendarDate(v) {
 const MUTABLE_FIELDS = [
   'title', 'description', 'deadline', 'time', 'estimatedDuration',
   'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
+  'priority', 'difficulty', 'links',
 ];
 
 function pickMutable(body) {
@@ -1430,7 +1436,26 @@ function validateFields(body, res) {
   if (body.estimatedDuration !== undefined && body.estimatedDuration !== null &&
       !(typeof body.estimatedDuration === 'number' && Number.isFinite(body.estimatedDuration) && body.estimatedDuration >= 0))
     return res.status(400).json({ error: 'Estimated duration must be a positive number of minutes' });
+  if (body.priority !== undefined && !validPriority(body.priority))
+    return res.status(400).json({ error: 'Invalid priority' });
+  if (body.difficulty !== undefined && !validDifficulty(body.difficulty))
+    return res.status(400).json({ error: 'Difficulty must be 1 to 5' });
+  if (body.links !== undefined && normalizeLinks(body.links, null) === null)
+    return res.status(400).json({ error: 'Invalid links' });
 
+  return null;
+}
+
+// Links a client sends, checked against the store: every target exists, none
+// is the task itself, and no loop of « blocks » closes. Null when all is well,
+// else the error to send.
+function linksProblem(data, selfId, rawLinks) {
+  if (rawLinks === undefined) return null;
+  const links = normalizeLinks(rawLinks, selfId);
+  if (links === null) return 'Invalid links';
+  const ids = new Set(data.tasks.map(t => t.id));
+  if (links.some(l => !ids.has(l.to))) return 'Linked task not found';
+  if (wouldCycle(data.tasks, selfId, links)) return 'These links would make a loop: a task would wait for itself';
   return null;
 }
 
@@ -1482,6 +1507,9 @@ function createTask(body) {
     tags:              Array.isArray(body.tags)     ? body.tags     : [],
     subtasks:          Array.isArray(body.subtasks) ? body.subtasks : [],
     recurring:         body.recurring           || 'none',
+    priority:          body.priority            ?? null,
+    difficulty:        body.difficulty          ?? null,
+    links:             normalizeLinks(body.links ?? null, null) || [],
     timeTracked:       0,
     timerStarted:      null,
     archived:          false,
@@ -1499,6 +1527,8 @@ function createTask(body) {
 
 app.post('/api/tasks', (req, res) => {
   if (validateCreate(req.body, res)) return;
+  const problem = linksProblem(readData(), null, req.body.links);
+  if (problem) return res.status(400).json({ error: problem });
   res.json({ task: createTask(req.body), analyzing: true });
 });
 
@@ -1513,7 +1543,14 @@ function updateTask(id, body) {
   // the fields the timer and archive endpoints own. Only the whitelist gets in.
   const patch = pickMutable(body);
   const at = new Date().toISOString();
+  if (patch.links !== undefined) patch.links = normalizeLinks(patch.links, id, at) || prev.links || [];
   const newEntries = [];
+  if (patch.priority !== undefined && patch.priority !== (prev.priority ?? null))
+    newEntries.push({ at, type: 'priority', from: prev.priority ?? null, to: patch.priority });
+  if (patch.difficulty !== undefined && patch.difficulty !== (prev.difficulty ?? null))
+    newEntries.push({ at, type: 'difficulty', from: prev.difficulty ?? null, to: patch.difficulty });
+  if (patch.links !== undefined && JSON.stringify((prev.links || []).map(l => [l.type, l.to, l.strength])) !== JSON.stringify(patch.links.map(l => [l.type, l.to, l.strength])))
+    newEntries.push({ at, type: 'links', from: (prev.links || []).length, to: patch.links.length });
   if (patch.status !== undefined && patch.status !== prev.status)
     newEntries.push({ at, type: 'status', from: prev.status, to: patch.status });
   if (patch.deadline !== undefined && patch.deadline !== prev.deadline)
@@ -1555,6 +1592,8 @@ function updateTask(id, body) {
 
 app.put('/api/tasks/:id', (req, res) => {
   if (validateUpdate(req.body, res)) return;
+  const problem = linksProblem(readData(), req.params.id, req.body.links);
+  if (problem) return res.status(400).json({ error: problem });
   const task = updateTask(req.params.id, req.body);
   if (!task) return res.status(404).json({ error: 'Task not found' });
   res.json({ task, analyzing: true });
@@ -1582,6 +1621,7 @@ function deleteTask(id) {
   const data = readData();
   if (!data.tasks.some(t => t.id === id)) return false;
   data.tasks = data.tasks.filter(t => t.id !== id);
+  removeLinksTo(data.tasks, id, new Date().toISOString());
   if (data.analysis?.taskAnalysis) {
     data.analysis.taskAnalysis = data.analysis.taskAnalysis.filter(a => a.id !== id);
   }

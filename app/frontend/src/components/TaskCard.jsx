@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { tagColor } from './TaskForm.jsx';
+import { LEVEL_STYLE } from '../lib/niveaux.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 
@@ -70,7 +71,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
   }, [timerRunning, task.timerStarted, task.status]);
-  const getTitle      = id => allTasks.find(t => t.id === id)?.title || id;
+  const getTitle      = id => (allTasks || []).find(t => t.id === id)?.title || id;
 
   return (
     <div
@@ -111,6 +112,13 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
       {/* Content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          {/* The person's own level; when the assistant decides, no mark. */}
+          {task.priority && LEVEL_STYLE[task.priority] && (
+            <span data-level={task.priority} title={t(LEVEL_STYLE[task.priority].key)} aria-label={t(LEVEL_STYLE[task.priority].key)} style={{
+              width: 8, height: 8, borderRadius: 2, flexShrink: 0, alignSelf: 'center',
+              background: LEVEL_STYLE[task.priority].color,
+            }} />
+          )}
           <span
             onClick={onOpenDetail ? () => onOpenDetail(task) : undefined}
             style={{
@@ -208,6 +216,29 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
           {aiData?.priority && (
             <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>
               #{aiData.priority}
+            </span>
+          )}
+
+          {/* Links (lib/ordre.js): what holds this one up, what it holds up,
+              and what it inherited for it. */}
+          {task.status !== 'done' && task.order?.blockedBy?.length > 0 && (
+            <span data-chip="blocked" title={task.order.blockedBy.map(getTitle).join(', ')} style={chip(T, task.order.blocked ? T.warn : T.ink60)}>
+              {t(task.order.blocked ? 'links.blockedBy' : 'links.betterAfter', { n: task.order.blockedBy.length })}
+            </span>
+          )}
+          {task.status !== 'done' && task.order?.blocks?.length > 0 && (
+            <span data-chip="unblocks" title={task.order.blocks.map(getTitle).join(', ')} style={chip(T, T.ink60)}>
+              {t('links.unblocks', { n: task.order.blocks.length })}
+            </span>
+          )}
+          {task.status !== 'done' && task.order?.inheritedFrom && (
+            <span data-chip="inherited" style={chip(T, LEVEL_STYLE[task.order.level]?.color || T.ink60)}>
+              {t('links.inherited', { level: t(LEVEL_STYLE[task.order.level]?.key || 'level.medium'), title: getTitle(task.order.inheritedFrom) })}
+            </span>
+          )}
+          {task.status !== 'done' && task.order?.deadlineFor && (
+            <span data-chip="before" style={chip(T, T.warn)}>
+              {t('links.before', { date: fmtDate(task.order.deadline + 'T00:00:00'), title: getTitle(task.order.deadlineFor) })}
             </span>
           )}
         </div>
@@ -329,5 +360,13 @@ function actionBtn(T) {
     background: T.paperSubtle, border: `1px solid ${T.hairline}`,
     borderRadius: T.r6, color: T.ink60, cursor: 'pointer',
     textAlign: 'center', whiteSpace: 'nowrap',
+  };
+}
+
+function chip(T, color) {
+  return {
+    fontFamily: T.fontMono, fontSize: 10.5, padding: '1px 7px', borderRadius: T.rPill,
+    border: `1px solid ${T.hairline}`, color, whiteSpace: 'nowrap',
+    maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis',
   };
 }

@@ -85,7 +85,7 @@ async function addTask(text) {
   try {
     const r = await fetch(`${API}/tasks`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, time: p.time || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
+      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, time: p.time || null, priority: p.priority || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
     });
     return r.ok ? await r.json() : null;
   } catch { return null; }

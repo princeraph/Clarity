@@ -1087,6 +1087,57 @@ difficulté, graphe fluide, journée réaliste) :
 
 ---
 
+## 15 octobre, suite — priorité et liens, les fondations (1.8.0)
+
+Spécification : `docs/superpowers/specs/2026-10-15-1.8-priorite-liens-design.md`.
+Décidé avec l'utilisateur : sans niveau choisi, l'IA décide (son haut / moyen /
+bas ramené à l'échelle) ; deux versions — ici ce qui marche sans IA, la 1.9
+ajoutera les suggestions.
+
+**Ce qui existait** : l'analyse calculait déjà, pour chaque tâche, un niveau à
+trois crans, des dépendances et des tâches liées — recalculés à chaque fois,
+jamais enregistrés, invisibles sans assistant, et sans effet sur l'ordre ; les
+tâches liées ne s'affichaient nulle part.
+
+- **Six niveaux** (`priority`), réglés dans le détail, au clic droit, dans le
+  formulaire, à la saisie (`!1` … `!6`) et depuis Claude (connecteur 1.2.0).
+- **Difficulté** 1–5 (`difficulty`), même chemins sauf la saisie.
+- **Liens** (`links`), écrits une fois sur la tâche d'où ils partent :
+  « bloque » (impossible avant / mieux avant) et « liée à ». Le serveur refuse
+  une cible inconnue et toute boucle, à toute profondeur ; supprimer une tâche
+  retire les liens qui la visent et date le changement pour la synchro
+  (`src/links.js`, 11 tests).
+- **L'ordre** (`frontend/src/lib/ordre.js`, pur) : bloquée en dessous ; niveau
+  effectif = le sien, ou celui de l'IA, ou Moyenne, relevé au plus haut de ce
+  qu'elle bloque ; échéance effective idem ; puis rang de l'IA. « À faire en
+  premier » = la première non bloquée — c'était « celle que l'IA classe 1 », et
+  sans IA la case restait vide. `tools/verifier-ordre.mjs`, 24 cas, dans la
+  barrière et la CI ; quatre règles cassées dans une copie, quatre refus — dont
+  un qu'aucun cas ne voyait d'abord (une tâche terminée transmettait encore son
+  niveau), cas ajouté.
+- **L'analyse IA** reçoit le niveau, la difficulté et les liens de la personne,
+  avec la règle de ne jamais passer outre son niveau.
+- **Le graphe** : il repartait de zéro dès qu'une tâche changeait (un titre, un
+  minuteur, la synchro) et ne se redessinait qu'une image sur trois. Positions
+  gardées, nouvelle bulle posée près de ce à quoi elle est liée, chaque image
+  dessinée, vrais liens tracés (plein / tirets / points ; les dépendances de
+  l'IA en pâle). Mesuré dans Chromium, ancien code puis nouveau : 19 → 52
+  positions par seconde ; pendant une modification, 20 instants sur 65 en
+  mouvement → 0. Écart à la spécification : le dessin passe toujours par React
+  à chaque image plutôt que par le DOM directement — mesuré suffisant, et une
+  réécriture de 600 lignes de moins.
+
+Vérifié dans Chromium sur un vrai backend :
+`frontend/tools/essai-navigateur-1.8.cjs`, 26 contrôles, vert sur trois
+passages ; le scénario 1.7 rejoué, vert. Les deux scénarios répondent d'avance
+aux questions qui s'ouvrent seules (rapport de plantage à 8 s, avis à 20 s),
+qui couvraient la fenêtre en plein test.
+
+    tests backend    471, en 33 suites
+    contrôles        6 de qualite.json, verts
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :
