@@ -22,6 +22,8 @@ import PatternsView from './components/views/PatternsView.jsx';
 import FocusMode from './components/FocusMode.jsx';
 import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TourOverlay from './components/TourOverlay.jsx';
+import ShortcutsSheet from './components/ShortcutsSheet.jsx';
+import { getShortcutKeys, keysMatchEvent } from './shortcuts.js';
 import { DISCOVER, TOUR_EVENT, whatsNewSteps } from './tour/tours.js';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
@@ -32,42 +34,6 @@ import { useLocale } from './contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 const isElectron = !!window.clarity?.isElectron;
-
-const DEFAULT_SHORTCUT_KEYS = {
-  capture:  ['Ctrl', 'K'],
-  chat:     ['Ctrl', '/'],
-  theme:    ['Ctrl', 'Shift', 'L'],
-  settings: ['Ctrl', ','],
-  focus:    ['Ctrl', '1'],
-  tasks:    ['Ctrl', '2'],
-  calendar: ['Ctrl', '3'],
-  graph:    ['Ctrl', 'G'],
-};
-
-function getShortcutKeys(id) {
-  try {
-    const custom = JSON.parse(localStorage.getItem('clarity-shortcuts') || '{}');
-    return custom[id] || DEFAULT_SHORTCUT_KEYS[id] || [];
-  } catch { return DEFAULT_SHORTCUT_KEYS[id] || []; }
-}
-
-function keysMatchEvent(e, keys) {
-  const hasCtrl  = keys.includes('Ctrl');
-  const hasShift = keys.includes('Shift');
-  const hasAlt   = keys.includes('Alt');
-  const mainKey  = keys.find(k => !['Ctrl', 'Shift', 'Alt'].includes(k));
-  if (!mainKey) return false;
-  if (hasCtrl  !== (e.ctrlKey || e.metaKey)) return false;
-  if (hasShift !== e.shiftKey)  return false;
-  if (hasAlt   !== e.altKey)    return false;
-  const ek = e.key;
-  if (mainKey === 'Space')     return ek === ' ';
-  if (mainKey === 'Esc')       return ek === 'Escape';
-  if (mainKey === '↵')         return ek === 'Enter';
-  if (mainKey === 'Del')       return ek === 'Delete';
-  if (mainKey === 'Backspace') return ek === 'Backspace';
-  return ek.toUpperCase() === mainKey.toUpperCase() || ek === mainKey;
-}
 
 function changedFields(before, after) {
   const out = {};
@@ -311,17 +277,39 @@ function AppInner() {
 
   // ── Task handlers ───────────────────────────────────────────────────────────
 
+  // « Undo » in the toast: puts back what a change replaced. Only the fields
+  // the change touched, so an undo never overwrites anything done since.
+  function undoTo(taskId, before) {
+    return async () => {
+      try {
+        const r = await fetch(`${API}/tasks/${taskId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(before),
+        });
+        if (!r.ok) throw new Error();
+        await loadData();
+      } catch { showToast(t('toast.undoFailed'), 'error'); }
+    };
+  }
+  const pick = (obj, keys) => Object.fromEntries(keys.map(k => [k, obj?.[k] ?? null]));
+  // An edit made outside the form (the detail panel) offers the same undo.
+  function offerEditUndo(task, patch) {
+    showToast(t('toast.taskUpdated'), 'success', undoTo(task.id, pick(task, Object.keys(patch))));
+  }
+
   async function handleSaveTask(taskData) {
     setSaving(true);
     try {
       const isEdit = !!editingTask?.id;
+      const changes = isEdit ? changedFields(editingTask, taskData) : null;
+      const before = isEdit ? pick(editingTask, Object.keys(changes)) : null;
+      const editedId = editingTask?.id;
       const resp = await fetch(isEdit ? `${API}/tasks/${editingTask.id}` : `${API}/tasks`, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         // An edit sends only what the form changed. The form opened on a copy
         // of the task: sending all of it wrote back the copy's notes over a
         // note saved meanwhile (typed, then « + Add subtask » at once).
-        body: JSON.stringify(isEdit ? changedFields(editingTask, taskData) : taskData),
+        body: JSON.stringify(isEdit ? changes : taskData),
       });
       if (!resp.ok) throw new Error();
       if (!isEdit && planPending.current) markPlanHandled(planPending.current);
@@ -329,7 +317,8 @@ function AppInner() {
       setShowForm(false);
       setEditingTask(null);
       await loadData();
-      showToast(isEdit ? t('toast.taskUpdated') : t('toast.taskAdded'));
+      if (isEdit && Object.keys(changes).length) showToast(t('toast.taskUpdated'), 'success', undoTo(editedId, before));
+      else showToast(isEdit ? t('toast.taskUpdated') : t('toast.taskAdded'));
     } catch { showToast(t('toast.saveFailed'), 'error'); }
     finally { setSaving(false); }
   }
@@ -372,7 +361,9 @@ function AppInner() {
     if (!(await post(`/tasks/${taskId}/archive`))) return;
     if (detailTask?.id === taskId) setDetailTask(null);
     await loadData();
-    showToast(t('toast.archived'));
+    showToast(t('toast.archived'), 'success', async () => {
+      if (await post(`/tasks/${taskId}/restore`)) await loadData();
+    });
   }
 
   async function handleRestore(taskId) {
@@ -404,9 +395,14 @@ function AppInner() {
       });
       if (!resp.ok) throw new Error();
       const fresh = await loadData();
-      if (status === 'done' && task.recurring && task.recurring !== 'none') {
-        const freq = { daily: 'recurFreq.daily', weekly: 'recurFreq.weekly', monthly: 'recurFreq.monthly' }[task.recurring];
-        showToast(t('toast.recurringCreated', { freq: freq ? t(freq) : task.recurring }));
+      // Finishing can be taken back from the toast; for a recurring task the
+      // server also removes the next occurrence it just created.
+      if (status === 'done' && task.status !== 'done') {
+        const undo = undoTo(task.id, { status: task.status || 'not_started' });
+        if (task.recurring && task.recurring !== 'none') {
+          const freq = { daily: 'recurFreq.daily', weekly: 'recurFreq.weekly', monthly: 'recurFreq.monthly' }[task.recurring];
+          showToast(t('toast.recurringCreated', { freq: freq ? t(freq) : task.recurring }), 'success', undo);
+        } else showToast(t('toast.done'), 'success', undo);
       }
       return fresh ?? null;
     } catch {
@@ -532,9 +528,77 @@ function AppInner() {
   const busyRef = useRef(false);
   const updateWindow = useUpdates();
   const [askCrash, setAskCrash] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   busyRef.current = showOnboarding || showTutorial || showForm || showCapture || showChat || showExport
     || !!focusTask || !!detailTask || !!suggestion || !!feedbackMode
-    || updateWindow.open || !!updateWindow.updated || askCrash;
+    || updateWindow.open || !!updateWindow.updated || askCrash
+    || !!contextMenu || !!scheduling || showShortcuts;
+
+  // « ? » opens the cheat sheet; the command list and Settings › Keyboard
+  // ask for it with an event.
+  useEffect(() => {
+    const open = () => setShowShortcuts(true);
+    const onKey = (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
+      if (e.key === '?' && !busyRef.current) { e.preventDefault(); open(); }
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('clarity-shortcuts', open);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('clarity-shortcuts', open); };
+  }, []);
+
+  // The keyboard in a list: ↑ ↓ move between the tasks on screen, and on the
+  // task that has the focus, Space finishes it, Enter opens it, Del deletes it
+  // (the keys of Settings › Keyboard). No selection state is kept: the cards
+  // on screen are the list, in screen order, so nothing has to follow it when
+  // the list changes.
+  const listKeys = useRef(null);
+  listKeys.current = { tasks: data.tasks, open: openDetail, remove: handleDeleteTask };
+  useEffect(() => {
+    const cards = () => [...document.querySelectorAll('main [data-task-id]')];
+    const focusById = (id) => {
+      const el = id && document.querySelector(`main [data-task-id="${CSS.escape(id)}"]`);
+      el?.focus({ preventScroll: true }); el?.scrollIntoView({ block: 'nearest' });
+    };
+    function onKey(e) {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
+      if (busyRef.current || e.defaultPrevented) return;
+      const list = cards();
+      const card = e.target.closest?.('main [data-task-id]');
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (!list.length || (!card && e.key === 'ArrowUp')) return;
+        e.preventDefault();
+        const i = card ? list.indexOf(card) : -1;
+        const to = list[Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+        focusById(to?.dataset.taskId);
+        return;
+      }
+      // Only on the card itself: on a button inside it, Space and Enter
+      // already press that button.
+      if (!card || e.target !== card) return;
+      const task = listKeys.current.tasks.find(x => x.id === card.dataset.taskId);
+      if (!task) return;
+      const i = list.indexOf(card);
+      const after = (list[i + 1] || list[i - 1])?.dataset.taskId;
+      if (keysMatchEvent(e, getShortcutKeys('complete'))) {
+        e.preventDefault();
+        card.querySelector('[data-check]')?.click();
+        // The next one, so that Space, Space, Space works down a list.
+        if (task.status !== 'done') setTimeout(() => focusById(after), 400);
+      } else if (keysMatchEvent(e, getShortcutKeys('detail'))) {
+        e.preventDefault();
+        listKeys.current.open(task);
+      } else if (keysMatchEvent(e, getShortcutKeys('delete'))) {
+        e.preventDefault();
+        listKeys.current.remove(task.id);
+        setTimeout(() => focusById(after), 50);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Crash reports: asked once, a little after the person has started — not
   // during the welcome, and never over another dialog (components/CrashConsent).
@@ -835,6 +899,7 @@ function AppInner() {
           onTimerStart={handleTimerStart}
           onTimerStop={handleTimerStop}
           onSaved={loadData}
+          onEdited={offerEditUndo}
           onFocusMode={enterFocusMode}
         />
       )}
@@ -864,6 +929,7 @@ function AppInner() {
           onSaved={() => { loadData(); setScheduling(null); }}
         />
       )}
+      {showShortcuts && <ShortcutsSheet onClose={() => setShowShortcuts(false)} />}
       {/* Never over the welcome: it comes first, and starts the tour itself. */}
       {tour && !showOnboarding && (
         <TourOverlay key={tour.id + tour.steps.length} steps={tour.steps} label={tour.label}

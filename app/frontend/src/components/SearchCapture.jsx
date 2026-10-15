@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { startTour } from '../tour/tours.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
-import { parseInput } from '../lib/saisie.js';
+import { parseInput, dateOrderFor } from '../lib/saisie.js';
 import { localDay } from './glance.js';
 
 const REPEATS = [['none', 'form.oneTime'], ['daily', 'form.daily'], ['weekly', 'form.weekly'], ['monthly', 'form.monthly']];
@@ -150,7 +150,7 @@ export default function SearchCapture({
   // avoir eu ce hook : Ctrl+K levait « t is not defined » à chaque ouverture.
   // Le contrôle des locales ne le voyait pas — il exigeait la parenthèse
   // fermante des paramètres sur la même ligne, et ceux-ci tiennent sur deux.
-  const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
+  const { t, fmtDate, fmtDuration, fmtHours, locale } = useLocale();
   const [query, setQueryState] = useState(draft.query);
   const [mode, setModeState] = useState(draft.mode); // 'search' | 'capture'
   const setQuery = v => { draft.query = v; setQueryState(v); };
@@ -182,6 +182,8 @@ export default function SearchCapture({
     { icon: '✉', label: t('capture.goInbox'),      kbd: 'Ctrl+2', action: () => { onNavigate?.('tasks');    finish(); } },
     { icon: '↗', label: t('capture.openChat'), kbd: 'Ctrl+/', action: () => { onOpenChat?.();           finish(); } },
     { icon: '⚙', label: t('capture.openSettings'),    kbd: 'Ctrl+,', action: () => { onNavigate?.('settings'); finish(); } },
+    { icon: '▤', label: t('capture.goWeekly'),       kbd: '',       action: () => { onNavigate?.('weekly');   finish(); } },
+    { icon: '⌨', label: t('capture.shortcuts'),      kbd: '?',      action: () => { finish(); window.dispatchEvent(new Event('clarity-shortcuts')); } },
     { icon: '✦', label: t('capture.takeTour'),        kbd: '',       action: () => { finish(); startTour('discover'); } },
   ], [onNavigate, onOpenChat, onClose, t]);
 
@@ -203,7 +205,7 @@ export default function SearchCapture({
   // Settings › Capture: what the line understands, and whether it shows it.
   const features = useFeatures();
   const parsed = mode === 'capture'
-    ? parseInput(query, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false })
+    ? parseInput(query, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false, dateOrder: dateOrderFor(locale) })
     : null;
   // Repeat, chosen with a click — not only by writing « tous les lundis ».
   // null: follow what the line says; a click overrides it.
@@ -252,7 +254,7 @@ export default function SearchCapture({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: parsed.title, tags: parsed.tags,
-          deadline,
+          deadline, time: parsed.time || null,
           estimatedDuration: parsed.estimatedDuration || null,
           status: 'not_started', recurring,
         }),
@@ -277,7 +279,7 @@ export default function SearchCapture({
   }
 
   const hasParseResult = features?.capturePreview !== false
-    && parsed && (parsed.tags?.length > 0 || deadline || parsed.estimatedDuration);
+    && parsed && (parsed.tags?.length > 0 || deadline || parsed.time || parsed.estimatedDuration);
 
   return (
     <div
@@ -349,6 +351,7 @@ export default function SearchCapture({
                 <span style={{ fontFamily: T.fontMono, fontSize: 9.5, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginRight: 4 }}>{t('onboarding.parsed')}</span>
                 {parsed.tags.map(tag => <ParsePill key={tag} label={t('capture.area')} value={tag} T={T} />)}
                 {deadline && <ParsePill label={t('capture.due')} value={fmtDate(deadline + 'T00:00:00')} T={T} />}
+                {parsed.time && <ParsePill label={t('capture.at')} value={parsed.time} T={T} />}
                 {parsed.estimatedDuration && <ParsePill label={t('capture.est')} value={parsed.estimatedDuration >= 60 ? fmtHours(parsed.estimatedDuration) : fmtDuration(parsed.estimatedDuration)} T={T} />}
               </div>
             )}

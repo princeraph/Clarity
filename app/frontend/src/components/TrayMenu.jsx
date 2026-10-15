@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react
 import ApertureMark from './ApertureMark.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { C, tasksAtHand, todayStr } from './glance.js';
-import { parseInput } from '../lib/saisie.js';
+import { parseInput, dateOrderFor } from '../lib/saisie.js';
 import { useFeatures } from '../features.js';
 
 const API = 'http://localhost:3001/api';
@@ -95,7 +95,7 @@ function Group({ label, tasks, dot, ...rest }) {
 }
 
 export default function TrayMenu() {
-  const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
+  const { t, fmtDate, fmtDuration, fmtHours, locale } = useLocale();
   const [data, setData] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [justDone, setJustDone] = useState(null);
@@ -123,12 +123,12 @@ export default function TrayMenu() {
   // Adding from here — from anywhere, through Ctrl+Alt+Space — understood like
   // Ctrl+K in the app (lib/saisie.js), with the same Settings › Capture options.
   async function add() {
-    const p = parseInput(draft, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false });
+    const p = parseInput(draft, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false, dateOrder: dateOrderFor(locale) });
     if (!p.title.trim()) return;
     try {
       const r = await fetch(`${API}/tasks`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
+        body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, time: p.time || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
       });
       if (!r.ok) throw new Error(String(r.status));
       setDraft(''); setAddFailed(false); load();
@@ -173,10 +173,10 @@ export default function TrayMenu() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // A tick by mistake is undone from here. Not for a recurring task: ticking it
-  // already created the next one (backend/server.js), which undoing would not remove.
+  // A tick by mistake is undone from here — a recurring one too: since 1.7.0
+  // the server takes back the next occurrence it created, if still untouched.
   async function done(task) {
-    const entry = { id: task.id, title: task.title, from: task.status || 'not_started', undoable: !task.recurring || task.recurring === 'none' };
+    const entry = { id: task.id, title: task.title, from: task.status || 'not_started', undoable: true };
     setJustDone(entry);
     if (await saveTask(task.id, { status: 'done' })) load();
     setTimeout(() => setJustDone(j => (j === entry ? null : j)), 6000);

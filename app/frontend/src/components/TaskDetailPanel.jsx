@@ -207,7 +207,7 @@ function NotesEditor({ task, onSaved, T, t }) {
   );
 }
 
-export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onFocusMode }) {
+export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode }) {
   useEscape(onClose);
   const { T } = useTheme();
   const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
@@ -315,6 +315,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
       });
       if (!resp.ok) throw new Error('Server error');
       onSaved?.();
+      onEdited?.(task, { deadline: newDeadline || null });
       setRescheduling(false);
     } catch {
       setRescheduleError(t('detail.deadlineSaveFailed'));
@@ -500,6 +501,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                   });
                   if (!resp.ok) throw new Error();
                   onSaved?.();
+                  onEdited?.(task, recurring !== 'none' && !task.deadline ? { recurring, deadline: null } : { recurring });
                 } catch {}
               }}
               style={{

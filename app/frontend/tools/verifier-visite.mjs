@@ -33,6 +33,10 @@ const marked = new Set();
 for (const f of files(SRC)) {
   const text = readFileSync(f, 'utf8');
   for (const m of text.matchAll(/data-tour="([\w-]+)"/g)) marked.add(m[1]);
+  if (/data-tour=\{`nav-\$\{item\.id\}`\}/.test(text)) {
+    const items = text.match(/const NAV_ITEMS = \[([\s\S]*?)\];/);
+    for (const m of (items?.[1] || '').matchAll(/id:\s*'([\w-]+)'/g)) marked.add(`nav-${m[1]}`);
+  }
   if (/data-tour=\{`settings-\$\{id\}`\}/.test(text)) {
     const sections = text.match(/const SECTIONS = \[([\s\S]*?)\];/);
     for (const m of (sections?.[1] || '').matchAll(/id:\s*'([\w-]+)'/g)) marked.add(`settings-${m[1]}`);

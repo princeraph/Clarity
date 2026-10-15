@@ -85,7 +85,7 @@ async function addTask(text) {
   try {
     const r = await fetch(`${API}/tasks`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
+      body: JSON.stringify({ title: p.title, tags: p.tags, deadline: p.deadline || null, time: p.time || null, estimatedDuration: p.estimatedDuration || null, recurring: p.recurring }),
     });
     return r.ok ? await r.json() : null;
   } catch { return null; }
@@ -98,7 +98,7 @@ function FirstCapture({ T, t, added, setAdded, draft, setDraft, cta }) {
   const { fmtDate, fmtDuration, fmtHours } = useLocale();
   const [failed, setFailed] = useState(false);
   const p = parseInput(draft);
-  const understood = p.tags.length > 0 || p.deadline || p.estimatedDuration;
+  const understood = p.tags.length > 0 || p.deadline || p.time || p.estimatedDuration;
 
   async function add() {
     if (!draft.trim()) return;

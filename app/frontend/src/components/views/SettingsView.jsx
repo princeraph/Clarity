@@ -361,6 +361,10 @@ function KeyboardSection({ T }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       <PageHeader section={t('settings.section.keyboard')} title={t('settings.keyboard.title')} T={T} />
+      <button type="button" onClick={() => window.dispatchEvent(new Event('clarity-shortcuts'))} style={{
+        alignSelf: 'flex-start', padding: '7px 14px', fontSize: 13, fontFamily: T.fontUI, color: T.ink80,
+        background: T.paperSubtle, border: `1px solid ${T.hairline}`, borderRadius: T.r6, cursor: 'pointer',
+      }}>{t('shortcuts.open')}</button>
 
       <Section title={t('settings.keyboard.shortcuts')} subtitle={t('settings.keyboard.hint')} T={T}>
         {shortcuts.map(({ id, actionKey, keys, isCustom }) => (
