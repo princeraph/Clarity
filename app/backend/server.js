@@ -27,6 +27,7 @@ import { createConnector, findByRef, findSubtask, taskDetail, listView, overview
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
+import { workdayOf, validWorkday } from './src/workday.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
 import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo, normalizeDismissed } from './src/links.js';
@@ -833,6 +834,7 @@ app.get('/api/settings', (req, res) => {
   res.json({
     ...s,
     features: featuresOf(s),
+    workday: workdayOf(s),
     tunnelSecret: s.tunnelSecret ? '••••••••' : '',
     apiKey:       s.apiKey       ? '••••••••' : '',
   });
@@ -840,7 +842,9 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features, uiLanguage } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features, uiLanguage, workday } = req.body;
+  if (workday !== undefined && validWorkday(workday) !== null)
+    return res.status(400).json({ error: `Invalid working day: ${validWorkday(workday)}`, code: 'invalid-workday' });
   // The language picked in Clarity, so text the AI writes matches the screen.
   if (uiLanguage !== undefined && (typeof uiLanguage !== 'string' || !/^[a-z]{2}-[A-Z]{2}$/.test(uiLanguage))) {
     return res.status(400).json({ error: 'Invalid language', code: 'invalid-setting' });
@@ -877,6 +881,7 @@ app.post('/api/settings', async (req, res) => {
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
+    ...(workday             !== undefined && { workday: { ...workdayOf({}), ...workday } }),
     ...(uiLanguage          !== undefined && { uiLanguage }),
     ...(features            !== undefined && { features: { ...featuresOf(cur), ...features } }),
   });

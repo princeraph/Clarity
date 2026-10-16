@@ -45,6 +45,10 @@
     {
       "nom": "les propositions respectent seuils, décisions et refus",
       "commande": "node frontend/tools/verifier-suggestions.mjs"
+    },
+    {
+      "nom": "la journée réaliste tient dans ses heures et suit ses règles",
+      "commande": "node frontend/tools/verifier-journee.mjs"
     }
   ]
 }

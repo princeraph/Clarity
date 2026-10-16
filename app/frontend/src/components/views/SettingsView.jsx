@@ -8,6 +8,7 @@ import OllamaSetup from '../OllamaSetup.jsx';
 import ConnectorAnimation from '../ConnectorAnimation.jsx';
 import { updates } from '../../updates.js';
 import { startTour, latestWhatsNew } from '../../tour/tours.js';
+import WorkdaySettings from '../WorkdaySettings.jsx';
 import SyncAccount from '../SyncAccount.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -1454,6 +1455,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
           // a setting is looked for by what it changes, not by what runs it.
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             <PageHeader section={t('settings.section.daily')} title={t('settings.daily.title')} T={T} />
+            <WorkdaySettings T={T} />
             <FeatureSettings T={T} onTasksChanged={onSaved} />
             <StartWithSystem T={T} />
           </div>
