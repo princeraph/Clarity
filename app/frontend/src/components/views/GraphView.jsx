@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
+import { levelTone, shownLevel, LEVEL_STYLE } from '../../lib/niveaux.js';
 
 // ─── Physics constants ────────────────────────────────────────────────────────
 const REPULSION  = 9000;
@@ -219,7 +220,7 @@ function tickPhysics(nodes, edges, pinnedIds, byTopic, topicOrder) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function GraphView({ rankedTasks, onOpenDetail }) {
   const { t } = useLocale();
-  const { T } = useTheme();
+  const { T, isDark } = useTheme();
 
   const [filter,     setFilter]     = useState('All');
   const [selectedId, setSelectedId] = useState(null);
@@ -552,6 +553,11 @@ export default function GraphView({ rankedTasks, onOpenDetail }) {
                   stroke={isSel ? T.accent : T.hairline}
                   strokeWidth={isSel ? 1.5 : 1}
                 />
+                {/* The level (2.1.0): a bar on the right edge, thicker the higher. */}
+                {(() => { const sl = shownLevel(nd.task); const w = LEVEL_STYLE[sl.level].weight; return (
+                  <rect data-node-level={sl.level} x={x + NW - w} y={y + 4} width={w} height={NH - 8} rx={w / 2}
+                    fill={levelTone(sl.level, isDark).bar} strokeDasharray={sl.inherited ? '3 2' : undefined} opacity={sl.inherited ? 0.7 : 1} />
+                ); })()}
                 {/* Topic color bar */}
                 {topicLabel && (
                   <rect x={x} y={y} width={3} height={NH} rx={3}

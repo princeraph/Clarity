@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocale } from '../contexts/LocaleContext.jsx';
-import { buildPlan, replan, needsReplan, nowAndNext, nextWorkday, toHHMM } from '../lib/journee.js';
+import { buildPlan, replan, needsReplan, nowAndNext, nextWorkday, toHHMM, layoutDay, breaksOf } from '../lib/journee.js';
+import { shownLevel } from '../lib/niveaux.js';
+import TimeGrid from './TimeGrid.jsx';
 
 // The realistic day, on Today (2.0.0). Clarity proposes a plan — what fits in
 // the working hours, where, what does not fit and why — and the person
 // accepts it. Accepted, it is kept apart (localStorage, this computer): no
 // task is changed, except those moved to tomorrow. When a block overruns, the
-// rest moves on its own and the page says so.
+// rest moves on its own and the page says so. 2.1.0: drawn as a time grid —
+// hours down the side, each block as tall as it lasts, in its level's color.
 const API = 'http://localhost:3001/api';
 const KEY = 'clarity-day-plan';
 const LATER = 'clarity-day-plan-later';
@@ -15,7 +18,7 @@ const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localSt
 const minutesNow = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
-export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPlan }) {
+export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPlan, onMode }) {
   const { t, fmtDuration } = useLocale();
   const [workday, setWorkday] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -66,13 +69,16 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
 
   const plan = accepted || preview;
   useEffect(() => { onPlan?.(accepted); }, [accepted, onPlan]);
+  const isWorkdayNow = !!workday && workday.days.includes(new Date().getDay());
+  const mode = !workday || !plan ? null : (!accepted && (later || !isWorkdayNow)) ? 'idle' : 'grid';
+  useEffect(() => { onMode?.(mode); }, [mode, onMode]);
   if (!workday || !plan) return null;
 
   const byId = new Map(tasks.map(x => [x.id, x]));
   const dur = (m) => fmtDuration(m);   // « 1 h 20 », not « 1,3 h »
   const work = plan.blocks.filter(b => b.kind === 'task' || b.kind === 'batch' || b.kind === 'fixed');
   const overflow = plan.overflow.filter(o => byId.get(o.taskId)?.status !== 'done' && byId.get(o.taskId)?.deadline <= today);
-  const isWorkday = workday.days.includes(new Date().getDay());
+  const isWorkday = isWorkdayNow;
 
   async function moveToTomorrow(ids) {
     const when = nextWorkday(today, workday.days);
@@ -101,51 +107,71 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
 
   const { now, next } = accepted ? nowAndNext(accepted, nowMin) : { now: null, next: null };
 
-  return (
-    <section data-tour="day-plan" data-day-plan={accepted ? 'accepted' : 'preview'} style={{ border: `1px solid ${T.hairline}`, borderRadius: T.r10, padding: '14px 18px', background: T.paperSubtle }}>
+  // The grid: the plan's blocks, the calendar's events, the breaks.
+  const items = [
+    ...plan.blocks.map(b => {
+      const done = b.taskIds.length > 0 && b.taskIds.every(id => byId.get(id)?.status === 'done');
+      if (b.kind === 'event') return { id: b.id, kind: 'event', title: b.label, start: b.start, end: b.end };
+      if (b.kind === 'batch') return { id: b.id, kind: 'batch', title: label(b), start: b.start, end: b.end, done,
+        sub: b.taskIds.map(id => ({ id, title: byId.get(id)?.title || '', done: byId.get(id)?.status === 'done' })) };
+      const task = byId.get(b.taskIds[0]);
+      const shown = shownLevel(task);
+      return { id: b.id, kind: b.kind, taskId: b.taskIds[0], title: (task?.title || '') + (b.kind === 'fixed' ? ` · ${t('day.fixed')}` : ''),
+        level: shown.level, inherited: shown.inherited, start: b.start, end: b.end, done,
+        detail: b.factor && b.factor !== 1 ? t('day.corrected', { base: dur(b.base), minutes: dur(b.minutes), factor: String(b.factor).replace('.', ',') }) : null };
+    }),
+    ...breaksOf(workday).map((b, i) => ({ id: `break-${i}`, kind: 'break', title: t('day.break'), ...b })),
+  ];
+  const grid = layoutDay({ items, workday });
+  const actions = (
+    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
       {accepted ? (
-        <div data-now style={{ marginBottom: 10 }}>
-          {now ? (
-            <div style={{ fontSize: 15, color: T.ink }}>
-              <span style={{ color: T.accentInk, fontWeight: 600 }}>{t('day.now')}</span> {label(now)} <span style={{ color: T.ink60 }}>{t('day.until', { time: toHHMM(now.end) })}</span>
-            </div>
-          ) : next ? (
-            <div style={{ fontSize: 15, color: T.ink }}>
-              <span style={{ color: T.accentInk, fontWeight: 600 }}>{t('day.nextAt', { time: toHHMM(next.start) })}</span> {label(next)}
-            </div>
-          ) : (
-            <div style={{ fontSize: 14, color: T.ink60 }}>{t('day.nothingLeft')}</div>
-          )}
-          {now && next && <div style={{ fontSize: 12.5, color: T.ink60, marginTop: 2 }}>{t('day.then', { title: label(next), time: toHHMM(next.start) })}</div>}
-          {shift > 0 && <div role="status" data-shift style={{ fontSize: 12, color: T.warn, marginTop: 4 }}>{t('day.shifted', { time: dur(shift) })}</div>}
-        </div>
+        <button type="button" data-act="redo" onClick={redo} style={btn(false)}>{t('day.redo')}</button>
       ) : (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{t('day.proposed')}</div>
-          <div style={{ fontSize: 12.5, color: T.ink60, marginTop: 2 }}>
-            {t('day.summary', { planned: dur(plan.planned), free: dur(plan.capacity) })}
-            {plan.missing > 0 && <> · <span style={{ color: T.warn }}>{t('day.short', { time: dur(plan.missing) })}</span></>}
-          </div>
-        </div>
+        <>
+          <button type="button" data-act="accept" onClick={accept} style={btn(true)}>{t('day.accept')}</button>
+          <button type="button" data-act="later" onClick={putOff} style={btn(false)}>{t('day.later')}</button>
+        </>
       )}
+    </div>
+  );
 
-      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {work.map(b => {
-          const done = b.taskIds.every(id => byId.get(id)?.status === 'done');
-          return (
-            <li key={b.id} data-block={b.kind} style={{ display: 'grid', gridTemplateColumns: '92px 1fr auto', gap: 10, alignItems: 'baseline', fontSize: 13, padding: '3px 0', opacity: done ? 0.5 : 1 }}>
-              <span style={{ fontFamily: T.fontMono, fontSize: 11.5, color: T.ink60 }}>{toHHMM(b.start)}–{toHHMM(b.end)}</span>
-              <button type="button" onClick={() => b.taskIds[0] && onOpenDetail?.(byId.get(b.taskIds[0]))} style={{ textAlign: 'left', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: T.ink, fontSize: 13, fontFamily: T.fontUI, textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {label(b)}{b.kind === 'fixed' && <span style={{ color: T.ink40 }}> · {t('day.fixed')}</span>}
-              </button>
-              <span data-duration style={{ fontFamily: T.fontMono, fontSize: 11, color: b.factor && b.factor !== 1 ? T.accentInk : T.ink40 }}>
-                {b.factor && b.factor !== 1 ? t('day.corrected', { base: dur(b.base), minutes: dur(b.minutes), factor: String(b.factor).replace('.', ',') }) : dur(b.end - b.start)}
-              </span>
-            </li>
-          );
-        })}
-        {!work.length && <li style={{ fontSize: 13, color: T.ink60 }}>{t('day.empty')}</li>}
-      </ol>
+  return (
+    <section data-tour="day-plan" data-day-plan={accepted ? 'accepted' : 'preview'} style={{ border: `1px solid ${T.hairline}`, borderRadius: T.r10, padding: '14px 18px 12px', background: T.paperSubtle }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+        {accepted ? (
+          <div data-now>
+            {now ? (
+              <div style={{ fontSize: 15, color: T.ink }}>
+                <span style={{ color: T.accentInk, fontWeight: 600 }}>{t('day.now')}</span> {label(now)} <span style={{ color: T.ink60 }}>{t('day.until', { time: toHHMM(now.end) })}</span>
+              </div>
+            ) : next ? (
+              <div style={{ fontSize: 15, color: T.ink }}>
+                <span style={{ color: T.accentInk, fontWeight: 600 }}>{t('day.nextAt', { time: toHHMM(next.start) })}</span> {label(next)}
+              </div>
+            ) : (
+              <div style={{ fontSize: 14, color: T.ink60 }}>{t('day.nothingLeft')}</div>
+            )}
+            {now && next && <div style={{ fontSize: 12.5, color: T.ink60, marginTop: 2 }}>{t('day.then', { title: label(next), time: toHHMM(next.start) })}</div>}
+            {shift > 0 && <div role="status" data-shift style={{ fontSize: 12, color: T.warn, marginTop: 4 }}>{t('day.shifted', { time: dur(shift) })}</div>}
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>{t('day.proposed')}</div>
+            <div style={{ fontSize: 12.5, color: T.ink60, marginTop: 2 }}>
+              {t('day.summary', { planned: dur(plan.planned), free: dur(plan.capacity) })}
+              {plan.missing > 0 && <> · <span style={{ color: T.warn }}>{t('day.short', { time: dur(plan.missing) })}</span></>}
+            </div>
+          </div>
+        )}
+        {actions}
+      </div>
+
+      {work.length > 0 || grid.items.length > 0 ? (
+        <TimeGrid testId="day" from={grid.from} to={grid.to} onOpen={(id) => onOpenDetail?.(byId.get(id))}
+          columns={[{ key: today, items: grid.items, nowMin }]} />
+      ) : null}
+      {!work.length && <div style={{ fontSize: 13, color: T.ink60, marginTop: 6 }}>{t('day.empty')}</div>}
 
       {overflow.length > 0 && (
         <div data-overflow style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.hairlineSoft}` }}>
@@ -163,16 +189,6 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        {accepted ? (
-          <button type="button" data-act="redo" onClick={redo} style={btn(false)}>{t('day.redo')}</button>
-        ) : (
-          <>
-            <button type="button" data-act="accept" onClick={accept} style={btn(true)}>{t('day.accept')}</button>
-            <button type="button" data-act="later" onClick={putOff} style={btn(false)}>{t('day.later')}</button>
-          </>
-        )}
-      </div>
     </section>
   );
 }

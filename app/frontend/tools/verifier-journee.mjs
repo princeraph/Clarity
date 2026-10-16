@@ -90,5 +90,18 @@ r = J.replan(accepted, args(J.toMin('09:30'), withDone));
 check('… le bloc en cours ne bouge pas, « c » disparaît', r.plan.blocks.map(b => [b.taskIds[0], J.toHHMM(b.start)]), [['a', '09:00'], ['b', '10:00']]);
 check('maintenant / ensuite', (() => { const { now, next } = J.nowAndNext(accepted, J.toMin('09:40')); return [now?.taskIds[0], next?.taskIds[0]]; })(), ['a', 'b']);
 
+
+// 2.1.0 — the time grid.
+const L = (items, over = {}) => J.layoutDay({ items: items.map(([id, a, b]) => ({ id, start: J.toMin(a), end: J.toMin(b) })), ...over });
+const lanes = (l) => l.items.map(i => `${i.id}:${i.lane}/${i.lanes}`);
+check('grille : sans chevauchement, une seule colonne', lanes(L([['a', '09:00', '10:00'], ['b', '10:00', '11:00']])), ['a:0/1', 'b:0/1']);
+check('grille : deux qui se chevauchent, côte à côte', lanes(L([['a', '09:00', '10:30'], ['b', '10:00', '11:00']])), ['a:0/2', 'b:1/2']);
+check('grille : la place libérée est reprise', lanes(L([['a', '09:00', '12:00'], ['b', '09:00', '10:00'], ['c', '10:00', '11:00']])), ['a:0/2', 'b:1/2', 'c:1/2']);
+check('grille : un groupe qui se chevauche ne rétrécit pas le suivant', lanes(L([['a', '09:00', '10:00'], ['b', '09:30', '10:00'], ['c', '14:00', '15:00']])), ['a:0/2', 'b:1/2', 'c:0/1']);
+check('grille : heures entières qui contiennent la journée', (({ from, to }) => [J.toHHMM(from), J.toHHMM(to)])(L([], { workday: DAY })), ['09:00', '18:00']);
+check('grille : … et ce qui en dépasse', (({ from, to }) => [J.toHHMM(from), J.toHHMM(to)])(L([['tôt', '07:30', '08:00'], ['tard', '18:00', '19:10']], { workday: DAY })), ['07:00', '20:00']);
+check('pauses de la journée', J.breaksOf(DAY).map(b => [J.toHHMM(b.start), J.toHHMM(b.end)]), [['12:00', '13:00']]);
+check('… sans pause, aucune', J.breaksOf({ ...DAY, breakStart: null, breakEnd: null }), []);
+
 if (bad) { console.error(`${bad} écart(s)`); process.exit(1); }
 console.log(`journée réaliste — ${n} cas, aucun écart.`);

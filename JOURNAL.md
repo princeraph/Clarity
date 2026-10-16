@@ -1231,6 +1231,40 @@ rendez-vous simulés de `verifier-journee`).
 
 ---
 
+## 2.1.0 — Les niveaux se voient, le plan en grille horaire (16 octobre 2026)
+
+**Changé.**
+- **Niveaux** : barre de couleur sur chaque tâche (plus épaisse quand le niveau
+  est haut, en pointillé s'il est hérité). « Priorité absolue » et « Très haute »
+  sont écrits. Les cartes Absolue sont teintées. Le niveau figure aussi sur les
+  nœuds du graphe.
+- **Plan du jour** : grille horaire verticale, blocs proportionnels à leur durée,
+  avec rendez-vous, pause et trait de maintenant.
+- **À venir** remplace « Ensuite » : 7 jours, avec la charge de chaque jour et
+  les jours trop pleins en orange.
+- **Calendrier** : vue semaine (par défaut) ; mois en couleurs de niveau.
+- **Serveur** : `/api/calendar/range` ; heures UTC ramenées à l'heure locale.
+
+**Pourquoi.** Demande du 16 octobre : niveaux trop discrets, « Ensuite » sans
+dates, plan présenté comme une simple liste. Captures d'agenda « time blocking »
+en référence.
+
+**Vérifié.**
+- `verifier-niveaux` : 116 contrôles de contraste (barre ≥ 3:1, texte ≥ 7:1, clair
+  et sombre).
+- `verifier-a-venir` : 17 cas.
+- `verifier-journee` : 43 cas, dont 8 pour la grille.
+- Mutations : chaque règle a été cassée sur copie, et le contrôle l'a vue.
+- `tests/calendrier.test.js` : 6 tests ; backend : 493 tests au total.
+- Navigateur (`essai-navigateur-2.1.cjs`), tout vert : grille, hauteurs,
+  débordement, barres, À venir, semaine, mois, sombre, graphe.
+
+**Reste.**
+- 2.2 : pauses multiples, heures par jour, plan modifiable (glisser, épingler,
+  durée, retirer, ajouter).
+- Pas vérifié : un vrai fichier .ics sur plusieurs jours ; les répétitions
+  (RRULE) ne sont toujours pas lues.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

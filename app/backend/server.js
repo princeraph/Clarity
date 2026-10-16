@@ -28,6 +28,7 @@ import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { workdayOf, validWorkday } from './src/workday.js';
+import { eventsBetween, isoDay } from './src/calendrier.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
 import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo, normalizeDismissed } from './src/links.js';
@@ -1949,31 +1950,22 @@ app.get('/api/calendar/today', (req, res) => {
   const icsPath = join(DATA_DIR, 'calendar.ics');
   if (!existsSync(icsPath)) return res.json({ events: [], source: null });
   try {
-    const icsText = readFileSync(icsPath, 'utf8');
-    const _now = new Date();
-    const todayStr = `${_now.getFullYear()}${String(_now.getMonth()+1).padStart(2,'0')}${String(_now.getDate()).padStart(2,'0')}`;
-    const events = [];
-    const blocks = icsText.split('BEGIN:VEVENT').slice(1);
-    for (const block of blocks) {
-      const summary  = (block.match(/^SUMMARY:(.+)$/m) || [])[1]?.trim();
-      const dtstart  = (block.match(/^DTSTART[^:]*:(.+)$/m) || [])[1]?.trim();
-      const dtend    = (block.match(/^DTEND[^:]*:(.+)$/m) || [])[1]?.trim();
-      if (!summary || !dtstart) continue;
-      const dateOnly = dtstart.replace(/T.*/, '');
-      if (dateOnly !== todayStr) continue;
-      const toHour = s => {
-        const t = s.includes('T') ? s.split('T')[1] : null;
-        if (!t) return null;
-        return parseInt(t.slice(0, 2), 10) + parseInt(t.slice(2, 4), 10) / 60;
-      };
-      const start = toHour(dtstart);
-      if (start !== null) {
-        const end = toHour(dtend) ?? start + 1;
-        events.push({ type: 'meeting', label: summary, start, end });
-      }
-    }
+    const today = isoDay(new Date());
+    const events = eventsBetween(readFileSync(icsPath, 'utf8'), today, today).map(({ date, ...e }) => e);
     res.json({ events, source: 'ics' });
   } catch { res.json({ events: [], source: null }); }
+});
+
+// The days ahead (2.1.0): the week view and « Upcoming ». At most 62 days.
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+app.get('/api/calendar/range', (req, res) => {
+  const { from, to } = req.query;
+  if (!DAY.test(from || '') || !DAY.test(to || '') || to < from || (new Date(to) - new Date(from)) / 86400000 > 62)
+    return res.status(400).json({ error: 'from and to must be YYYY-MM-DD, at most 62 days apart', code: 'invalid-range' });
+  const icsPath = join(DATA_DIR, 'calendar.ics');
+  if (!existsSync(icsPath)) return res.json({ events: [], source: null });
+  try { res.json({ events: eventsBetween(readFileSync(icsPath, 'utf8'), from, to), source: 'ics' }); }
+  catch { res.json({ events: [], source: null }); }
 });
 
 // ── Export ────────────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import DayPlan from '../DayPlan.jsx';
+import Upcoming from '../Upcoming.jsx';
 import { useState, useEffect } from 'react';
 import TaskCard from '../TaskCard.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
@@ -210,12 +211,13 @@ function stalledWhy(s, t) {
   return s.why;
 }
 
-export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onViewAll, onOpenSettings, onOpenChat, ...handlers }) {
+export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onViewAll, onOpenSettings, onOpenChat, onOpenDay, ...handlers }) {
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
   const userName = getUserName();
   const [calendarBlocks, setCalendarBlocks] = useState([]);
   const [dayPlan, setDayPlan] = useState(null);   // the accepted plan, for the strip
+  const [planMode, setPlanMode] = useState(null); // 'grid': the plan draws the day, the strip steps aside
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -238,11 +240,10 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
   // The first of the order (lib/ordre.js), unless it waits on another task.
   // It was « the one the assistant ranks 1 »: without an assistant, empty.
   const focusTasks  = activeTasks.filter(t => !t.order?.blocked).slice(0, 1);
-  const quickTasks  = activeTasks.filter(t => !focusTasks.includes(t)).slice(0, 4);
   const lateTasks   = activeTasks.filter(t => t.deadline && t.deadline.slice(0, 10) < todayISO);
   // Due today but ranked below the first five: the Today badge counted it and
   // the page did not show it anywhere.
-  const dueToday    = activeTasks.filter(t => t.deadline?.slice(0, 10) === todayISO && !focusTasks.includes(t) && !quickTasks.includes(t));
+  const dueToday    = activeTasks.filter(t => t.deadline?.slice(0, 10) === todayISO && !focusTasks.includes(t));
   const taskBlocks = rankedTasks
     .filter(t => t.deadline === todayISO && t.time && t.status !== 'done')
     .map(t => {
@@ -290,10 +291,10 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       </header>
 
       {/* Time blocking strip */}
-      <TimeBlockingStrip blocks={timelineBlocks} />
+      {planMode !== 'grid' && <TimeBlockingStrip blocks={timelineBlocks} />}
 
       {/* The realistic day (2.0.0): a plan proposed, then accepted. */}
-      <DayPlan tasks={rankedTasks} events={calendarBlocks} T={T} onReload={handlers.onReload} onOpenDetail={handlers.onOpenDetail} onPlan={setDayPlan} />
+      <DayPlan tasks={rankedTasks} events={calendarBlocks} T={T} onReload={handlers.onReload} onOpenDetail={handlers.onOpenDetail} onPlan={setDayPlan} onMode={setPlanMode} />
 
       {/* AI Plan strip — Settings › Day to day › Planning › Daily plan strip */}
       {analysis?.whatToDoNext && analysis.whatToDoNext !== handledPlan && features?.dailyPlan !== false && (
@@ -375,18 +376,6 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
             </TaskGroup>
           )}
 
-          {quickTasks.length > 0 && (
-            <TaskGroup title={t('focus.upNext')} subtitle={t(quickTasks.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: quickTasks.length })} T={T}>
-              {quickTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
-              {/* Today shows four; the rest were simply out of sight. */}
-              {activeTasks.length > focusTasks.length + quickTasks.length && onViewAll && (
-                <button onClick={onViewAll} style={{ marginTop: 8, background: 'transparent', border: 'none', color: T.accent, cursor: 'pointer', fontSize: 12.5, fontFamily: T.fontUI, padding: '4px 0' }}>
-                  {t('focus.viewAll', { n: activeTasks.length })}
-                </button>
-              )}
-            </TaskGroup>
-          )}
-
           {dueToday.length > 0 && (
             <TaskGroup title={t('focus.dueToday')} subtitle={t(dueToday.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: dueToday.length })} T={T}>
               {dueToday.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
@@ -397,6 +386,15 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
             <TaskGroup title={t('focus.overdue')} subtitle={t('focus.needsAttention')} muted T={T}>
               {lateTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
             </TaskGroup>
+          )}
+
+          <Upcoming tasks={activeTasks} onOpenDetail={handlers.onOpenDetail} onOpenDay={onOpenDay} />
+
+          {/* « Up next » showed four, and the rest were out of sight. */}
+          {onViewAll && activeTasks.length > focusTasks.length + dueToday.length && (
+            <button onClick={onViewAll} style={{ alignSelf: 'flex-start', marginTop: -12, background: 'transparent', border: 'none', color: T.accent, cursor: 'pointer', fontSize: 12.5, fontFamily: T.fontUI, padding: '4px 0' }}>
+              {t('focus.viewAll', { n: activeTasks.length })}
+            </button>
           )}
 
           {doneTasks.length > 0 && (

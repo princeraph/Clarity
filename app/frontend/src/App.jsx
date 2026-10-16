@@ -70,6 +70,7 @@ function AppInner() {
   dataRef.current = data;
   const [health, setHealth]     = useState({ ollama: false, model: '', analyzing: false });
   const [view, setView]         = useState('focus');
+  const [calendarFocus, setCalendarFocus] = useState(null);   // « Upcoming » › a day: the week that holds it
   // Which Settings page opens. "The AI isn't available" leads straight to the
   // AI page — landing on Appearance would leave the person to find it.
   const [settingsSection, setSettingsSection] = useState('appearance');
@@ -740,7 +741,7 @@ function AppInner() {
           {view === 'focus' && (
             <FocusView rankedTasks={rankedTasks} analysis={data.analysis} stats={stats}
               analyzing={data.analyzing} analysisError={data.analysisError} health={health} {...taskHandlers}
-              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} onDismissPlan={markPlanHandled} onViewAll={() => goTo('tasks')} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
+              onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} onDismissPlan={markPlanHandled} onViewAll={() => goTo('tasks')} onOpenDay={(date) => { setCalendarFocus({ date, at: Date.now() }); setView('calendar'); }} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
               onOpenSettings={openAiSettings} onReanalyze={handleReanalyze}
               onOpenChat={() => setShowChat(true)} />
           )}
@@ -751,7 +752,7 @@ function AppInner() {
               activeArea={activeArea} onClearArea={() => setActiveArea('')} />
           )}
           {view === 'calendar' && (
-            <CalendarView rankedTasks={rankedTasks} onEdit={openEditTask} onAddTask={openAddTask} />
+            <CalendarView rankedTasks={rankedTasks} onEdit={openEditTask} onAddTask={openAddTask} onOpenDetail={openDetail} focus={calendarFocus} />
           )}
           {view === 'archive' && (
             <ArchiveView archivedTasks={data.archivedTasks.filter(x => !hiddenTaskIds.has(x.id))} onRestore={handleRestore} onDelete={handleDeleteTask} onAddTask={openAddTask} />

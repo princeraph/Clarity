@@ -57,6 +57,12 @@ export const WHATS_NEW = {
     { key: 'dayPlan', view: 'focus', target: 'day-plan' },
     { key: 'workday', settings: 'daily', target: 'workday' },
   ],
+  '2.1.0': [
+    { key: 'dayGrid', view: 'focus', target: 'day-plan' },
+    { key: 'levels', view: 'focus', target: 'today-list' },
+    { key: 'upcoming', view: 'focus', target: 'upcoming', optional: true },
+    { key: 'calendarWeek', view: 'calendar', target: 'calendar-week' },
+  ],
 };
 
 export function compareVersions(a, b) {
