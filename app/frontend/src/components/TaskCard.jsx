@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { tagColor } from './TaskForm.jsx';
-import { LEVEL_STYLE } from '../lib/niveaux.js';
+import { LEVEL_STYLE, levelTone, shownLevel } from '../lib/niveaux.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 
@@ -43,7 +43,7 @@ function CircleCheck({ done, focus, stale, pop, T }) {
 }
 
 export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onOpenDetail, onContextMenu }) {
-  const { T } = useTheme();
+  const { T, isDark } = useTheme();
   const { t, fmtDate, fmtDuration } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [hov, setHov] = useState(false);
@@ -72,6 +72,12 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
     return () => clearInterval(id);
   }, [timerRunning, task.timerStarted, task.status]);
   const getTitle      = id => (allTasks || []).find(t => t.id === id)?.title || id;
+  // The level, seen (2.1.0): a bar on the left — thicker the higher, dashed
+  // when inherited —, the name of the two highest, a tint for « Absolute ».
+  const shown = shownLevel(task);
+  const tone  = levelTone(shown.level, isDark);
+  const lvl   = LEVEL_STYLE[shown.level];
+  const tinted = shown.level === 'top' && !shown.inherited && !isDone;
 
   return (
     <div
@@ -79,20 +85,27 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
       data-task-id={task.id}
       tabIndex={0}
       aria-label={task.title}
+      aria-description={t(lvl.key)}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, task); } : undefined}
       style={{
         display: 'grid', gridTemplateColumns: `${T.taskCheckSize || 16}px 1fr auto`, alignItems: 'start', gap: 14,
-        padding: `${T.taskPadV || 12}px ${T.taskPadH || 4}px`,
+        position: 'relative',
+        padding: `${T.taskPadV || 12}px ${T.taskPadH || 4}px ${T.taskPadV || 12}px ${(T.taskPadH || 4) + 10}px`,
         borderBottom: `1px solid ${T.hairlineSoft}`,
         opacity: isDone ? 0.5 : 1,
-        background: hov ? T.paperSubtle : 'transparent',
+        background: hov ? (tinted ? tone.fill : T.paperSubtle) : (tinted ? tone.wash : 'transparent'),
         borderRadius: T.r6,
         transition: 'opacity 0.3s ease, background-color 0.15s ease',
         '--focus-ring': T.accent,
       }}
     >
+      <span data-level={task.priority || undefined} data-level-bar={shown.level} data-inherited={shown.inherited ? '' : undefined} aria-hidden="true" style={{
+        position: 'absolute', left: 0, top: 7, bottom: 7, width: 0,
+        borderLeft: `${lvl.weight}px ${shown.inherited ? 'dashed' : 'solid'} ${tone.bar}`,
+        borderRadius: 2, opacity: isDone ? 0.5 : 1,
+      }} />
       {/* Check circle */}
       <button
         data-check
@@ -112,13 +125,6 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
       {/* Content */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          {/* The person's own level; when the assistant decides, no mark. */}
-          {task.priority && LEVEL_STYLE[task.priority] && (
-            <span data-level={task.priority} title={t(LEVEL_STYLE[task.priority].key)} aria-label={t(LEVEL_STYLE[task.priority].key)} style={{
-              width: 8, height: 8, borderRadius: 2, flexShrink: 0, alignSelf: 'center',
-              background: LEVEL_STYLE[task.priority].color,
-            }} />
-          )}
           <span
             onClick={onOpenDetail ? () => onOpenDetail(task) : undefined}
             style={{
@@ -130,6 +136,13 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
               cursor: onOpenDetail ? 'pointer' : 'default',
             }}
           >{task.title}</span>
+          {lvl.labelled && !isDone && (
+            <span data-level-label={shown.level} style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: '0.01em', flexShrink: 0,
+              color: tone.ink, background: tone.fill, border: `1px solid ${tone.bar}`,
+              padding: '1px 7px', borderRadius: T.rPill, borderStyle: shown.inherited ? 'dashed' : 'solid',
+            }}>{t(lvl.key)}</span>
+          )}
           {isFocus && !isDone && (
             <span style={{
               fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.08em',

@@ -194,3 +194,36 @@ export function nextWorkday(today, days = [1, 2, 3, 4, 5]) {
   }
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
+
+/** The breaks of a working day, as [{ start, end }] in minutes (2.2 will allow several). */
+export function breaksOf(workday) {
+  return workday?.breakStart && workday?.breakEnd ? [{ start: toMin(workday.breakStart), end: toMin(workday.breakEnd) }] : [];
+}
+
+/**
+ * The time grid (2.1.0): the hours a day column shows, and where each item
+ * sits. Overlapping items share the width side by side, each in its lane.
+ * `items`: [{ start, end, … }] in minutes. Returns { from, to, items } with
+ * `lane` and `lanes` on each item; from/to are whole hours that contain the
+ * working day and every item.
+ */
+export function layoutDay({ items, workday = null, minFrom = 24 * 60, minTo = 0 }) {
+  const starts = [minFrom, ...items.map(i => i.start)], ends = [minTo, ...items.map(i => i.end)];
+  if (workday) { starts.push(toMin(workday.start)); ends.push(toMin(workday.end)); }
+  const from = Math.max(0, Math.floor(Math.min(...starts) / 60) * 60);
+  const to = Math.min(24 * 60, Math.max(from + 60, Math.ceil(Math.max(...ends) / 60) * 60));
+  const sorted = [...items].sort((a, b) => a.start - b.start || b.end - a.end);
+  const out = [];
+  let cluster = [], clusterEnd = -1;
+  const close = () => { const lanes = Math.max(1, ...cluster.map(c => c.lane + 1)); for (const c of cluster) c.lanes = lanes; cluster = []; };
+  for (const it of sorted) {
+    if (it.start >= clusterEnd) { close(); clusterEnd = -1; }
+    const used = new Set(cluster.filter(c => c.end > it.start).map(c => c.lane));
+    let lane = 0; while (used.has(lane)) lane++;
+    const placed = { ...it, lane, lanes: 1 };
+    cluster.push(placed); out.push(placed);
+    clusterEnd = Math.max(clusterEnd, it.end);
+  }
+  close();
+  return { from, to, items: out };
+}

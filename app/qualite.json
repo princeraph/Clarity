@@ -49,6 +49,14 @@
     {
       "nom": "la journée réaliste tient dans ses heures et suit ses règles",
       "commande": "node frontend/tools/verifier-journee.mjs"
+    },
+    {
+      "nom": "« à venir » dit la charge de chaque jour",
+      "commande": "node frontend/tools/verifier-a-venir.mjs"
+    },
+    {
+      "nom": "les couleurs des niveaux se lisent, en clair comme en sombre",
+      "commande": "node frontend/tools/verifier-niveaux.mjs"
     }
   ]
 }

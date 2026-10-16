@@ -85,6 +85,12 @@ jobs:
       - name: la journée réaliste tient dans ses heures et suit ses règles
         working-directory: app/frontend
         run: node tools/verifier-journee.mjs
+      - name: « à venir » dit la charge de chaque jour
+        working-directory: app/frontend
+        run: node tools/verifier-a-venir.mjs
+      - name: les couleurs des niveaux se lisent, en clair comme en sombre
+        working-directory: app/frontend
+        run: node tools/verifier-niveaux.mjs
 
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app

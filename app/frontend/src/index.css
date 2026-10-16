@@ -115,6 +115,9 @@
 /* A task reached with the keyboard shows where it is (App.jsx, list keys). */
 .clarity-task { outline: none; }
 .clarity-task:focus-visible { outline: 2px solid var(--focus-ring, currentColor); outline-offset: 2px; }
+/* 2.1.0 — a block of the time grid (day plan, week): it lifts a little under the pointer. */
+.clarity-block:hover { filter: brightness(0.96) saturate(1.1); }
+.clarity-block:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
 
 /* Every control answers a hover and a press. Inline `transition` styles still
    win where a component sets its own. */
