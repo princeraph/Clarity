@@ -208,6 +208,22 @@ Repo **public**: GitHub standard runners free here, Windows included, so CI runs
 - no `pull_request` trigger: re-ran same commit second time;
 - **if repo ever goes private again**, revisit triggers first: every minute counts, Windows twice.
 
+**Storage — the rule that applies the day it goes private again.** Today
+nothing here counts, and no workflow uploads an artifact (checked 16 October
+2026; `publication` publishes into a release of a public repo, which is the
+right place). Once the repository is private, Actions storage is a free 500 MB
+quota shared by every private repo of the owner, counted per month. On 16
+October 2026 an installer (~117 MB, kept 90 days) uploaded as an artifact on
+each run filled it: "100 % of storage used". So, as soon as it is private:
+
+- no `actions/upload-artifact` unless it is really needed, and then
+  `retention-days: 1` and small files only — never an installer or a full build;
+- a deliverable to distribute goes into a release of a public repo, or to the
+  platform;
+- no large custom cache;
+- the owner sets Settings › Actions › General › "Artifact and log retention"
+  to 1 day (a manual setting, not versionable).
+
 ### Publishing a version for testers
 
 Testers install `Clarity-Setup.exe` from https://princeraph.github.io/clarity-releases/ and installed app updates itself from **public** repo `princeraph/clarity-releases` (installers and download page only — never source, never data). To publish:
