@@ -693,6 +693,7 @@ function AppInner() {
     onContextMenu:   openContextMenu,
     onFocusMode:     enterFocusMode,
     allTasks:        data.tasks,
+    onReload:        loadData,
   };
 
   const stats = {

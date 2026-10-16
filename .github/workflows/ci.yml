@@ -82,6 +82,10 @@ jobs:
         working-directory: app/frontend
         run: node tools/verifier-suggestions.mjs
 
+      - name: la journée réaliste tient dans ses heures et suit ses règles
+        working-directory: app/frontend
+        run: node tools/verifier-journee.mjs
+
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app
         run: node tools/verifier-paquet.mjs frontend/dist

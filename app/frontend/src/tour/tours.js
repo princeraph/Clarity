@@ -53,6 +53,10 @@ export const WHATS_NEW = {
     { key: 'suggest',      view: 'focus', target: 'today-list' },
     { key: 'suggestGraph', target: 'nav-graph' },
   ],
+  '2.0.0': [
+    { key: 'dayPlan', view: 'focus', target: 'day-plan' },
+    { key: 'workday', settings: 'daily', target: 'workday' },
+  ],
 };
 
 export function compareVersions(a, b) {

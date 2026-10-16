@@ -1183,6 +1183,54 @@ au premier passage de l'analyse.
 
 ---
 
+## 16 octobre — la journée réaliste (2.0.0)
+
+Spécification : `docs/superpowers/specs/2026-10-16-2.0-journee-realiste-design.md`
+(retenus : plan enregistré à part, heures 9–18 / pause 12–13 / lun–ven
+réglables, aperçu à accepter). Ce qui faisait perdre la journée, selon
+l'utilisateur : sous-estimer le temps, ne pas savoir quoi faire ensuite, ne
+pas savoir quoi repousser ni quoi faire ensemble.
+
+- **Heures de travail** (`backend/src/workday.js`, 11 tests) : réglées dans
+  Réglages › Au quotidien, vérifiées par le serveur (fin après début, pause
+  dans la journée, au moins un jour) ; une valeur abîmée retombe sur les
+  défauts plutôt que de casser le plan.
+- **Le plan** (`frontend/src/lib/journee.js`, pur) : capacité = heures −
+  pause − rendez-vous (.ics) − heures fixées − ce qui est passé ; durée =
+  estimation (ou d'après la difficulté, ou 30 min) × l'écart mesuré du sujet
+  ou général (borné ×0,5–×3) ; placement dans l'ordre de la 1.8, autour de ce
+  qui est pris, difficiles à l'heure de pointe (Tendances › rythme), petites
+  tâches du jour en un bloc, même sujet à la suite, jamais avant un bloquant ;
+  ce qui ne tient pas, avec la raison (journée pleine / bloquée par X) et
+  « Demain » (jour travaillé suivant).
+- **Accepté**, enregistré à part (localStorage de ce poste) : « Maintenant :
+  X, jusqu'à … », « Ensuite : … », la frise montre les blocs. Il bouge seul :
+  un bloc fini sans la tâche, cinq minutes passées, pousse la suite ; une tâche
+  finie en avance libère son temps.
+- `tools/verifier-journee.mjs`, 35 cas, barrière et CI ; neuf règles cassées
+  dans une copie, neuf refus.
+
+Trouvé en testant, pas en relisant :
+- un bloc « en cours » à l'horloge restait en place alors que celui d'avant
+  n'était pas fini — la personne y était encore. Un bloc n'est en cours que si
+  tout ce qui le précède est terminé ;
+- terminer la tâche en cours ne libérait pas son temps (seul un bloc futur le
+  faisait) ;
+- le plan se décalait à la minute exacte de fin — cinq minutes de grâce ;
+- « 1,3 h » au lieu de « 1 h 20 » ; un « décalé de … » resté affiché après
+  que le plan était remonté.
+
+Vérifié dans Chromium sur un vrai backend, horloge du navigateur pilotée
+(9 h → 10 h 25) et écart mesuré injecté : `frontend/tools/essai-navigateur-2.0.cjs`,
+19 contrôles, verts ; scénarios 1.7, 1.8, 1.9 rejoués, verts. Pas vérifié :
+les rendez-vous d'un vrai .ics dans le plan (le test passe par les
+rendez-vous simulés de `verifier-journee`).
+
+    tests backend    487, en 34 suites
+    contrôles        8 de qualite.json, verts
+
+---
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

@@ -1,3 +1,4 @@
+import DayPlan from '../DayPlan.jsx';
 import { useState, useEffect } from 'react';
 import TaskCard from '../TaskCard.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
@@ -214,6 +215,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
   const { t, fmtDate } = useLocale();
   const userName = getUserName();
   const [calendarBlocks, setCalendarBlocks] = useState([]);
+  const [dayPlan, setDayPlan] = useState(null);   // the accepted plan, for the strip
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -249,7 +251,13 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       const end = start + ((t.estimatedDuration || 60) / 60);
       return { type: 'focus', label: t.title, start, end };
     });
-  const timelineBlocks = [...taskBlocks, ...calendarBlocks].sort((a, b) => a.start - b.start);
+  // An accepted plan draws its blocks on the strip; without one, the tasks
+  // that have their own hour, as before.
+  const planBlocks = dayPlan ? dayPlan.blocks.filter(b => b.kind !== 'event').map(b => ({
+    type: 'focus', label: b.kind === 'batch' ? t('day.batchShort', { n: b.taskIds.length }) : (rankedTasks.find(x => x.id === b.taskIds[0])?.title || ''),
+    start: b.start / 60, end: b.end / 60,
+  })) : null;
+  const timelineBlocks = [...(planBlocks || taskBlocks), ...calendarBlocks].sort((a, b) => a.start - b.start);
   const features = useFeatures();
 
   const now = new Date();
@@ -283,6 +291,9 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
 
       {/* Time blocking strip */}
       <TimeBlockingStrip blocks={timelineBlocks} />
+
+      {/* The realistic day (2.0.0): a plan proposed, then accepted. */}
+      <DayPlan tasks={rankedTasks} events={calendarBlocks} T={T} onReload={handlers.onReload} onOpenDetail={handlers.onOpenDetail} onPlan={setDayPlan} />
 
       {/* AI Plan strip — Settings › Day to day › Planning › Daily plan strip */}
       {analysis?.whatToDoNext && analysis.whatToDoNext !== handledPlan && features?.dailyPlan !== false && (
