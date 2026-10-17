@@ -27,7 +27,7 @@ import { createConnector, findByRef, findSubtask, taskDetail, listView, overview
 import { buildBundle, manualConfig } from './src/connector/bundle.js';
 import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedback.js';
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
-import { workdayOf, validWorkday } from './src/workday.js';
+import { workdayOf, validWorkday, upgradeWorkday } from './src/workday.js';
 import { eventsBetween, isoDay } from './src/calendrier.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
@@ -882,7 +882,7 @@ app.post('/api/settings', async (req, res) => {
     ...(onboardingComplete  !== undefined && { onboardingComplete }),
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
-    ...(workday             !== undefined && { workday: { ...workdayOf({}), ...workday } }),
+    ...(workday             !== undefined && { workday: { ...workdayOf({}), ...upgradeWorkday(workday) } }),
     ...(uiLanguage          !== undefined && { uiLanguage }),
     ...(features            !== undefined && { features: { ...featuresOf(cur), ...features } }),
   });

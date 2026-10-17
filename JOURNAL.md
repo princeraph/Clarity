@@ -1265,6 +1265,35 @@ en référence.
 - Pas vérifié : un vrai fichier .ics sur plusieurs jours ; les répétitions
   (RRULE) ne sont toujours pas lues.
 
+## 2.2.0 — Au quotidien entièrement modifiable, le plan à sa main, la densité visible (17 octobre 2026)
+
+**Changé.**
+- **Réglages › Au quotidien** :
+  - jusqu'à 6 pauses, chacune avec un nom facultatif ;
+  - « Mêmes heures tous les jours » ou « Heures par jour », chaque jour avec ses heures et ses pauses ;
+  - l'ancienne pause unique est reprise sans rien perdre.
+- **Plan du jour** :
+  - glisser un bloc l'épingle à une autre heure (pas de 5 min) ;
+  - un clic sur un bloc donne : plus tôt, plus tard (aussi Alt + ↑/↓), heure épinglée, durée (« Garder comme estimation » possible), retirer du jour, défaire un groupe ;
+  - sous la grille : ajouter une tâche ou une pause, changer les heures pour aujourd'hui seulement, « Pas aujourd'hui » avec « Remettre » ;
+  - « Refaire » demande s'il faut garder les changements ou repartir de zéro ;
+  - un bloc épinglé n'est jamais déplacé quand la journée déborde ; s'il est dépassé, c'est dit.
+- **Densité** :
+  - elle ne changeait que les cartes de tâches (environ 5 px), et rien dans Réglages : on croyait qu'elle ne faisait rien ;
+  - elle touche maintenant la grille du jour, la semaine, À venir, la barre latérale et les cartes ;
+  - Réglages › Apparence montre un aperçu immédiat.
+
+**Pourquoi.** Retour du 17 octobre : impossible d'ajouter des pauses ou de régler les heures selon le jour ; la densité semblait ne rien faire ; « go 2.2 ».
+
+**Vérifié.**
+- `verifier-journee` : 60 cas (17 nouveaux : pauses multiples, heures par jour, épingle, durée, retirer, ajouter, pause du jour, groupe défait, débordement avec épingle). Chaque règle a été cassée sur copie, et le contrôle l'a vue.
+- `tests/workday.test.js` : 21 tests ; serveur : 503 tests au total.
+- Navigateur (`essai-navigateur-2.2.cjs`) tout vert : réglages complets, glisser-déposer réel à la souris, clavier, plan accepté puis refait, densité compacte (aperçu et grille).
+
+**Reste.**
+- Pas vérifié sous Windows à la main (glisser au pavé tactile).
+- Les champs d'heure suivent le format du système (12 h sur un Windows en anglais).
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

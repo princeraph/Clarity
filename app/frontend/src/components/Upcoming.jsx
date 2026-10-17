@@ -43,7 +43,7 @@ export default function Upcoming({ tasks, onOpenDetail, onOpenDay }) {
     : fmtDate(new Date(`${iso}T12:00:00`), { weekday: 'long', day: 'numeric' }).replace(/^./, c => c.toUpperCase());
 
   return (
-    <section data-tour="upcoming" data-upcoming style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <section data-tour="upcoming" data-upcoming style={{ display: 'flex', flexDirection: 'column', gap: T.taskGap || 14 }}>
       <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink60 }}>{t('upcoming.title')}</div>
       {days.map(d => (
         <div key={d.date} data-day={d.date} data-over={d.over ? '' : undefined}>
@@ -62,7 +62,7 @@ export default function Upcoming({ tasks, onOpenDetail, onOpenDay }) {
               return (
                 <button key={task.id} type="button" data-upcoming-task={task.id} data-level-bar={s.level} onClick={() => onOpenDetail?.(task)} style={{
                   display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', fontFamily: T.fontUI,
-                  padding: '6px 10px', borderRadius: T.r6, border: 'none', background: tone.fill, color: tone.ink,
+                  padding: `${T.rowPadV ?? 6}px 10px`, borderRadius: T.r6, border: 'none', background: tone.fill, color: tone.ink,
                   borderLeft: `3px ${s.inherited ? 'dashed' : 'solid'} ${tone.bar}`, fontSize: 13,
                 }}>
                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>

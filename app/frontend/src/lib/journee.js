@@ -32,7 +32,7 @@ export function freeIntervals({ workday, nowMin, taken = [] }) {
   const cut = ([a, b]) => {
     free = free.flatMap(([s, e]) => (b <= s || a >= e) ? [[s, e]] : [[s, a], [b, e]]).filter(([s, e]) => e - s >= STEP);
   };
-  if (workday.breakStart && workday.breakEnd) cut([toMin(workday.breakStart), toMin(workday.breakEnd)]);
+  for (const b of breaksOf(workday)) cut([b.start, b.end]);
   for (const t of taken) cut([t.start, t.end]);
   return free;
 }
@@ -62,17 +62,29 @@ function take(free, start, end) {
  * `order`: when replanning an accepted plan, the task ids in its order —
  * kept as is, no regrouping.
  */
-export function buildPlan({ tasks, today, nowMin, workday, events = [], estimation = {}, peakHour = null, order = null, busy = [] }) {
-  const live = tasks.filter(t => t.status !== 'done' && !t.archived);
+export function buildPlan({ tasks, today, nowMin, workday, events = [], estimation = {}, peakHour = null, order = null, busy = [], edits = {} }) {
+  // The person's own changes (2.2.0): `pins` { id: minute } — this task, at
+  // this time; `durations` { id: minutes } — this long, today; `excluded` —
+  // not today; `included` — today, though not due; `breaks` — extra breaks
+  // today; `ungrouped` — no « small tasks » block.
+  const { pins = {}, durations = {}, excluded = [], included = [], breaks: extraBreaks = [], ungrouped = false } = edits;
+  const out = new Set(excluded);
+  const live = tasks.filter(t => t.status !== 'done' && !t.archived && !out.has(t.id));
   const byId = new Map(live.map(t => [t.id, t]));
-  const due = (t) => !!t.deadline && t.deadline <= today;
+  const inc = new Set(included);
+  const due = (t) => (!!t.deadline && t.deadline.slice(0, 10) <= today) || inc.has(t.id);
+  const planned = (t) => (durations[t.id] ? { base: durations[t.id], factor: 1, minutes: durations[t.id], set: true } : plannedMinutes(t, estimation));
 
-  // Already taken: the calendar, and the tasks that have their own hour today.
-  const fixedTasks = live.filter(t => t.deadline === today && t.time);
+  // Already taken: the calendar, the breaks added today, and the tasks that
+  // have their own hour today — set on the task, or pinned in the plan.
+  const pinned = (t) => pins[t.id] != null;
+  const fixedTasks = live.filter(t => pinned(t) || (t.deadline === today && t.time));
   const blocks = [
     ...events.map((e, i) => ({ id: `event-${i}`, kind: 'event', label: e.label, taskIds: [], start: e.start, end: e.end })),
-    ...fixedTasks.map(t => { const p = plannedMinutes(t, estimation); const start = toMin(t.time); return { id: `fixed-${t.id}`, kind: 'fixed', taskIds: [t.id], start, end: start + p.minutes, ...p }; }),
+    ...fixedTasks.map(t => { const p = planned(t); const start = pinned(t) ? pins[t.id] : toMin(t.time); return { id: `fixed-${t.id}`, kind: 'fixed', pinned: pinned(t) || undefined, taskIds: [t.id], start, end: start + p.minutes, ...p }; }),
   ];
+  const added = extraBreaks.map((b, i) => ({ id: `pause-${i}`, kind: 'pause', taskIds: [], start: b.start, end: b.end }));
+  busy = [...busy, ...added];
   // `busy`: time already spoken for and not shown again (a block in progress).
   let free = freeIntervals({ workday, nowMin, taken: [...blocks, ...busy] });
   const capacity = sum(free);
@@ -96,8 +108,8 @@ export function buildPlan({ tasks, today, nowMin, workday, events = [], estimati
   }
 
   // Short tasks of today, together in one block where the first of them stood.
-  const plans = new Map(queue.map(t => [t.id, plannedMinutes(t, estimation)]));
-  const shorts = queue.filter(t => due(t) && plans.get(t.id).minutes <= SHORT_MINUTES && !t.order?.blockedBy?.length);
+  const plans = new Map(queue.map(t => [t.id, planned(t)]));
+  const shorts = ungrouped ? [] : queue.filter(t => due(t) && plans.get(t.id).minutes <= SHORT_MINUTES && !t.order?.blockedBy?.length);
   const items = [];
   for (const t of queue) {
     if (shorts.length >= 2 && shorts.includes(t)) {
@@ -107,7 +119,7 @@ export function buildPlan({ tasks, today, nowMin, workday, events = [], estimati
     items.push({ task: t });
   }
 
-  const placedEnd = new Map();          // task id → end of its block
+  const placedEnd = new Map(fixedTasks.map(t => [t.id, blocks.find(b => b.taskIds[0] === t.id).end]));   // task id → end of its block
   const overflow = [];
   const peak = peakHour != null ? peakHour * 60 : null;
   for (const item of items) {
@@ -138,14 +150,15 @@ export function buildPlan({ tasks, today, nowMin, workday, events = [], estimati
       : { id: `task-${item.task.id}`, kind: 'task', taskIds: [item.task.id], start, end, ...plans.get(item.task.id) });
   }
 
+  blocks.push(...added);
   blocks.sort((a, b) => a.start - b.start);
-  const planned = blocks.filter(b => b.kind === 'task' || b.kind === 'batch').reduce((a, b) => a + (b.end - b.start), 0);
-  return { date: today, blocks, overflow, capacity, planned, missing: overflow.filter(o => o.reason === 'full').reduce((a, o) => a + o.minutes, 0) };
+  const plannedTotal = blocks.filter(b => b.kind === 'task' || b.kind === 'batch').reduce((a, b) => a + (b.end - b.start), 0);
+  return { date: today, blocks, overflow, capacity, planned: plannedTotal, missing: overflow.filter(o => o.reason === 'full').reduce((a, o) => a + o.minutes, 0) };
 }
 
 /** What is on now, and what comes next. */
 export function nowAndNext(plan, nowMin) {
-  const work = (plan?.blocks || []).filter(b => b.kind === 'task' || b.kind === 'batch');
+  const work = (plan?.blocks || []).filter(b => b.kind === 'task' || b.kind === 'batch' || b.kind === 'fixed');
   const now = work.find(b => b.start <= nowMin && nowMin < b.end) || null;
   const next = work.find(b => b.start >= (now ? now.end : nowMin)) || null;
   return { now, next };
@@ -195,9 +208,23 @@ export function nextWorkday(today, days = [1, 2, 3, 4, 5]) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-/** The breaks of a working day, as [{ start, end }] in minutes (2.2 will allow several). */
+/** The breaks of a working day, as [{ start, end, label }] in minutes. Reads the 2.0 shape too. */
 export function breaksOf(workday) {
-  return workday?.breakStart && workday?.breakEnd ? [{ start: toMin(workday.breakStart), end: toMin(workday.breakEnd) }] : [];
+  if (Array.isArray(workday?.breaks)) return workday.breaks.map(b => ({ start: toMin(b.start), end: toMin(b.end), label: b.label || '' }));
+  return workday?.breakStart && workday?.breakEnd ? [{ start: toMin(workday.breakStart), end: toMin(workday.breakEnd), label: '' }] : [];
+}
+
+/**
+ * The hours of one day of the week (0 = Sunday): { start, end, breaks, days }
+ * — the common hours, or that day's own (`byDay`); null when it is not worked.
+ * The result is a working day of its own, ready for buildPlan.
+ */
+export function hoursOf(workday, weekday) {
+  if (!workday || !workday.days?.includes(weekday)) return null;
+  const own = workday.byDay?.[weekday] ?? workday.byDay?.[String(weekday)];
+  const breaks = own ? (own.breaks || []) : Array.isArray(workday.breaks) ? workday.breaks
+    : workday.breakStart && workday.breakEnd ? [{ start: workday.breakStart, end: workday.breakEnd, label: '' }] : [];
+  return { start: own?.start || workday.start, end: own?.end || workday.end, breaks, days: workday.days };
 }
 
 /**

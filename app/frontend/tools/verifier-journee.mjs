@@ -103,5 +103,42 @@ check('grille : … et ce qui en dépasse', (({ from, to }) => [J.toHHMM(from), 
 check('pauses de la journée', J.breaksOf(DAY).map(b => [J.toHHMM(b.start), J.toHHMM(b.end)]), [['12:00', '13:00']]);
 check('… sans pause, aucune', J.breaksOf({ ...DAY, breakStart: null, breakEnd: null }), []);
 
+
+// 2.2.0 — several breaks, hours by day, and the person's own changes.
+const DAY2 = { start: '09:00', end: '18:00', breaks: [{ start: '10:30', end: '10:45', label: 'Café' }, { start: '12:00', end: '13:00' }], days: [1, 2, 3, 4, 5],
+  byDay: { 5: { start: '09:00', end: '13:00', breaks: [] }, 1: { start: '08:00', end: '17:00', breaks: [{ start: '11:30', end: '12:15' }] } } };
+check('plusieurs pauses : chacune retirée de la journée', J.freeIntervals({ workday: { ...DAY2, byDay: undefined }, nowMin: 0 }).map(([a, b]) => `${J.toHHMM(a)}-${J.toHHMM(b)}`), ['09:00-10:30', '10:45-12:00', '13:00-18:00']);
+check('heures du jour : le vendredi a les siennes', J.hoursOf(DAY2, 5), { start: '09:00', end: '13:00', breaks: [], days: [1, 2, 3, 4, 5] });
+check('… le lundi aussi, avec sa pause', J.breaksOf(J.hoursOf(DAY2, 1)).map(b => J.toHHMM(b.start)), ['11:30']);
+check('… le mardi : les heures communes', J.hoursOf(DAY2, 2).breaks.length, 2);
+check('… le samedi : pas travaillé', J.hoursOf(DAY2, 6), null);
+check('l\'ancienne forme (une pause) se lit encore', J.breaksOf(J.hoursOf(DAY, 2)).map(b => [J.toHHMM(b.start), J.toHHMM(b.end)]), [['12:00', '13:00']]);
+const H = J.hoursOf(DAY2, 5);                                   // the Friday: 9 to 13, no break
+const two = [T('a', { estimatedDuration: 60 }), T('b', { estimatedDuration: 60 }), T('c', { estimatedDuration: 60 })];
+check('le plan suit les heures du jour : 4 h le vendredi', plan(two, { workday: H }).capacity, 240);
+let pe = plan(two, { workday: DAY, edits: { pins: { c: J.toMin('09:00') } } });
+check('épingler « c » à 9 h : il y est, les autres autour', [at(pe, 'c'), at(pe, 'a'), at(pe, 'b')], ['09:00-10:00', '10:00-11:00', '11:00-12:00']);
+check('… marqué épinglé', pe.blocks.find(b => b.taskIds[0] === 'c').pinned, true);
+pe = plan(two, { workday: DAY, edits: { durations: { a: 25 } } });
+check('changer une durée : 25 min aujourd\'hui, sans écart appliqué', [at(pe, 'a'), pe.blocks.find(b => b.taskIds[0] === 'a').factor], ['09:00-09:25', 1]);
+pe = plan(two, { workday: DAY, edits: { excluded: ['a'] } });
+check('retirer du jour : absent du plan et de ce qui ne tient pas', [at(pe, 'a'), pe.overflow.some(o => o.taskId === 'a'), at(pe, 'b')], [null, false, '09:00-10:00']);
+pe = plan([...two, T('d', { deadline: '2026-10-30', estimatedDuration: 30 })], { workday: DAY, edits: { included: ['d'] } });
+check('ajouter une tâche d\'un autre jour : placée avec celles du jour', [at(pe, 'd'), pe.overflow.length], ['13:00-13:30', 0]);
+pe = plan([T('a', { estimatedDuration: 60 }), T('e', { deadline: '2026-10-20', priority: 'top', estimatedDuration: 30 }), T('d', { deadline: '2026-10-30', priority: 'low', estimatedDuration: 30 })], { workday: DAY, edits: { included: ['d'] } });
+check('… avant une tâche plus haute mais pas pour aujourd\'hui', [at(pe, 'd'), at(pe, 'e')], ['10:00-10:30', '10:30-11:00']);
+pe = plan(two, { workday: DAY, edits: { breaks: [{ start: J.toMin('10:00'), end: J.toMin('10:30') }] } });
+check('ajouter une pause aujourd\'hui : la suite passe après', [at(pe, 'a'), at(pe, 'b'), pe.blocks.some(b => b.kind === 'pause')], ['09:00-10:00', '10:30-11:30', true]);
+const smalls = [T('s1', { estimatedDuration: 10 }), T('s2', { estimatedDuration: 10 })];
+check('défaire le groupe des petites tâches', [plan(smalls).blocks.map(b => b.kind).join(), plan(smalls, { edits: { ungrouped: true } }).blocks.map(b => b.kind).join()], ['batch', 'task,task']);
+{
+  const ts = orderTasks(two, null);
+  const edits = { pins: { c: J.toMin('11:00') } };
+  const accepted = J.buildPlan({ tasks: ts, today: TODAY, nowMin: J.toMin('09:00'), workday: DAY, edits });
+  const r = J.replan(accepted, { tasks: ts, today: TODAY, nowMin: J.toMin('10:30'), workday: DAY, edits });
+  check('la journée déborde : l\'épinglé ne bouge pas, le reste glisse autour', [at(r.plan, 'c'), at(r.plan, 'a'), at(r.plan, 'b')], ['11:00-12:00', '13:00-14:00', '14:00-15:00']);
+}
+check('maintenant / ensuite : un bloc épinglé compte', (() => { const p = plan(two, { workday: DAY, edits: { pins: { c: J.toMin('09:00') } } }); return J.nowAndNext(p, J.toMin('09:10')).now?.taskIds[0]; })(), 'c');
+
 if (bad) { console.error(`${bad} écart(s)`); process.exit(1); }
 console.log(`journée réaliste — ${n} cas, aucun écart.`);

@@ -63,6 +63,11 @@ export const WHATS_NEW = {
     { key: 'upcoming', view: 'focus', target: 'upcoming', optional: true },
     { key: 'calendarWeek', view: 'calendar', target: 'calendar-week' },
   ],
+  '2.2.0': [
+    { key: 'workdayFull', settings: 'daily', target: 'workday' },
+    { key: 'planEdit', view: 'focus', target: 'day-plan' },
+    { key: 'density', settings: 'appearance', target: 'density' },
+  ],
 };
 
 export function compareVersions(a, b) {

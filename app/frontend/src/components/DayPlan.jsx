@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocale } from '../contexts/LocaleContext.jsx';
-import { buildPlan, replan, needsReplan, nowAndNext, nextWorkday, toHHMM, layoutDay, breaksOf } from '../lib/journee.js';
+import { buildPlan, replan, needsReplan, nowAndNext, nextWorkday, toHHMM, layoutDay, breaksOf, hoursOf } from '../lib/journee.js';
+import { SelectedPanel, PlanTools } from './DayPlanEdit.jsx';
 import { shownLevel } from '../lib/niveaux.js';
 import TimeGrid from './TimeGrid.jsx';
 
@@ -13,6 +14,7 @@ import TimeGrid from './TimeGrid.jsx';
 const API = 'http://localhost:3001/api';
 const KEY = 'clarity-day-plan';
 const LATER = 'clarity-day-plan-later';
+const EDITS = 'clarity-day-edits';     // 2.2.0: the person's changes to today's plan
 const read = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const minutesNow = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
@@ -27,6 +29,9 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
   const [accepted, setAccepted] = useState(() => { const p = read(KEY); return p?.date === localDay() ? p : null; });
   const [later, setLater] = useState(() => read(LATER) === localDay());
   const [shift, setShift] = useState(0);
+  const [edits, setEdits] = useState(() => { const e = read(EDITS); return e?.date === localDay() ? e : { date: localDay() }; });
+  const [selectedId, setSelectedId] = useState(null);
+  const [askRedo, setAskRedo] = useState(false);
 
   useEffect(() => {
     const loadDay = () => fetch(`${API}/settings`).then(r => r.json()).then(s => setWorkday(s.workday)).catch(() => {});
@@ -46,14 +51,44 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
   }, [profile]);
   const peakHour = profile?.observed?.rhythm?.enough ? profile.observed.rhythm.peakHour : null;
   const eventsMin = useMemo(() => (events || []).map(e => ({ start: Math.round(e.start * 60), end: Math.round(e.end * 60), label: e.label })), [events]);
-  const args = workday && { tasks, today, nowMin, workday, events: eventsMin, estimation, peakHour };
+  // Today's hours: the day's own (Settings › Day to day), or changed for today only.
+  const dayHours = useMemo(() => {
+    if (!workday) return null;
+    const [y, m, d] = today.split('-').map(Number);
+    const own = hoursOf(workday, new Date(y, m - 1, d).getDay());
+    if (!own && !edits.hours) return null;
+    const base = own || { start: '09:00', end: '18:00', breaks: [], days: workday.days };
+    return { ...base, ...(edits.hours?.start && { start: edits.hours.start }), ...(edits.hours?.end && edits.hours.end > (edits.hours.start || base.start) && { end: edits.hours.end }) };
+  }, [workday, today, edits.hours]);
+  const args = dayHours && { tasks, today, nowMin, workday: dayHours, events: eventsMin, estimation, peakHour, edits };
 
-  const preview = useMemo(() => (args && !accepted ? buildPlan(args) : null),
+  const preview = useMemo(() => (args && !accepted ? buildPlan({ ...args, order: edits.order ? fullOrder(edits.order) : null }) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tasks, today, nowMin, workday, eventsMin, estimation, peakHour, accepted]);
+    [tasks, today, nowMin, dayHours, eventsMin, estimation, peakHour, accepted, edits]);
 
-  // A new day forgets yesterday's plan.
+  // An order for buildPlan must name every task it may place: the ones given
+  // first, then what was added to today, then the rest in the usual order.
+  function fullOrder(first, e = edits) {
+    const seen = new Set(first);
+    const live = tasks.filter(x => x.status !== 'done' && !x.archived).map(x => x.id);
+    return [...first, ...(e.included || []).filter(id => !seen.has(id)), ...live.filter(id => !seen.has(id) && !(e.included || []).includes(id))];
+  }
+  // Every change by hand: kept for the day; an accepted plan is rebuilt with it,
+  // in its own order.
+  function change(diff) {
+    const e = { ...edits, ...diff, date: today };
+    setEdits(e); write(EDITS, e);
+    if (accepted && args) {
+      const order = e.order ? fullOrder(e.order, e) : fullOrder(workIds(accepted), e);
+      const next = { ...buildPlan({ ...args, edits: e, order }), date: today };
+      setAccepted(next); write(KEY, next);
+    }
+  }
+  const workIds = (p) => [...p.blocks].filter(b => b.kind === 'task' || b.kind === 'batch' || b.kind === 'fixed').sort((a, b) => a.start - b.start).flatMap(b => b.taskIds);
+
+  // A new day forgets yesterday's plan, and yesterday's changes.
   useEffect(() => { if (accepted && accepted.date !== today) { setAccepted(null); write(KEY, null); } }, [today, accepted]);
+  useEffect(() => { if (edits.date !== today) { setEdits({ date: today }); write(EDITS, null); } }, [today, edits.date]);
 
   // The accepted plan moves when the day does.
   useEffect(() => {
@@ -69,10 +104,19 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
 
   const plan = accepted || preview;
   useEffect(() => { onPlan?.(accepted); }, [accepted, onPlan]);
-  const isWorkdayNow = !!workday && workday.days.includes(new Date().getDay());
+  const isWorkdayNow = !!dayHours;
   const mode = !workday || !plan ? null : (!accepted && (later || !isWorkdayNow)) ? 'idle' : 'grid';
   useEffect(() => { onMode?.(mode); }, [mode, onMode]);
-  if (!workday || !plan) return null;
+  if (!workday) return null;
+  if (!plan) {
+    // A day not worked: nothing planned, but it can be asked for today only.
+    return (
+      <div data-tour="day-plan" data-day-plan="idle" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: T.ink60 }}>
+        <button type="button" data-act="prepare" onClick={() => change({ hours: { start: workday.start, end: workday.end } })} style={{ padding: '6px 12px', fontSize: 12.5, fontFamily: T.fontUI, borderRadius: T.r6, cursor: 'pointer', background: 'transparent', color: T.ink60, border: `1px solid ${T.hairline}` }}>{t('day.prepare')}</button>
+        <span>{t('day.notWorkday')}</span>
+      </div>
+    );
+  }
 
   const byId = new Map(tasks.map(x => [x.id, x]));
   const dur = (m) => fmtDuration(m);   // « 1 h 20 », not « 1,3 h »
@@ -86,7 +130,31 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
     onReload?.();
   }
   const accept = () => { const p = { ...preview, date: today }; setAccepted(p); write(KEY, p); setShift(0); };
-  const redo = () => { setAccepted(null); write(KEY, null); setShift(0); setLater(false); write(LATER, null); };
+  const hasEdits = Object.keys(edits).some(k => k !== 'date' && edits[k] && (!Array.isArray(edits[k]) || edits[k].length) && (typeof edits[k] !== 'object' || Object.keys(edits[k]).length));
+  const redo = (fresh) => {
+    setAccepted(null); write(KEY, null); setShift(0); setLater(false); write(LATER, null); setAskRedo(false); setSelectedId(null);
+    if (fresh) { setEdits({ date: today }); write(EDITS, null); }
+  };
+  // Alt + ↑ / ↓, or « Earlier » / « Later »: one place up or down in the day.
+  function nudge(item, dir) {
+    const ids = item.taskIds || [item.taskId];
+    const order = workIds(plan).filter(id => !ids.includes(id));
+    const firstAt = workIds(plan).indexOf(ids[0]);
+    // Move past one whole block, not one task of a group.
+    const blocksOrder = [...plan.blocks].filter(b => b.kind === 'task' || b.kind === 'batch' || b.kind === 'fixed').sort((a, b) => a.start - b.start);
+    const bi = blocksOrder.findIndex(b => b.taskIds.includes(ids[0]));
+    const target = blocksOrder[bi + dir];
+    if (!target) return;
+    const anchor = dir < 0 ? order.indexOf(target.taskIds[0]) : order.indexOf(target.taskIds.at(-1)) + 1;
+    order.splice(anchor < 0 ? Math.max(0, firstAt) : anchor, 0, ...ids);
+    const pins = { ...(edits.pins || {}) }; ids.forEach(id => delete pins[id]);
+    change({ order, pins });
+  }
+  const drop = (item, start) => change({ pins: { ...(edits.pins || {}), [item.taskId]: Math.max(0, Math.min(24 * 60 - 5, start)) } });
+  const keepEstimate = async (id, minutes) => {
+    await fetch(`${API}/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estimatedDuration: minutes }) }).catch(() => {});
+    onReload?.();
+  };
   const putOff = () => { setLater(true); write(LATER, today); };
 
   const btn = (primary) => ({ padding: '6px 12px', fontSize: 12.5, fontFamily: T.fontUI, borderRadius: T.r6, cursor: 'pointer',
@@ -112,21 +180,29 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
     ...plan.blocks.map(b => {
       const done = b.taskIds.length > 0 && b.taskIds.every(id => byId.get(id)?.status === 'done');
       if (b.kind === 'event') return { id: b.id, kind: 'event', title: b.label, start: b.start, end: b.end };
-      if (b.kind === 'batch') return { id: b.id, kind: 'batch', title: label(b), start: b.start, end: b.end, done,
+      if (b.kind === 'pause') return { id: b.id, kind: 'pause', title: t('day.break'), start: b.start, end: b.end };
+      if (b.kind === 'batch') return { id: b.id, kind: 'batch', taskIds: b.taskIds, title: label(b), start: b.start, end: b.end, done,
         sub: b.taskIds.map(id => ({ id, title: byId.get(id)?.title || '', done: byId.get(id)?.status === 'done' })) };
       const task = byId.get(b.taskIds[0]);
       const shown = shownLevel(task);
-      return { id: b.id, kind: b.kind, taskId: b.taskIds[0], title: (task?.title || '') + (b.kind === 'fixed' ? ` · ${t('day.fixed')}` : ''),
+      return { id: b.id, kind: b.kind, taskId: b.taskIds[0], taskIds: b.taskIds, pinned: !!b.pinned, title: (task?.title || '') + (b.kind === 'fixed' ? ` · ${t('day.fixed')}` : ''),
         level: shown.level, inherited: shown.inherited, start: b.start, end: b.end, done,
         detail: b.factor && b.factor !== 1 ? t('day.corrected', { base: dur(b.base), minutes: dur(b.minutes), factor: String(b.factor).replace('.', ',') }) : null };
     }),
-    ...breaksOf(workday).map((b, i) => ({ id: `break-${i}`, kind: 'break', title: t('day.break'), ...b })),
+    ...breaksOf(dayHours).map((b, i) => ({ id: `break-${i}`, kind: 'break', ...b, title: b.label || t('day.break') })),
   ];
-  const grid = layoutDay({ items, workday });
+  const grid = layoutDay({ items, workday: dayHours });
+  const selected = grid.items.find(i => i.id === selectedId) || null;
+  // Not counted for today yet (even if the plan fills a gap with it): adding one
+  // puts it with today's tasks, ahead of what is only filling.
+  const candidates = tasks.filter(x => x.status !== 'done' && !x.archived && !(x.deadline && x.deadline.slice(0, 10) <= today)
+    && !(edits.included || []).includes(x.id) && !(edits.excluded || []).includes(x.id)).slice(0, 40);
+  const excludedTasks = (edits.excluded || []).map(id => byId.get(id)).filter(Boolean);
+  const pinnedOver = plan.blocks.filter(b => b.pinned && nowMin >= b.end && b.taskIds.some(id => byId.get(id)?.status !== 'done'));
   const actions = (
     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
       {accepted ? (
-        <button type="button" data-act="redo" onClick={redo} style={btn(false)}>{t('day.redo')}</button>
+        <button type="button" data-act="redo" onClick={() => (hasEdits ? setAskRedo(true) : redo(false))} style={btn(false)}>{t('day.redo')}</button>
       ) : (
         <>
           <button type="button" data-act="accept" onClick={accept} style={btn(true)}>{t('day.accept')}</button>
@@ -169,8 +245,26 @@ export default function DayPlan({ tasks, events, T, onReload, onOpenDetail, onPl
 
       {work.length > 0 || grid.items.length > 0 ? (
         <TimeGrid testId="day" from={grid.from} to={grid.to} onOpen={(id) => onOpenDetail?.(byId.get(id))}
+          onSelect={(it) => setSelectedId(cur => (cur === it.id ? null : it.id))} onDrag={drop} onNudge={nudge} selectedId={selectedId}
           columns={[{ key: today, items: grid.items, nowMin }]} />
       ) : null}
+      {askRedo && (
+        <div data-redo-ask role="group" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10, fontSize: 12.5, color: T.ink80 }}>
+          <span>{t('day.redoAsk')}</span>
+          <button type="button" data-act="redo-keep" onClick={() => redo(false)} style={btn(true)}>{t('day.redoKeep')}</button>
+          <button type="button" data-act="redo-fresh" onClick={() => redo(true)} style={btn(false)}>{t('day.redoFresh')}</button>
+        </div>
+      )}
+      {pinnedOver.length > 0 && (
+        <div role="status" data-pinned-over style={{ fontSize: 12, color: T.warn, marginTop: 8 }}>
+          {pinnedOver.map(b => `« ${byId.get(b.taskIds[0])?.title} » — ${t('day.pinnedOver')}`).join(' · ')}
+        </div>
+      )}
+      {selected && (
+        <SelectedPanel key={selected.id} block={selected} task={byId.get(selected.taskId)} edits={edits} edit={change} onNudge={nudge}
+          onOpen={(id) => onOpenDetail?.(byId.get(id))} onClose={() => setSelectedId(null)} onKeepEstimate={keepEstimate} T={T} />
+      )}
+      <PlanTools candidates={candidates} excludedTasks={excludedTasks} hours={dayHours} edits={edits} edit={change} T={T} />
       {!work.length && <div style={{ fontSize: 13, color: T.ink60, marginTop: 6 }}>{t('day.empty')}</div>}
 
       {overflow.length > 0 && (
