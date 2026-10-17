@@ -830,6 +830,12 @@ export default {
   'day.batch': 'Petites tâches ({n}) : {titles}',
   'day.batchShort': 'Petites tâches ({n})',
   'day.break': 'Pause',
+  'move.done': 'Ordre enregistré',
+  'move.level': 'Placée parmi les tâches « {level} » : niveau changé',
+  'move.blocked': '« {title} » attend une autre tâche : elle reste après',
+  'move.failed': 'L’ordre n’a pas pu être enregistré.',
+  'whatsNew.dragOrder.title': 'Glissez pour ordonner',
+  'whatsNew.dragOrder.body': 'Saisissez une tâche et glissez-la plus haut ou plus bas, ou Alt + ↑/↓ au clavier. Déposée parmi des tâches d’un autre niveau, elle prend leur niveau. Annuler est dans le message qui suit.',
   'remind.title': 'Me le rappeler',
   'remind.remove': 'Retirer le rappel',
   'remind.set': 'Programmer',
@@ -1041,7 +1047,7 @@ export default {
   'whatsNew.check.body': 'Le rond se remplit et la coche se dessine dès le clic, avant que la tâche rejoigne les terminées.',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Des rappels : dans le détail d’une tâche, « Me le rappeler » (dans 1 h, ce soir, au prochain matin, 15 min avant, ou une heure précise).\nClarity prévient aussi avant une tâche qui a son heure, résume la journée au début de vos heures et annonce chaque bloc du plan.\nDepuis le rappel : Fait, Dans 10 min, Demain. Réglages › Au quotidien › Rappels.',
+  'update.news': 'Glissez les tâches pour les mettre dans votre ordre : saisissez une carte et montez-la ou descendez-la, ou Alt + ↑/↓ au clavier.\nDéposée parmi des tâches d’un autre niveau, elle prend leur niveau ; une tâche qui en attend une autre reste après elle. Annuler est dans le message qui suit.\nQuand l’ordre change, les cartes glissent jusqu’à leur nouvelle place.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',

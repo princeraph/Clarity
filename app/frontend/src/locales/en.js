@@ -829,6 +829,12 @@ export default {
   'day.batch': 'Small tasks ({n}): {titles}',
   'day.batchShort': 'Small tasks ({n})',
   'day.break': 'Break',
+  'move.done': 'Order saved',
+  'move.level': 'Placed among the “{level}” tasks: level changed',
+  'move.blocked': '“{title}” waits on another task: it stays after it',
+  'move.failed': 'The order could not be saved.',
+  'whatsNew.dragOrder.title': 'Drag to order',
+  'whatsNew.dragOrder.body': 'Grab a task and drag it up or down, or Alt + ↑/↓ on the keyboard. Dropped among tasks of another level, it takes their level. Undo is in the message that follows.',
   'remind.title': 'Remind me',
   'remind.remove': 'Remove the reminder',
   'remind.set': 'Set',
@@ -1040,7 +1046,7 @@ export default {
   'whatsNew.check.body': 'The circle fills and the check draws itself as you click, before the task joins the finished ones.',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'Reminders: in a task’s detail, “Remind me” (in an hour, this evening, next morning, 15 min before, or a set time).\nClarity also warns before a task that has its hour, sums up the day when your hours start and announces each block of the plan.\nFrom the reminder: Done, In 10 min, Tomorrow. Settings › Day to day › Reminders.',
+  'update.news': 'Drag tasks into your own order: grab a card and move it up or down, or Alt + ↑/↓ on the keyboard.\nDropped among tasks of another level, it takes their level; a task that waits on another stays after it. Undo is in the message that follows.\nWhen the order changes, cards slide to their new place.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

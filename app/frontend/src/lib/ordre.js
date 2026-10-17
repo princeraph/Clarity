@@ -59,7 +59,8 @@ export function orderTasks(tasks, analyzedAt = null) {
     return best;
   }
 
-  const isNew = (t) => !t.aiData && (!analyzedAt || new Date(t.createdAt) > analyzedAt);
+  // Placed by hand (2.4.0, `rank`): no longer « new », it stays where it was put.
+  const isNew = (t) => t.rank == null && !t.aiData && (!analyzedAt || new Date(t.createdAt) > analyzedAt);
   const withOrder = tasks.map(t => {
     const live_ = liveIds.has(t.id);
     const inh = live_ ? inherited(t.id) : { level: ownLevel(t) || 'medium', from: null, deadline: t.deadline || null, deadlineFor: null };
@@ -90,6 +91,10 @@ export function orderTasks(tasks, analyzedAt = null) {
     // until the assistant has ranked it (it used to sink out of sight).
     if (isNew(a) !== isNew(b)) return isNew(a) ? -1 : 1;
     if (isNew(a)) return new Date(b.createdAt) - new Date(a.createdAt);
+    // Then the order the person gave by dragging, within the level.
+    const ra = a.rank ?? null, rb = b.rank ?? null;
+    if (ra !== null && rb !== null && ra !== rb) return ra - rb;
+    if ((ra === null) !== (rb === null)) return ra === null ? 1 : -1;
     const pa = a.aiData?.priority ?? Infinity, pb = b.aiData?.priority ?? Infinity;
     if (pa !== pb) return pa - pb;
     const ea = a.order.deadline || '9999', eb = b.order.deadline || '9999';
@@ -100,6 +105,42 @@ export function orderTasks(tasks, analyzedAt = null) {
 }
 
 /** The tasks that finishing `id` sets free: no other unfinished hard blocker left. */
+/**
+ * Dropping a task at `toIndex` of the list it is shown in (2.4.0). `list`:
+ * the tasks as shown, in order (each with `order`). Returns
+ *   { updates: [{ id, rank?, priority? }], level, note }
+ * — the level it takes (its own when a neighbour has it, else the one above
+ * it, or below it at the top) and ranks for every task of that level, in the
+ * new order. `note`: 'blocked' when it waits on a task and cannot go above it.
+ */
+export function dropPlan(list, id, toIndex) {
+  const moved = list.find(t => t.id === id);
+  if (!moved) return { updates: [], level: null, note: null };
+  const rest = list.filter(t => t.id !== id);
+  const at = Math.max(0, Math.min(rest.length, toIndex));
+  const next = [...rest.slice(0, at), moved, ...rest.slice(at)];
+  const above = rest[at - 1], below = rest[at];
+  const own = moved.order?.level || 'medium';
+  const la = above?.order?.level, lb = below?.order?.level;
+  const level = (own === la || own === lb) ? own : (la || lb || own);
+  const updates = [];
+  if (level !== own) updates.push({ id, priority: level });
+  let r = 0;
+  for (const t of next) {
+    const lv = t.id === id ? level : (t.order?.level || 'medium');
+    if (lv !== level) continue;
+    r += 10;
+    if (t.rank !== r) {
+      const u = updates.find(x => x.id === t.id);
+      if (u) u.rank = r; else updates.push({ id: t.id, rank: r });
+    }
+  }
+  // A task that waits on another one is shown after it, whatever its rank.
+  const blockers = new Set(moved.order?.blockedBy || []);
+  const note = moved.order?.blocked && next.slice(next.indexOf(moved) + 1).some(t => blockers.has(t.id)) ? 'blocked' : null;
+  return { updates, level, note };
+}
+
 export function unblockedBy(tasks, id) {
   const live = new Set(tasks.filter(t => t.status !== 'done' && !t.archived && t.id !== id).map(t => t.id));
   const hardInto = new Map();
