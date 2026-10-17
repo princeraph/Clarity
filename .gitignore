@@ -2,3 +2,6 @@
 # Moteur Impeccable : binaire par plateforme (~21 Mo), retéléchargé et vérifié
 # (sha256) par scripts/impeccable au premier usage. Ne pas versionner.
 .claude/skills/impeccable/scripts/bin/
+# Impeccable : réglages propres à chaque machine et cache du crochet.
+.impeccable/config.local.json
+.impeccable/hook.cache.json
