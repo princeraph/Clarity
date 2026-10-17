@@ -51,9 +51,10 @@ const FONT_STACKS = {
 };
 
 const DENSITY_SCALE = {
-  spacious: { taskPadV: 16, taskPadH: 6, taskCheckSize: 18, taskTitleSize: 15.5, taskMetaSize: 12, listGap: 36, groupGap: 36, sectionTitleSize: 14 },
-  balanced: { taskPadV: 12, taskPadH: 4, taskCheckSize: 16, taskTitleSize: 14.5, taskMetaSize: 11, listGap: 26, groupGap: 26, sectionTitleSize: 13.5 },
-  compact:  { taskPadV:  7, taskPadH: 2, taskCheckSize: 13, taskTitleSize: 13,   taskMetaSize: 10.5, listGap: 18, groupGap: 18, sectionTitleSize: 12.5 },
+  // 2.2.0: density reaches the whole app — the day grid, rows, the sidebar.
+  spacious: { taskPadV: 16, taskPadH: 6, taskCheckSize: 18, taskTitleSize: 15.5, taskMetaSize: 12, listGap: 36, groupGap: 36, sectionTitleSize: 14, taskGap: 16, gridPx: 1.15, rowPadV: 9, navHeight: 38 },
+  balanced: { taskPadV: 12, taskPadH: 4, taskCheckSize: 16, taskTitleSize: 14.5, taskMetaSize: 11, listGap: 26, groupGap: 26, sectionTitleSize: 13.5, taskGap: 14, gridPx: 0.9, rowPadV: 6, navHeight: 34 },
+  compact:  { taskPadV:  6, taskPadH: 2, taskCheckSize: 13, taskTitleSize: 13,   taskMetaSize: 10.5, listGap: 14, groupGap: 16, sectionTitleSize: 12.5, taskGap: 10, gridPx: 0.68, rowPadV: 3, navHeight: 28 },
 };
 
 function buildT(isDark, accentKey, density, fontKey) {

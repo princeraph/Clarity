@@ -268,7 +268,7 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
     <div style={{
       height: '100%', overflowY: 'auto',
       padding: '36px 56px 0',
-      display: 'flex', flexDirection: 'column', gap: 28,
+      display: 'flex', flexDirection: 'column', gap: T.groupGap || 28,
       boxSizing: 'border-box',
       fontFamily: T.fontUI,
     }}>

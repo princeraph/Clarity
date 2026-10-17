@@ -1155,6 +1155,29 @@ async function triggerExport(fmt, t) {
   } catch {}
 }
 
+// What the density changes, seen at once (2.2.0): two rows as Today draws
+// them, and an hour of the day plan. Before, the choice changed task rows
+// only, and nothing on this page — it looked like it did nothing.
+function DensityPreview({ T, t }) {
+  const row = (title, color) => (
+    <div style={{ display: 'grid', gridTemplateColumns: `${T.taskCheckSize}px 1fr`, gap: T.taskGap, alignItems: 'center', padding: `${T.taskPadV}px ${T.taskPadH + 8}px`, borderBottom: `1px solid ${T.hairlineSoft}`, borderLeft: `3px solid ${color}` }}>
+      <span style={{ width: T.taskCheckSize, height: T.taskCheckSize, borderRadius: '50%', border: `1.5px solid ${T.ink40}`, boxSizing: 'border-box' }} />
+      <span style={{ fontSize: T.taskTitleSize, color: T.ink }}>{title}</span>
+    </div>
+  );
+  return (
+    <div data-density-preview data-tour="density" aria-hidden="true" style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 140px', gap: 12, maxWidth: 460 }}>
+      <div style={{ border: `1px solid ${T.hairline}`, borderRadius: T.r6, background: T.paper, overflow: 'hidden' }}>
+        {row(t('settings.densitySample1'), 'oklch(0.55 0.20 25)')}
+        {row(t('settings.densitySample2'), 'oklch(0.55 0.12 250)')}
+      </div>
+      <div style={{ border: `1px solid ${T.hairline}`, borderRadius: T.r6, background: T.paper, position: 'relative', height: 60 * T.gridPx + 8, overflow: 'hidden' }}>
+        <div data-preview-hour style={{ position: 'absolute', left: 6, right: 6, top: 4, height: 60 * T.gridPx - 2, borderRadius: 6, background: T.accentSoft, borderLeft: `3px solid ${T.accent}`, fontSize: 11.5, padding: '3px 6px', color: T.accentInk, boxSizing: 'border-box' }}>1 h</div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsView({ onSaved, onFeedback = null, initialSection = 'appearance', onSectionChange }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
   const { t, locale, setLocale, fmtDate } = useLocale();
@@ -1390,6 +1413,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
                   );
                 })}
               </div>
+              <DensityPreview T={T} t={t} />
             </Section>
 
             <Section title={t('settings.accent')} subtitle={t('settings.accentHint')} T={T}>

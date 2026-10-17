@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
 import { levelTone, shownLevel } from '../../lib/niveaux.js';
-import { layoutDay, plannedMinutes, toMin, breaksOf } from '../../lib/journee.js';
+import { layoutDay, plannedMinutes, toMin, breaksOf, hoursOf } from '../../lib/journee.js';
 import { addDays } from '../../lib/avenir.js';
 import TimeGrid from '../TimeGrid.jsx';
 
@@ -95,10 +95,12 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask, onOpenDet
       const due = rankedTasks.filter(x => x.deadline?.slice(0, 10) === date && !x.archived);
       const items = [];
       for (const e of events.filter(e => e.date === date)) items.push({ id: `ev-${e.label}-${e.start}`, kind: 'event', title: e.label, start: Math.round(e.start * 60), end: Math.round(e.end * 60) });
-      const worked = !!workday && workday.days.includes(fromIso(date).getDay());
-      if (worked) breaksOf(workday).forEach((b, i) => items.push({ id: `br-${i}`, kind: 'break', title: t('day.break'), ...b }));
+      const hours = hoursOf(workday, fromIso(date).getDay());     // that day's own hours (2.2.0)
+      const worked = !!hours;
+      if (worked) breaksOf(hours).forEach((b, i) => items.push({ id: `br-${i}`, kind: 'break', ...b, title: b.label || t('day.break') }));
       if (date === todayIso && plan) {
         for (const b of plan.blocks.filter(b => b.kind !== 'event')) {
+          if (b.kind === 'pause') { items.push({ id: b.id, kind: 'pause', title: t('day.break'), start: b.start, end: b.end }); continue; }
           const first = byId.get(b.taskIds[0]); const s = shownLevel(first);
           items.push(b.kind === 'batch'
             ? { id: b.id, kind: 'batch', title: t('day.batchShort', { n: b.taskIds.length }), start: b.start, end: b.end, sub: b.taskIds.map(id => ({ id, title: byId.get(id)?.title || '', done: byId.get(id)?.status === 'done' })) }
@@ -109,7 +111,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask, onOpenDet
         const s = shownLevel(x); const start = toMin(x.time);
         items.push({ id: `t-${x.id}`, kind: 'task', taskId: x.id, title: x.title, level: s.level, inherited: s.inherited, start, end: Math.min(24 * 60, start + plannedMinutes(x).minutes), done: x.status === 'done' });
       }
-      return { date, worked, allDay: due.filter(x => !x.time && !inPlan.has(x.id)), laid: layoutDay({ items, workday }) };
+      return { date, worked, allDay: due.filter(x => !x.time && !inPlan.has(x.id)), laid: layoutDay({ items, workday: hours }) };
     });
     const from = Math.min(...columns.map(c => c.laid.from)), to = Math.max(...columns.map(c => c.laid.to));
     return { columns, from, to };
@@ -158,7 +160,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask, onOpenDet
 
       {mode === 'week' && weekGrid && (
         <div data-tour="calendar-week" style={{ border: `1px solid ${T.hairline}`, borderRadius: T.r10, background: T.paper, overflow: 'hidden' }}>
-          <TimeGrid testId="week" from={weekGrid.from} to={weekGrid.to} px={0.75}
+          <TimeGrid testId="week" from={weekGrid.from} to={weekGrid.to} px={0.83}
             onOpen={(id) => { const x = rankedTasks.find(r => r.id === id); if (x) open(x); }}
             columns={weekGrid.columns.map(c => {
               const isToday = c.date === todayIso;

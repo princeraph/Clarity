@@ -90,7 +90,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
       onMouseLeave={() => setHov(false)}
       onContextMenu={onContextMenu ? (e) => { e.preventDefault(); onContextMenu(e, task); } : undefined}
       style={{
-        display: 'grid', gridTemplateColumns: `${T.taskCheckSize || 16}px 1fr auto`, alignItems: 'start', gap: 14,
+        display: 'grid', gridTemplateColumns: `${T.taskCheckSize || 16}px 1fr auto`, alignItems: 'start', gap: T.taskGap || 14,
         position: 'relative',
         padding: `${T.taskPadV || 12}px ${T.taskPadH || 4}px ${T.taskPadV || 12}px ${(T.taskPadH || 4) + 10}px`,
         borderBottom: `1px solid ${T.hairlineSoft}`,

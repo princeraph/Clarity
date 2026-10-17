@@ -132,7 +132,7 @@ function NavItemCollapsed({ item, active, onClick, accent, T, label }) {
       title={label}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: 34, width: '100%',
+        height: T.navHeight || 34, width: '100%',
         borderRadius: T.r6,
         background: active ? T.paper : hov ? T.hairlineSoft : 'transparent',
         boxShadow: active ? `inset 0 0 0 1px ${T.hairline}` : 'none',
