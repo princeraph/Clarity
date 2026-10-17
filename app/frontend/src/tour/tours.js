@@ -68,6 +68,10 @@ export const WHATS_NEW = {
     { key: 'planEdit', view: 'focus', target: 'day-plan' },
     { key: 'density', settings: 'appearance', target: 'density' },
   ],
+  '2.3.0': [
+    { key: 'reminders', view: 'focus', target: 'today-list' },
+    { key: 'reminderSettings', settings: 'daily', target: 'reminders' },
+  ],
 };
 
 export function compareVersions(a, b) {

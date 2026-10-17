@@ -1294,6 +1294,28 @@ en référence.
 - Pas vérifié sous Windows à la main (glisser au pavé tactile).
 - Les champs d'heure suivent le format du système (12 h sur un Windows en anglais).
 
+## 2.3.0 — Les rappels (17 octobre 2026)
+
+**Changé.**
+- **« Me le rappeler »** dans le détail d'une tâche : dans 1 h, ce soir, prochain matin (selon les heures du jour), 15 min avant (si la tâche a son heure), ou une date et heure précises. La carte de la tâche montre 🔔 et l'heure.
+- **Rappels automatiques** (Réglages › Au quotidien › Rappels) : avant une tâche qui a son heure (10 min par défaut, de 0 à 60) ; résumé du jour au début des heures ; annonce de chaque bloc du plan accepté.
+- **Livraison** : notification Windows (un clic ouvre Clarity sur la tâche) et carte dans la fenêtre avec Fait / Dans 10 min / Demain / Ouvrir. Les cartes survivent à un rechargement, sans doublon.
+- **Le serveur décide ce qui est dû** (`src/rappels.js`) et note chaque rappel donné (`reminderLog`, une semaine) : jamais deux fois, même après un redémarrage. Plus de 12 h de retard (ordinateur éteint) : noté, pas donné.
+- Remplace l'ancienne notification d'échéance, qui revenait à chaque lancement.
+
+**Pourquoi.** Lot « rappels » choisi le 17 octobre, premier des trois.
+
+**Vérifié.**
+- `tests/rappels.test.js` : 11 tests (échéance, une seule fois, déplacé = nouveau, retard, terminé, avant l'heure, résumé du matin, jour non travaillé, heures du jour, journal).
+- `verifier-rappels` : 9 cas.
+- Serveur : 514 tests.
+- Navigateur (`essai-navigateur-2.3.cjs`) tout vert : résumé, « bientôt », rappel posé depuis le détail, échu, Dans 10 min, Fait, bloc du plan une seule fois, réglages, refus d'une date impossible.
+- Corrigé en route : un bloc était noté « donné » avant le chargement des tâches, donc jamais montré.
+
+**Reste.**
+- Pas vérifié sous Windows : le clic sur la notification système (Electron) qui ouvre la tâche.
+- Les rappels ne partent que si Clarity tourne (fenêtre ou icône près de l'horloge).
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

@@ -9,6 +9,7 @@ import ConnectorAnimation from '../ConnectorAnimation.jsx';
 import { updates } from '../../updates.js';
 import { startTour, latestWhatsNew } from '../../tour/tours.js';
 import WorkdaySettings from '../WorkdaySettings.jsx';
+import { ReminderSettings } from '../Rappels.jsx';
 import SyncAccount from '../SyncAccount.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -1480,6 +1481,8 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             <PageHeader section={t('settings.section.daily')} title={t('settings.daily.title')} T={T} />
             <WorkdaySettings T={T} />
+            <div style={{ height: 24 }} />
+            <ReminderSettings T={T} />
             <FeatureSettings T={T} onTasksChanged={onSaved} />
             <StartWithSystem T={T} />
           </div>

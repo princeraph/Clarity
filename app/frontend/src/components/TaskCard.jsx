@@ -6,6 +6,8 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const RECURRING_KEY = { daily: 'recur.daily', weekly: 'recur.weekly', monthly: 'recur.monthly' };
 
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
 function daysUntil(deadline) {
   if (!deadline) return null;
   return Math.ceil((new Date(deadline + 'T00:00:00') - new Date()) / 86400000);
@@ -232,6 +234,10 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
             </span>
           )}
 
+          {/* Its reminder (2.3.0): the hour, and the day when it is not today. */}
+          {task.reminder && !isDone && (
+            <span data-chip="reminder" title={t('remind.title')} style={chip(T, T.ink60)}>🔔 {task.reminder.slice(11)}{task.reminder.slice(0, 10) !== localToday() ? ` · ${fmtDate(task.reminder.slice(0, 10) + 'T00:00:00', { day: 'numeric', month: 'short' })}` : ''}</span>
+          )}
           {/* Links (lib/ordre.js): what holds this one up, what it holds up,
               and what it inherited for it. */}
           {task.status !== 'done' && task.order?.blockedBy?.length > 0 && (
