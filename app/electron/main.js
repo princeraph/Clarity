@@ -721,8 +721,17 @@ ipcMain.handle('locale:set', (_e, locale) => {
 ipcMain.handle('update:later', () => updateFlow?.later());
 
 // ─── Notifications ────────────────────────────────────────────────────────────
-ipcMain.on('show-notification', (event, { title, body }) => {
-  if (Notification.isSupported()) new Notification({ title, body }).show();
+ipcMain.on('show-notification', (event, { title, body, taskId } = {}) => {
+  if (!Notification.isSupported()) return;
+  const n = new Notification({ title: String(title || 'Clarity'), body: String(body || '') });
+  // A reminder: clicking it brings Clarity forward, on the task.
+  n.on('click', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show(); mainWindow.focus();
+    if (typeof taskId === 'string' && taskId) mainWindow.webContents.send('open-task', taskId);
+  });
+  n.show();
 });
 
 // ─── Back from sleep ──────────────────────────────────────────────────────────

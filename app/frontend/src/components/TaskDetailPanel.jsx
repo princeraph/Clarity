@@ -1,4 +1,5 @@
 import { PriorityRow, DifficultyRow, LinksSection } from './PriorityLinks.jsx';
+import { ReminderRow } from './Rappels.jsx';
 import TaskSuggestions from './TaskSuggestions.jsx';
 import { useState, useEffect, useRef } from 'react';
 import FollowUp from './FollowUp.jsx';
@@ -522,6 +523,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           <TaskSuggestions task={task} allTasks={allTasks} T={T} onSaved={onSaved} onEdited={onEdited} onBreakdown={handleBreakdown} />
           <PriorityRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
           <DifficultyRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
+          <ReminderRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
           <LinksSection task={task} allTasks={allTasks} T={T} onSaved={onSaved} />
 
           {/* Subtasks — expandable cards */}

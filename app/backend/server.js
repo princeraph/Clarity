@@ -29,6 +29,7 @@ import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedb
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { workdayOf, validWorkday, upgradeWorkday } from './src/workday.js';
 import { eventsBetween, isoDay } from './src/calendrier.js';
+import { dueReminders, validReminder, validReminderSettings, remindersOf, pruneLog } from './src/rappels.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
 import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo, normalizeDismissed } from './src/links.js';
@@ -836,6 +837,7 @@ app.get('/api/settings', (req, res) => {
     ...s,
     features: featuresOf(s),
     workday: workdayOf(s),
+    reminders: remindersOf(s),
     tunnelSecret: s.tunnelSecret ? '••••••••' : '',
     apiKey:       s.apiKey       ? '••••••••' : '',
   });
@@ -843,7 +845,9 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/settings', async (req, res) => {
   const current = readSettings();
-  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features, uiLanguage, workday } = req.body;
+  const { llmEndpoint, ollamaModel, tunnelSecret, providerType, apiKey, onboardingComplete, localModel, wakeSummary, features, uiLanguage, workday, reminders } = req.body;
+  if (reminders !== undefined && validReminderSettings(reminders) !== null)
+    return res.status(400).json({ error: `Invalid reminders: ${validReminderSettings(reminders)}`, code: 'invalid-reminders' });
   if (workday !== undefined && validWorkday(workday) !== null)
     return res.status(400).json({ error: `Invalid working day: ${validWorkday(workday)}`, code: 'invalid-workday' });
   // The language picked in Clarity, so text the AI writes matches the screen.
@@ -883,6 +887,7 @@ app.post('/api/settings', async (req, res) => {
     ...(localModel          !== undefined && { localModel }),
     ...(wakeSummary         !== undefined && { wakeSummary }),
     ...(workday             !== undefined && { workday: { ...workdayOf({}), ...upgradeWorkday(workday) } }),
+    ...(reminders           !== undefined && { reminders: { ...remindersOf(current), ...reminders } }),
     ...(uiLanguage          !== undefined && { uiLanguage }),
     ...(features            !== undefined && { features: { ...featuresOf(cur), ...features } }),
   });
@@ -1400,7 +1405,7 @@ function isCalendarDate(v) {
 const MUTABLE_FIELDS = [
   'title', 'description', 'deadline', 'time', 'estimatedDuration',
   'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
-  'priority', 'difficulty', 'links', 'dismissed',
+  'priority', 'difficulty', 'links', 'dismissed', 'reminder',
 ];
 
 function pickMutable(body) {
@@ -1450,6 +1455,8 @@ function validateFields(body, res) {
     return res.status(400).json({ error: 'Invalid links' });
   if (body.dismissed !== undefined && normalizeDismissed(body.dismissed) === null)
     return res.status(400).json({ error: 'Invalid dismissed proposals' });
+  if (body.reminder !== undefined && !validReminder(body.reminder))
+    return res.status(400).json({ error: 'A reminder is a local YYYY-MM-DDTHH:MM, or null', code: 'invalid-reminder' });
 
   return null;
 }
@@ -1966,6 +1973,23 @@ app.get('/api/calendar/range', (req, res) => {
   if (!existsSync(icsPath)) return res.json({ events: [], source: null });
   try { res.json({ events: eventsBetween(readFileSync(icsPath, 'utf8'), from, to), source: 'ics' }); }
   catch { res.json({ events: [], source: null }); }
+});
+
+// ── Reminders (2.3.0) ─────────────────────────────────────────────────────────
+// The window asks every half minute; what is due is handed over once and
+// written down (data.reminderLog), so a reminder is never given twice — not
+// even by two windows, nor after a restart. Too late ones are noted, not given.
+app.post('/api/reminders/claim', (req, res) => {
+  const data = readData();
+  const now = new Date();
+  const s = readSettings();
+  const due = dueReminders({ tasks: data.tasks, settings: { reminders: s.reminders, workday: workdayOf(s) }, now, log: data.reminderLog || {} });
+  if (due.length) {
+    data.reminderLog = pruneLog({ ...(data.reminderLog || {}), ...Object.fromEntries(due.map(r => [r.key, now.toISOString()])) }, now);
+    saveDataQuiet(data);
+  }
+  const title = (id) => data.tasks.find(t => t.id === id)?.title || '';
+  res.json({ reminders: due.filter(r => !r.stale).map(r => ({ ...r, title: r.taskId ? title(r.taskId) : undefined, titles: r.taskIds?.map(title) })) });
 });
 
 // ── Export ────────────────────────────────────────────────────────────────────

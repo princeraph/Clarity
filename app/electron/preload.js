@@ -4,7 +4,13 @@ contextBridge.exposeInMainWorld('clarity', {
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
-  showNotification: (title, body) => ipcRenderer.send('show-notification', { title, body }),
+  // 2.3.0: a reminder names its task; clicking the notification opens it.
+  showNotification: (title, body, taskId) => ipcRenderer.send('show-notification', { title, body, taskId }),
+  onOpenTask: (cb) => {
+    const handler = (_e, id) => cb(id);
+    ipcRenderer.on('open-task', handler);
+    return () => ipcRenderer.removeListener('open-task', handler);
+  },
   // Tray popup → main process
   trayAction: (action) => ipcRenderer.send('tray-action', action),
   trayResize: (height) => ipcRenderer.send('tray:resize', height),

@@ -57,6 +57,10 @@
     {
       "nom": "les couleurs des niveaux se lisent, en clair comme en sombre",
       "commande": "node frontend/tools/verifier-niveaux.mjs"
+    },
+    {
+      "nom": "les rappels proposent les bons moments",
+      "commande": "node frontend/tools/verifier-rappels.mjs"
     }
   ]
 }

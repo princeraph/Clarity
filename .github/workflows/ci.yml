@@ -91,6 +91,9 @@ jobs:
       - name: les couleurs des niveaux se lisent, en clair comme en sombre
         working-directory: app/frontend
         run: node tools/verifier-niveaux.mjs
+      - name: les rappels proposent les bons moments
+        working-directory: app/frontend
+        run: node tools/verifier-rappels.mjs
 
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app

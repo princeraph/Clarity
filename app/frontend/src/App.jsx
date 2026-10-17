@@ -31,6 +31,7 @@ import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
 import UpdateDialog from './components/UpdateDialog.jsx';
 import CrashConsent from './components/CrashConsent.jsx';
+import { ReminderToasts } from './components/Rappels.jsx';
 import { useUpdates } from './updates.js';
 import { useLocale } from './contexts/LocaleContext.jsx';
 
@@ -130,7 +131,6 @@ function AppInner() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [saving, setSaving]     = useState(false);
   const [hiddenTaskIds, setHiddenTaskIds] = useState(new Set());
-  const notifiedDeadlines  = useRef(new Set());
   const pendingDeleteTimers = useRef(new Map());
   const loadErrorShown      = useRef(false);
   // The day's plan (Today › the suggestion strip) stays up until the next
@@ -207,21 +207,6 @@ function AppInner() {
     } catch {}
   }, []);
 
-  const checkDeadlines = useCallback((tasks) => {
-    if (!isElectron) return;
-    const now = new Date();
-    tasks.filter(t => t.deadline && t.status !== 'done' && !t.archived).forEach(task => {
-      const deadline = new Date(task.deadline + 'T00:00:00');
-      const daysLeft = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-      const key = `${task.id}-${task.deadline}`;
-      if ((daysLeft === 1 || daysLeft === 0) && !notifiedDeadlines.current.has(key)) {
-        notifiedDeadlines.current.add(key);
-        window.clarity.showNotification(t('notify.deadlineTitle'),
-          t(daysLeft === 0 ? 'notify.dueToday' : 'notify.dueTomorrow', { title: task.title }));
-      }
-    });
-  }, [t]);
-
   useEffect(() => {
     loadData();
     checkHealth();
@@ -231,9 +216,11 @@ function AppInner() {
     return () => { clearInterval(dataInterval); clearInterval(healthInterval); };
   }, [loadData, checkHealth, checkOnboarding]);
 
-  useEffect(() => {
-    if (data.tasks.length) checkDeadlines(data.tasks);
-  }, [data.tasks, checkDeadlines]);
+  // A reminder clicked in Windows' notifications: the window comes forward, on the task.
+  useEffect(() => window.clarity?.onOpenTask?.((id) => {
+    const task = dataRef.current.tasks.find(x => x.id === id);
+    if (task) { setDetailTask(task); setContextMenu(null); }
+  }), []);
 
   useEffect(() => {
     function goOnline()  { setIsOnline(true);  loadData(); }
@@ -888,6 +875,7 @@ function AppInner() {
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
       {feedbackMode && <FeedbackDialog mode={feedbackMode} onClose={closeFeedback} />}
       <UpdateDialog />
+      <ReminderToasts tasks={data.tasks} onOpenTask={(id) => { const task = dataRef.current.tasks.find(x => x.id === id); if (task) openDetail(task); }} onGoToday={() => setView('focus')} />
       {askCrash && <CrashConsent onClose={() => setAskCrash(false)} />}
       {detailTask && (
         <TaskDetailPanel
