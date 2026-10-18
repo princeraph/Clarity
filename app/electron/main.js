@@ -12,6 +12,12 @@ const APP_USER_MODEL_ID = 'com.clarity.app';
 if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID);
 
 let mainWindow;
+// The window's key (2.5.0, backend/src/security/jeton.js): random at every
+// start, unless one is given (the CI sets one to call the backend itself).
+const API_TOKEN = process.env.CLARITY_API_TOKEN || require('crypto').randomBytes(32).toString('hex');
+ipcMain.on('clarity:api-token', (e) => { e.returnValue = API_TOKEN; });
+// Calls from this process to the backend carry it too.
+const apiFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { ...(opts.headers || {}), 'X-Clarity-Token': API_TOKEN } });
 let trayWindow;
 let tray;
 let backendProcess;
@@ -51,6 +57,7 @@ function startBackend() {
       ELECTRON_RUN_AS_NODE: '1',
       CLARITY_DATA_DIR: path.join(app.getPath('userData'), 'data'),
       CLARITY_VERSION: app.getVersion(),
+      CLARITY_API_TOKEN: API_TOKEN,
     },
   });
   backendProcess.stdout?.on('data', (d) => process.stdout.write('[Backend] ' + d));
@@ -129,7 +136,7 @@ function queueCrash(where, err) {
 }
 function reportCrash(where, err) {
   if (!crashReportsOn()) return;
-  fetch('http://localhost:3001/api/crash', {
+  apiFetch('http://localhost:3001/api/crash', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ where, message: String(err?.message || err), stack: String(err?.stack || '') }),
   }).catch(() => queueCrash(where, err));
@@ -500,7 +507,7 @@ const APP_VERSION = app.getVersion();   // app/package.json — the one place th
 async function waitForBackend(retries = 20, delayMs = 250) {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch('http://localhost:3001/api/health');
+      const res = await apiFetch('http://localhost:3001/api/health');
       if (res.ok) return;
     } catch {}
     await new Promise(r => setTimeout(r, delayMs));
@@ -624,7 +631,7 @@ async function claudeDesktopSignals() {
 let lastConnectorFile = null;
 
 ipcMain.handle('connector:install', async () => {
-  const resp = await fetch('http://127.0.0.1:3001/api/connector/bundle', { method: 'POST' });
+  const resp = await apiFetch('http://127.0.0.1:3001/api/connector/bundle', { method: 'POST' });
   if (!resp.ok) return { error: `HTTP ${resp.status}` };
   const file = path.join(app.getPath('downloads'), 'Clarity.mcpb');
   fs.writeFileSync(file, Buffer.from(await resp.arrayBuffer()));
@@ -746,7 +753,7 @@ let cancelWakeWait = null;
 
 async function wakeSummaryWanted() {
   try {
-    const s = await (await fetch('http://localhost:3001/api/settings')).json();
+    const s = await (await apiFetch('http://localhost:3001/api/settings')).json();
     return s.wakeSummary !== false;
   } catch { return false; }   // no backend: nothing to show
 }

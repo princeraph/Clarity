@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('clarity', {
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
   // 2.3.0: a reminder names its task; clicking the notification opens it.
+  // The key every call to the backend carries (2.5.0); asked once, here.
+  apiToken: (() => { try { return ipcRenderer.sendSync('clarity:api-token'); } catch { return ''; } })(),
   showNotification: (title, body, taskId) => ipcRenderer.send('show-notification', { title, body, taskId }),
   onOpenTask: (cb) => {
     const handler = (_e, id) => cb(id);

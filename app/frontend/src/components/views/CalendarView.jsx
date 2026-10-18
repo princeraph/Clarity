@@ -174,7 +174,7 @@ export default function CalendarView({ rankedTasks, onEdit, onAddTask, onOpenDet
                       <span style={{ width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontSize: 12.5, fontWeight: 600,
                         background: isToday ? T.accent : 'transparent', color: isToday ? T.paper : T.ink }}>{d.getDate()}</span>
                     </div>
-                    <div aria-label={t('calendar.allDay')} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div role="group" aria-label={t('calendar.allDay')} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {c.allDay.slice(0, 3).map(x => <Chip key={x.id} task={x} small onClick={() => open(x)} T={T} isDark={isDark} />)}
                       {c.allDay.length > 3 && <span style={{ fontSize: 10.5, color: T.ink40, fontFamily: T.fontMono, paddingLeft: 4 }}>+{c.allDay.length - 3}</span>}
                     </div>

@@ -29,6 +29,8 @@ import { createFeedback, promptPatch, FeedbackError } from './src/feedback/feedb
 import { rescheduleOverdue, featuresOf, FEATURE_DEFAULTS, localDay } from './src/reschedule.js';
 import { workdayOf, validWorkday, upgradeWorkday } from './src/workday.js';
 import { eventsBetween, isoDay } from './src/calendrier.js';
+import { tokenGuard } from './src/security/jeton.js';
+import { parseImport } from './src/importer.js';
 import { dueReminders, validReminder, validReminderSettings, remindersOf, pruneLog } from './src/rappels.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
@@ -449,6 +451,11 @@ app.use(cors({
     cb(err);
   },
 }));
+// Then the window's key (src/security/jeton.js): set by Electron at start.
+app.use('/api', tokenGuard(process.env.CLARITY_API_TOKEN || ''));
+// Import (2.5.0) reads whole files: its own, larger limit, before the general one.
+app.post('/api/import/preview', express.json({ limit: '6mb' }), importPreview);
+app.post('/api/import', express.json({ limit: '6mb' }), importRun);
 app.use(express.json());
 
 // Express 4 forwards a throw from a *sync* handler to the error middleware but
@@ -1511,7 +1518,42 @@ app.get('/api/tasks', (req, res) => {
 // is the same as one made in the window — history, analysis, profile included.
 function createTask(body) {
   const data = readData();
+  const task = newTask(body, new Date().toISOString());
+  data.tasks.push(task);
+  saveData(data);
+  scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
+  return task;
+}
+
+// ── Import (2.5.0, src/importer.js) ───────────────────────────────────────────
+// Preview first (what would come in, what is already there), then the import
+// itself, in one write. Each task is checked as if typed in Clarity.
+function importInput(req, res) {
+  const text = req.body?.text;
+  if (typeof text !== 'string' || !text.trim()) { res.status(400).json({ error: 'Nothing to import', code: 'import-empty' }); return null; }
+  const data = readData();
+  return { data, parsed: parseImport(text, data.tasks.filter(t => !t.archived)) };
+}
+function importPreview(req, res) {
+  const r = importInput(req, res);
+  if (!r) return;
+  const { format, tasks, skipped, tooMany } = r.parsed;
+  res.json({ format, count: tasks.length, skipped, tooMany, sample: tasks.slice(0, 5).map(t => ({ title: t.title, deadline: t.deadline || null, status: t.status || 'not_started' })) });
+}
+function importRun(req, res) {
+  const r = importInput(req, res);
+  if (!r) return;
   const now = new Date().toISOString();
+  const fresh = r.parsed.tasks.map(t => newTask(t, now));
+  r.data.tasks.push(...fresh);
+  saveData(r.data);
+  scheduleAnalysis(r.data.tasks);
+  scheduleProfileRecompute(r.data.tasks);
+  res.json({ imported: fresh.length, skipped: r.parsed.skipped, format: r.parsed.format });
+}
+
+function newTask(body, now) {
   const task = {
     id:                uuidv4(),
     title:             body.title?.trim()       || 'Untitled',
@@ -1536,10 +1578,6 @@ function createTask(body) {
     createdAt:         now,
     updatedAt:         now,
   };
-  data.tasks.push(task);
-  saveData(data);
-  scheduleAnalysis(data.tasks);
-  scheduleProfileRecompute(data.tasks);
   return task;
 }
 

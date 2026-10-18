@@ -139,7 +139,7 @@ export function LinksSection({ task, allTasks, T, onSaved }) {
               <button type="button" role="radio" aria-checked={strength === 'soft'} onClick={() => setStrength('soft')} style={pill(T, strength === 'soft')}>{t('links.soft')}</button>
             </div>
           )}
-          <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('links.search')}
+          <input aria-label={t('links.search')} autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('links.search')}
             onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setAdding(false); } if (e.key === 'Enter' && candidates[0]) add(candidates[0]); }}
             style={{ padding: '6px 8px', fontSize: 12.5, fontFamily: T.fontUI, background: T.paper, color: T.ink, border: `1px solid ${T.hairline}`, borderRadius: T.r6, outline: 'none' }} />
           {candidates.map(c => (

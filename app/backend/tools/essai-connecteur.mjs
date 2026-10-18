@@ -16,6 +16,8 @@ import { join, dirname } from 'path';
 import { createInterface } from 'readline';
 
 const API = 'http://127.0.0.1:3001/api';
+// 2.5.0: Clarity's own routes want the window's key (backend/src/security/jeton.js).
+const KEY = process.env.CLARITY_API_TOKEN ? { 'X-Clarity-Token': process.env.CLARITY_API_TOKEN } : {};
 const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
 const runtime = arg('--node') || process.execPath;
 const wake = process.argv.includes('--wake');
@@ -38,7 +40,7 @@ function unzip(buf) {
 }
 
 async function getBundle(path) {
-  const r = await fetch(`${API}/connector/bundle`, { method: 'POST' });
+  const r = await fetch(`${API}/connector/bundle`, { method: 'POST', headers: KEY });
   if (!r.ok) fail(`bundle: HTTP ${r.status}`);
   const files = unzip(Buffer.from(await r.arrayBuffer()));
   const dir = mkdtempSync(join(tmpdir(), 'clarity-mcpb-'));
@@ -86,7 +88,7 @@ if (wake) {
   say(`extension reçue : ${Object.keys(bundle.manifest.server.mcp_config.env).join(', ')}`);
   if (!/^[0-9a-f]{48}$/.test(bundle.manifest.server.mcp_config.env.CLARITY_CONNECTOR_TOKEN)) fail('no token in the manifest');
   if (process.argv.includes('--expect-app') && !bundle.manifest.server.mcp_config.env.CLARITY_APP) fail('no CLARITY_APP: the extension could not wake Clarity');
-  const st = await (await fetch(`${API}/settings`)).json();
+  const st = await (await fetch(`${API}/settings`, { headers: KEY })).json();
   if (JSON.stringify(st).includes(bundle.manifest.server.mcp_config.env.CLARITY_CONNECTOR_TOKEN)) fail('token readable through /api/settings');
   if ('connectorTokenHash' in st) fail('token hash readable through /api/settings');
 }
@@ -164,7 +166,7 @@ const unknown = await c.tool('clarity_get_task', { ref: 'zzzzzzzz' });
 if (!unknown.isError) fail('unknown ref accepted');
 
 // Turned off in Clarity: the same extension must be refused at once.
-await fetch(`${API}/connector/disable`, { method: 'POST' });
+await fetch(`${API}/connector/disable`, { method: 'POST', headers: KEY });
 const after = await c.tool('clarity_overview');
 if (!after.isError || !/off/.test(after.text)) fail(`still answering after being turned off: ${after.text}`);
 say('désactivé : l’extension est refusée');
