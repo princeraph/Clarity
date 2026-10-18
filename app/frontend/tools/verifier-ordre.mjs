@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = process.argv[2] ? resolve(process.argv[2]) : join(HERE, '..', 'src');
-const { orderTasks, unblockedBy } = await import(pathToFileURL(join(SRC, 'lib', 'ordre.js')).href);
+const { orderTasks, unblockedBy, dropPlan } = await import(pathToFileURL(join(SRC, 'lib', 'ordre.js')).href);
 
 let bad = 0, n = 0;
 const check = (name, got, want) => {
@@ -80,6 +80,23 @@ check('une boucle passée par la synchro ne bloque pas le calcul', loop.length, 
 check('terminer le seul bloquant libère', unblockedBy([T('a', { links: [blocks('b')] }), T('b')], 'a'), ['b']);
 check('un autre bloquant reste : pas libérée', unblockedBy([T('a', { links: [blocks('c')] }), T('b', { links: [blocks('c')] }), T('c')], 'a'), []);
 check('« mieux avant » ne compte pas', unblockedBy([T('a', { links: [blocks('b', 'soft')] }), T('b')], 'a'), []);
+
+
+// 2.4.0 — the order given by hand.
+check('rang donné à la main : dans le niveau, avant le rang de l\'IA', ids(orderTasks([T('a', { aiData: ai(1) }), T('b', { aiData: ai(2), rank: 10 }), T('c', { aiData: ai(3), rank: 20 })], ANALYZED)), ['b', 'c', 'a']);
+check('… même contre le rang de l\'IA', ids(orderTasks([T('b', { aiData: ai(2), rank: 20 }), T('c', { aiData: ai(3), rank: 10 })], ANALYZED)), ['c', 'b']);
+check('… le rang ne franchit pas les niveaux', ids(orderTasks([T('a', { priority: 'high' }), T('b', { priority: 'low', rank: 10 })], ANALYZED)), ['a', 'b']);
+check('… ni un blocage', ids(orderTasks([T('a', { links: [blocks('b')], rank: 20 }), T('b', { rank: 10 })], ANALYZED)), ['a', 'b']);
+check('… une tâche nouvelle mène encore son niveau', ids(orderTasks([T('a', { rank: 10 }), T('n', { createdAt: '2026-10-05T00:00:00Z' })], ANALYZED)), ['n', 'a']);
+check('… sans assistant, placée à la main, elle n\'est plus « nouvelle »', ids(orderTasks([T('a', { rank: 20, createdAt: '2026-10-05T00:00:00Z' }), T('b', { rank: 10 })], null)), ['b', 'a']);
+const L = orderTasks([T('a', { priority: 'high' }), T('b', { priority: 'high' }), T('c', { priority: 'medium' }), T('d', { priority: 'medium' })], ANALYZED);
+check('glisser « b » en tête de son niveau : rangs de tout le niveau', dropPlan(L, 'b', 0), { updates: [{ id: 'b', rank: 10 }, { id: 'a', rank: 20 }], level: 'high', note: null });
+check('glisser « a » entre « c » et « d » : il prend leur niveau', dropPlan(L, 'a', 2).updates[0], { id: 'a', priority: 'medium', rank: 20 });
+check('… à la frontière, il garde le sien (et passe devant « c »)', dropPlan(L, 'd', 2), { updates: [{ id: 'd', rank: 10 }, { id: 'c', rank: 20 }], level: 'medium', note: null });
+check('… à la frontière, d\'un troisième niveau : celui du dessus', dropPlan([...L, ...orderTasks([T('z', { priority: 'low' })], ANALYZED)], 'z', 2).level, 'high');
+check('rien ne bouge : aucun envoi', dropPlan(orderTasks([T('a', { priority: 'high', rank: 10 }), T('b', { priority: 'high', rank: 20 })], ANALYZED), 'a', 0).updates, []);
+const LB = orderTasks([T('x', { links: [blocks('y')] }), T('y')], ANALYZED);
+check('une tâche bloquée glissée au-dessus de ce qui la bloque : dit', dropPlan(LB, 'y', 0).note, 'blocked');
 
 if (bad) { console.error(`${bad} écart(s)`); process.exit(1); }
 console.log(`ordre des tâches — ${n} cas, aucun écart.`);

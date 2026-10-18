@@ -1316,6 +1316,34 @@ en référence.
 - Pas vérifié sous Windows : le clic sur la notification système (Electron) qui ouvre la tâche.
 - Les rappels ne partent que si Clarity tourne (fenêtre ou icône près de l'horloge).
 
+## 2.4.0 — L'ordre à la main, et des cartes qui bougent (18 octobre 2026)
+
+**Changé.**
+- **Glisser une tâche** dans Boîte de réception (et les listes d'Aujourd'hui : « Pour aujourd'hui », « En retard ») : elle suit la souris, les autres lui font de la place. Au clavier : Alt + ↑/↓.
+- **Ce que veut dire un dépôt** (`dropPlan`, lib/ordre.js) :
+  - un rang pour chaque tâche du niveau, dans le nouvel ordre ;
+  - déposée parmi les tâches d'un autre niveau, la tâche prend ce niveau, et le message le dit ;
+  - une tâche qui en attend une autre reste après elle, et le message le dit ;
+  - « Annuler » remet tout comme avant.
+- **L'ordre** (lib/ordre.js) : le rang donné à la main passe avant le rang de l'assistant, mais jamais au-dessus d'un niveau ni d'un blocage. Une tâche nouvelle mène encore son niveau.
+- **Mouvement** : quand l'ordre change, pour quelque raison que ce soit, chaque carte glisse de son ancienne place à la nouvelle (FLIP). Désactivé si le système demande moins d'animations.
+- **Serveur** : champ `rank` (nombre ou null), validé.
+
+**Pourquoi.** Lot « ordre et mouvement », deuxième des trois choisis le 17 octobre.
+
+**Vérifié.**
+- `verifier-ordre` : 36 cas (12 nouveaux). Mutations : chaque règle a été cassée sur copie et le contrôle l'a vue. Une condition s'est révélée inutile : retirée.
+- Serveur : 514 tests.
+- Navigateur (`essai-navigateur-2.4.cjs`), tout vert :
+  - glisser à la souris, avec la place qui s'ouvre ;
+  - rangs enregistrés, Annuler ;
+  - changement de niveau, blocage respecté, Alt + ↑ ;
+  - cartes animées, listes d'Aujourd'hui.
+
+**Reste.**
+- Glisser au pavé tactile sous Windows : pas vérifié à la main.
+- La liste filtrée par une recherche se glisse aussi : les tâches cachées du même niveau gardent leur rang.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

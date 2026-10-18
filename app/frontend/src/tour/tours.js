@@ -72,6 +72,9 @@ export const WHATS_NEW = {
     { key: 'reminders', view: 'focus', target: 'today-list' },
     { key: 'reminderSettings', settings: 'daily', target: 'reminders' },
   ],
+  '2.4.0': [
+    { key: 'dragOrder', view: 'focus', target: 'today-list' },
+  ],
 };
 
 export function compareVersions(a, b) {

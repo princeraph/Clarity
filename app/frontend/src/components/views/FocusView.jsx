@@ -1,5 +1,6 @@
 import DayPlan from '../DayPlan.jsx';
 import Upcoming from '../Upcoming.jsx';
+import SortableList from '../SortableList.jsx';
 import { useState, useEffect } from 'react';
 import TaskCard from '../TaskCard.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
@@ -378,13 +379,13 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
 
           {dueToday.length > 0 && (
             <TaskGroup title={t('focus.dueToday')} subtitle={t(dueToday.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: dueToday.length })} T={T}>
-              {dueToday.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
+              <SortableList testId="due-today" items={dueToday} onMove={handlers.onMoveTask && ((id, to) => handlers.onMoveTask(dueToday, id, to))} render={task => <TaskCard task={task} {...handlers} />} />
             </TaskGroup>
           )}
 
           {lateTasks.length > 0 && (
             <TaskGroup title={t('focus.overdue')} subtitle={t('focus.needsAttention')} muted T={T}>
-              {lateTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
+              <SortableList testId="overdue" items={lateTasks} onMove={handlers.onMoveTask && ((id, to) => handlers.onMoveTask(lateTasks, id, to))} render={task => <TaskCard task={task} {...handlers} />} />
             </TaskGroup>
           )}
 

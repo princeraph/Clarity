@@ -1405,7 +1405,7 @@ function isCalendarDate(v) {
 const MUTABLE_FIELDS = [
   'title', 'description', 'deadline', 'time', 'estimatedDuration',
   'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
-  'priority', 'difficulty', 'links', 'dismissed', 'reminder',
+  'priority', 'difficulty', 'links', 'dismissed', 'reminder', 'rank',
 ];
 
 function pickMutable(body) {
@@ -1455,6 +1455,9 @@ function validateFields(body, res) {
     return res.status(400).json({ error: 'Invalid links' });
   if (body.dismissed !== undefined && normalizeDismissed(body.dismissed) === null)
     return res.status(400).json({ error: 'Invalid dismissed proposals' });
+  // The order given by dragging (2.4.0): a number, or null to let Clarity order it.
+  if (body.rank !== undefined && body.rank !== null && !(typeof body.rank === 'number' && Number.isFinite(body.rank)))
+    return res.status(400).json({ error: 'Rank must be a number or null', code: 'invalid-rank' });
   if (body.reminder !== undefined && !validReminder(body.reminder))
     return res.status(400).json({ error: 'A reminder is a local YYYY-MM-DDTHH:MM, or null', code: 'invalid-reminder' });
 

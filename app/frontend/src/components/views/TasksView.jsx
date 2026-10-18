@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import SortableList from '../SortableList.jsx';
 import TaskCard from '../TaskCard.jsx';
 import { tagColor } from '../TaskForm.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
@@ -159,7 +160,8 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
       {/* Task list */}
       {filtered.length > 0 ? (
         <div>
-          {filtered.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
+          <SortableList testId="tasks" items={filtered} onMove={handlers.onMoveTask && ((id, to) => handlers.onMoveTask(filtered, id, to))}
+            render={task => <TaskCard task={task} {...handlers} />} />
         </div>
       ) : rankedTasks.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 64, textAlign: 'center' }}>

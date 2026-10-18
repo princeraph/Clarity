@@ -24,7 +24,8 @@ import SchedulingPopover from './components/SchedulingPopover.jsx';
 import TourOverlay from './components/TourOverlay.jsx';
 import ShortcutsSheet from './components/ShortcutsSheet.jsx';
 import { getShortcutKeys, keysMatchEvent } from './shortcuts.js';
-import { orderTasks, unblockedBy } from './lib/ordre.js';
+import { orderTasks, unblockedBy, dropPlan } from './lib/ordre.js';
+import { LEVEL_STYLE } from './lib/niveaux.js';
 import { suggestionsFor } from './lib/suggestions.js';
 import { DISCOVER, TOUR_EVENT, whatsNewSteps } from './tour/tours.js';
 import SuggestionCard from './components/SuggestionCard.jsx';
@@ -284,6 +285,28 @@ function AppInner() {
   // An edit made outside the form (the detail panel) offers the same undo.
   function offerEditUndo(task, patch) {
     showToast(t('toast.taskUpdated'), 'success', undoTo(task.id, pick(task, Object.keys(patch))));
+  }
+
+  // A task dragged in a list (2.4.0): its rank, and the level of where it was
+  // dropped (lib/ordre.js, dropPlan). One « Undo » puts every rank back.
+  async function moveTask(list, id, toIndex) {
+    const plan = dropPlan(list, id, toIndex);
+    if (!plan.updates.length) return;
+    const byId = new Map(data.tasks.map(x => [x.id, x]));
+    const before = plan.updates.map(u => ({ id: u.id, ...pick(byId.get(u.id), Object.keys(u).filter(k => k !== 'id')) }));
+    const send = (list2) => Promise.all(list2.map(({ id: tid, ...body }) => fetch(`${API}/tasks/${tid}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })));
+    // Shown at once where it was dropped; the server follows.
+    setData(d => ({ ...d, tasks: d.tasks.map(x => { const u = plan.updates.find(v => v.id === x.id); return u ? { ...x, ...u } : x; }) }));
+    try {
+      const rs = await send(plan.updates);
+      if (rs.some(r => !r.ok)) throw new Error();
+    } catch { showToast(t('move.failed'), 'error'); await loadData(); return; }
+    await loadData();
+    const moved = byId.get(id);
+    const msg = plan.note === 'blocked' ? t('move.blocked', { title: moved?.title || '' })
+      : plan.updates.some(u => u.id === id && u.priority) ? t('move.level', { level: t(LEVEL_STYLE[plan.level]?.key || 'level.medium') })
+      : t('move.done');
+    showToast(msg, plan.note ? 'info' : 'success', async () => { await send(before); await loadData(); });
   }
 
   async function handleSaveTask(taskData) {
@@ -678,6 +701,7 @@ function AppInner() {
     onTimerStart:    handleTimerStart,
     onTimerStop:     handleTimerStop,
     onOpenDetail:    openDetail,
+    onMoveTask:      moveTask,
     onContextMenu:   openContextMenu,
     onFocusMode:     enterFocusMode,
     allTasks:        data.tasks,
