@@ -43,13 +43,13 @@ export function SelectedPanel({ block, task, edits, edit, onNudge, onOpen, onClo
         <>
           <div style={row}>
             <span style={{ fontSize: 12, color: T.ink60, minWidth: 74 }}>{t('day.sel.at')}</span>
-            <input type="time" name="pin-at" value={at} onChange={e => setAt(e.target.value)} style={input(T, 96)} />
+            <input aria-label={t('day.sel.at')} type="time" name="pin-at" value={at} onChange={e => setAt(e.target.value)} style={input(T, 96)} />
             <button type="button" data-act="pin" onClick={() => at && edit({ pins: { ...(edits.pins || {}), [id]: toMin(at) } })} style={button(T, true)}>📌 {t('day.sel.pin')}</button>
             {pinned && <button type="button" data-act="unpin" onClick={() => edit({ pins: without(edits.pins, id) })} style={button(T)}>{t('day.sel.unpin')}</button>}
           </div>
           <div style={row}>
             <span style={{ fontSize: 12, color: T.ink60, minWidth: 74 }}>{t('day.sel.minutes')}</span>
-            <input type="number" name="duration" min={5} max={600} step={5} value={minutes} onChange={e => setMinutes(e.target.value)} style={input(T, 70)} />
+            <input aria-label={t('day.sel.minutes')} type="number" name="duration" min={5} max={600} step={5} value={minutes} onChange={e => setMinutes(e.target.value)} style={input(T, 70)} />
             <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: T.ink80, cursor: 'pointer' }}>
               <input type="checkbox" name="keep-estimate" checked={keep} onChange={e => setKeep(e.target.checked)} /> {t('day.sel.keepEstimate')}
             </label>
@@ -89,7 +89,7 @@ export function PlanTools({ candidates, excludedTasks, hours, edits, edit, T }) 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
         {candidates.length > 0 && (
           <div style={row}>
-            <select name="add-task" value={pick} onChange={e => setPick(e.target.value)} style={{ ...input(T, 210), fontFamily: T.fontUI }}>
+            <select aria-label={t('day.addTaskPick')} name="add-task" value={pick} onChange={e => setPick(e.target.value)} style={{ ...input(T, 210), fontFamily: T.fontUI }}>
               <option value="">{t('day.addTaskPick')}</option>
               {candidates.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
             </select>
@@ -102,9 +102,9 @@ export function PlanTools({ candidates, excludedTasks, hours, edits, edit, T }) 
         <div style={row}>
           <span style={small}>{t('day.addPause').replace('+ ', '')}</span>
           <span style={small}>{t('day.pauseAt')}</span>
-          <input type="time" name="pause-at" value={pauseAt} onChange={e => setPauseAt(e.target.value)} style={input(T, 92)} />
+          <input aria-label={t('a11y.pauseAt')} type="time" name="pause-at" value={pauseAt} onChange={e => setPauseAt(e.target.value)} style={input(T, 92)} />
           <span style={small}>{t('day.pauseFor')}</span>
-          <select name="pause-for" value={pauseFor} onChange={e => setPauseFor(e.target.value)} style={{ ...input(T, 64) }}>
+          <select aria-label={t('a11y.pauseFor')} name="pause-for" value={pauseFor} onChange={e => setPauseFor(e.target.value)} style={{ ...input(T, 64) }}>
             {['10', '15', '30', '45', '60'].map(m => <option key={m} value={m}>{fmtDuration(Number(m))}</option>)}
           </select>
           <button type="button" data-act="add-pause" onClick={() => {
@@ -115,9 +115,9 @@ export function PlanTools({ candidates, excludedTasks, hours, edits, edit, T }) 
         </div>
         <div style={row}>
           <span style={small}>{t('day.todayOnly')}</span>
-          <input type="time" name="today-start" value={hours.start} onChange={e => e.target.value && edit({ hours: { ...(edits.hours || {}), start: e.target.value } })} style={input(T, 92)} />
+          <input aria-label={t('a11y.todayStart')} type="time" name="today-start" value={hours.start} onChange={e => e.target.value && edit({ hours: { ...(edits.hours || {}), start: e.target.value } })} style={input(T, 92)} />
           <span style={{ color: T.ink40 }}>–</span>
-          <input type="time" name="today-end" value={hours.end} onChange={e => e.target.value && edit({ hours: { ...(edits.hours || {}), end: e.target.value } })} style={input(T, 92)} />
+          <input aria-label={t('a11y.todayEnd')} type="time" name="today-end" value={hours.end} onChange={e => e.target.value && edit({ hours: { ...(edits.hours || {}), end: e.target.value } })} style={input(T, 92)} />
         </div>
         {edits.ungrouped && <button type="button" data-act="regroup" onClick={() => edit({ ungrouped: false })} style={button(T)}>{t('day.regroup')}</button>}
       </div>

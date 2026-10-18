@@ -438,7 +438,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
                     <div style={{ fontSize: 11.5, color: T.danger }}>{rescheduleError}</div>
                   )}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
+                  <input aria-label={t('a11y.deadline')}
                     type="date"
                     value={newDeadline}
                     onChange={e => setNewDeadline(e.target.value)}
@@ -491,7 +491,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               under the follow-up, where nobody found it. */}
           <div>
             <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.recurrence')}</div>
-            <select
+            <select aria-label={t('detail.recurrence')}
               value={task.recurring || 'none'}
               onChange={async e => {
                 const recurring = e.target.value;

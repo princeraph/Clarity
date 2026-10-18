@@ -75,6 +75,10 @@ export const WHATS_NEW = {
   '2.4.0': [
     { key: 'dragOrder', view: 'focus', target: 'today-list' },
   ],
+  '2.5.0': [
+    { key: 'importTasks', settings: 'data', target: 'import' },
+    { key: 'helpPage', settings: 'help', target: 'help' },
+  ],
 };
 
 export function compareVersions(a, b) {

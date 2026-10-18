@@ -42,7 +42,7 @@ export function ReminderRow({ task, T, onSaved, onEdited }) {
           {quickChoices(new Date(), task, workday).map(c => (
             <button key={c.id} type="button" data-remind={c.id} title={when(c.at)} onClick={() => set(c.at)} style={pill}>{t(`remind.quick.${c.id}`)}</button>
           ))}
-          <input type="datetime-local" name="reminder-at" value={custom} onChange={e => setCustom(e.target.value)}
+          <input aria-label={t('a11y.reminderAt')} type="datetime-local" name="reminder-at" value={custom} onChange={e => setCustom(e.target.value)}
             style={{ padding: '3px 6px', fontSize: 12, fontFamily: T.fontMono, background: T.paper, color: T.ink, border: `1px solid ${T.hairline}`, borderRadius: T.r6 }} />
           {custom && <button type="button" data-act="set-reminder" onClick={() => set(custom.slice(0, 16))} style={{ ...pill, background: T.ink, color: T.paper, border: 'none' }}>{t('remind.set')}</button>}
         </div>
@@ -64,7 +64,7 @@ export function ReminderSettings({ T }) {
   const label = { fontSize: 13, color: T.ink, flex: 1 };
   const row = { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' };
   const toggle = (k) => (
-    <button type="button" role="switch" aria-checked={r[k]} data-toggle={k} onClick={() => save({ [k]: !r[k] })} style={{
+    <button type="button" role="switch" aria-checked={r[k]} aria-label={t(`remind.settings.${k}`)} data-toggle={k} onClick={() => save({ [k]: !r[k] })} style={{
       width: 34, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative', background: r[k] ? T.accent : T.ink20, flexShrink: 0 }}>
       <span style={{ position: 'absolute', top: 2, left: r[k] ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.15s ease' }} />
     </button>
@@ -75,7 +75,7 @@ export function ReminderSettings({ T }) {
       <div style={{ fontSize: 12.5, color: T.ink60, lineHeight: 1.5, marginBottom: 8 }}>{t('remind.settings.subtitle')}</div>
       <div style={row}>
         <span style={label}>{t('remind.settings.before')}</span>
-        <select name="remind-before" value={r.before} onChange={e => save({ before: Number(e.target.value) })} style={{ padding: '4px 6px', fontSize: 12.5, fontFamily: T.fontUI, background: T.paper, color: T.ink, border: `1px solid ${T.hairline}`, borderRadius: T.r6 }}>
+        <select aria-label={t('remind.settings.before')} name="remind-before" value={r.before} onChange={e => save({ before: Number(e.target.value) })} style={{ padding: '4px 6px', fontSize: 12.5, fontFamily: T.fontUI, background: T.paper, color: T.ink, border: `1px solid ${T.hairline}`, borderRadius: T.r6 }}>
           {[0, 5, 10, 15, 30, 60].map(m => <option key={m} value={m}>{m ? t('remind.settings.minutesBefore', { n: m }) : t('remind.settings.never')}</option>)}
         </select>
       </div>

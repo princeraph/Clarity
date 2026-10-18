@@ -1344,6 +1344,41 @@ en référence.
 - Glisser au pavé tactile sous Windows : pas vérifié à la main.
 - La liste filtrée par une recherche se glisse aussi : les tâches cachées du même niveau gardent leur rang.
 
+## 2.5.0 — Prête pour d'autres que nous : sécurité, import, aide, accessibilité (18 octobre 2026)
+
+**Changé.**
+- **Clé de la fenêtre** (`backend/src/security/jeton.js`) :
+  - Electron tire une clé au hasard à chaque démarrage et la donne au serveur (`CLARITY_API_TOKEN`) et aux fenêtres (preload) ;
+  - toute requête vers `/api` doit la porter (`X-Clarity-Token`) ;
+  - restent ouverts : les routes du connecteur IA (qui ont leur propre jeton), `/health` et `/version` ;
+  - sans clé (développement, tests) : rien n'est vérifié.
+- **Politique de sécurité (CSP)** dans la page : scripts de l'app seulement, appels vers le serveur local seulement, rien chargé d'Internet.
+- **Import** (Réglages › Données) : export Clarity, export CSV de Todoist (sa priorité 1 devient Très haute ; une date en toutes lettres va dans la note), tout CSV avec une colonne « titre », ou une liste (une tâche par ligne, « [x] » = terminée). Un aperçu d'abord ; ce qui existe déjà n'est pas importé deux fois ; 2 000 au plus, 5 Mo au plus.
+- **Aide** (Réglages › Aide) : 9 questions fréquentes, et la visite.
+- **Accessibilité** (axe-core, WCAG 2.1 A/AA, 8 écrans, clair et sombre) : de 5 règles graves à 0.
+  - Chaque champ et chaque interrupteur ont un nom.
+  - Textes secondaires renforcés : `ink60` passe de 3,9:1 à ≥ 4,5:1 et `ink40` de 2,2:1 à ≥ 4,5:1 ; l'orange d'alerte et le vert sont plus sombres en clair.
+  - 255 éléments en défaut de contraste au départ, 0 à la fin.
+- **CI Windows** : une clé fixe par exécution, envoyée à chaque appel.
+
+**Pourquoi.** Lot « sortie publique », troisième des trois choisis le 17 octobre.
+
+**Vérifié.**
+- Tests serveur : 534 (11 pour la clé, 9 pour l'import).
+- Audit axe : aucun écart grave.
+- Navigateur (`essai-navigateur-2.5.cjs`) tout vert :
+  - sans clé : 401, et une page sans clé n'obtient rien ;
+  - avec la clé : tout passe ;
+  - CSP présente et jamais déclenchée ;
+  - import Todoist avec aperçu et doublon détecté ;
+  - Aide.
+- Page construite chargée en `file://` : affichée, aucun blocage CSP.
+
+**Reste (décisions et preuves hors de portée de la session).**
+- **Signature du code** : Windows SmartScreen avertit tant que l'installateur n'est pas signé. Il faut choisir un certificat : Azure Trusted Signing (environ 10 $/mois) ou un certificat classique (200 à 400 $/an). Décision et achat : propriétaire.
+- **Synchronisation entre deux PC** : pas éprouvée sur deux vraies machines.
+- **Electron** : clé et CSP vérifiées dans le navigateur, et par la CI pour le serveur. La fenêtre Electron elle-même n'a pas été ouverte à la main.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

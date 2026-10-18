@@ -304,7 +304,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
                 <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('task.subtasks')}</div>
                 {task.subtasks.map(s => (
                   <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={s.done} onChange={() => onSubtaskToggle(task, s.id)}
+                    <input aria-label={t('a11y.subtaskDone')} type="checkbox" checked={s.done} onChange={() => onSubtaskToggle(task, s.id)}
                       style={{ accentColor: T.accent }} />
                     <span style={{ fontSize: 12.5, color: s.done ? T.ink40 : T.ink, textDecoration: s.done ? 'line-through' : 'none' }}>
                       {s.title}
@@ -344,7 +344,7 @@ export default function TaskCard({ task, allTasks, onEdit, onDelete, onArchive, 
         display: 'flex', flexDirection: 'column', gap: 3,
         opacity: hov ? 1 : 0, transition: 'opacity 0.15s',
       }}>
-        <select
+        <select aria-label={t('a11y.status')}
           value={task.status}
           onChange={e => onStatusChange(task, e.target.value)}
           style={{

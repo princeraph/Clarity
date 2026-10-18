@@ -29,19 +29,19 @@ function Hours({ h, put, name, T, t }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span style={label}>{t('workday.hours')}</span>
-        <input type="time" name={`${name}-start`} value={h.start} onChange={e => put({ ...h, start: e.target.value })} style={field} />
+        <input aria-label={t('a11y.dayStart')} type="time" name={`${name}-start`} value={h.start} onChange={e => put({ ...h, start: e.target.value })} style={field} />
         <span style={{ color: T.ink40 }}>–</span>
-        <input type="time" name={`${name}-end`} value={h.end} onChange={e => put({ ...h, end: e.target.value })} style={field} />
+        <input aria-label={t('a11y.dayEnd')} type="time" name={`${name}-end`} value={h.end} onChange={e => put({ ...h, end: e.target.value })} style={field} />
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <span style={{ ...label, paddingTop: 6 }}>{t('workday.breaks')}</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {breaks.map((b, i) => (
             <div key={i} data-break={i} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <input type="time" name={`${name}-break-${i}-start`} value={b.start} onChange={e => setBreak(i, { start: e.target.value })} style={field} />
+              <input aria-label={t('a11y.breakStart')} type="time" name={`${name}-break-${i}-start`} value={b.start} onChange={e => setBreak(i, { start: e.target.value })} style={field} />
               <span style={{ color: T.ink40 }}>–</span>
-              <input type="time" name={`${name}-break-${i}-end`} value={b.end} onChange={e => setBreak(i, { end: e.target.value })} style={field} />
-              <input type="text" key={`${i}-${b.label || ''}`} name={`${name}-break-${i}-label`} defaultValue={b.label || ''} maxLength={40} placeholder={t('workday.breakLabel')}
+              <input aria-label={t('a11y.breakEnd')} type="time" name={`${name}-break-${i}-end`} value={b.end} onChange={e => setBreak(i, { end: e.target.value })} style={field} />
+              <input aria-label={t('workday.breakLabel')} type="text" key={`${i}-${b.label || ''}`} name={`${name}-break-${i}-label`} defaultValue={b.label || ''} maxLength={40} placeholder={t('workday.breakLabel')}
                 onBlur={e => e.target.value !== (b.label || '') && setBreak(i, { label: e.target.value })}
                 style={{ ...field, fontFamily: T.fontUI, width: 130 }} />
               <button type="button" data-act="remove-break" aria-label={t('workday.removeBreak')} title={t('workday.removeBreak')}

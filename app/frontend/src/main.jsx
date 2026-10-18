@@ -26,6 +26,22 @@ import '@fontsource/geist-mono/latin-500.css';
 import '@fontsource/geist-mono/latin-ext-500.css';
 import './index.css';
 
+// The window's key (2.5.0): every call to Clarity's backend carries it, so a
+// web page elsewhere cannot use the backend even if it reaches it. One place
+// for every fetch of the app; outside Electron there is no key.
+const API_KEY = window.clarity?.apiToken || '';
+if (API_KEY) {
+  const send = window.fetch.bind(window);
+  const ours = (url) => /^http:\/\/(localhost|127\.0\.0\.1):3001\//.test(url);
+  window.fetch = (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input?.url || '';
+    if (!ours(url)) return send(input, init);
+    const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined));
+    headers.set('X-Clarity-Token', API_KEY);
+    return send(input, { ...init, headers });
+  };
+}
+
 // The Electron tray popup loads this same bundle with a `#tray` hash so we can
 // reuse the single Vite build. Render only the compact tray menu in that case;
 // `#wake` is the card shown when the computer wakes up (WakeCard.jsx).

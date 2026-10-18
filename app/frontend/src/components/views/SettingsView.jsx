@@ -10,6 +10,7 @@ import { updates } from '../../updates.js';
 import { startTour, latestWhatsNew } from '../../tour/tours.js';
 import WorkdaySettings from '../WorkdaySettings.jsx';
 import { ReminderSettings } from '../Rappels.jsx';
+import ImportTasks from '../ImportTasks.jsx';
 import SyncAccount from '../SyncAccount.jsx';
 
 const API = 'http://localhost:3001/api';
@@ -37,6 +38,9 @@ const DEFAULT_MODEL = {
   ollama:     'gemma4:latest',
 };
 
+// Settings › Help (2.5.0): the questions people ask, answered in place.
+const HELP_TOPICS = ['data', 'offline', 'order', 'plan', 'reminders', 'import', 'shortcuts', 'sync', 'problem'];
+
 const SECTIONS = [
   { id: 'account',    labelKey: 'settings.section.account' },
   { id: 'appearance', labelKey: 'settings.section.appearance' },
@@ -48,6 +52,7 @@ const SECTIONS = [
   { id: 'data',       labelKey: 'settings.section.data' },
   { id: 'keyboard',   labelKey: 'settings.section.keyboard' },
   { id: 'language',   labelKey: 'settings.section.language' },
+  { id: 'help',       labelKey: 'settings.section.help' },
   { id: 'about',      labelKey: 'settings.section.about' },
 ];
 
@@ -1536,7 +1541,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
               {presetModels.length > 0 ? (
                 <FieldRow label={t('settings.model')} T={T}>
                   <div style={{ position: 'relative' }}>
-                    <select value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
+                    <select aria-label={t('a11y.model')} value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
                       style={{ ...field, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
                       {presetModels.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
@@ -1546,7 +1551,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
               ) : isOllama && ollamaModels.length > 0 ? (
                 <FieldRow label={t('settings.model')} hint={t('settings.modelsInstalledInYourLocal')} T={T}>
                   <div style={{ position: 'relative' }}>
-                    <select value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
+                    <select aria-label={t('a11y.model')} value={form.ollamaModel} onChange={e => set('ollamaModel', e.target.value)}
                       style={{ ...field, appearance: 'none', paddingRight: 28, cursor: 'pointer' }}>
                       {ollamaModels.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
@@ -1559,7 +1564,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
                   hint={isOllama ? t('settings.ai.ollamaNotConnected') : activeProvider === 'openrouter' ? t('settings.ai.openrouterExample') : ''}
                   T={T}
                 >
-                  <input
+                  <input aria-label={t('a11y.model')}
                     value={form.ollamaModel}
                     onChange={e => set('ollamaModel', e.target.value)}
                     placeholder={DEFAULT_MODEL[activeProvider] || t('settings.ai.modelPlaceholder')}
@@ -1595,7 +1600,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
                     </div>
                   ) : (
                     <div>
-                      <input
+                      <input aria-label={t('a11y.apiKey')}
                         type="password"
                         value={form.apiKey}
                         onChange={e => set('apiKey', e.target.value)}
@@ -1631,17 +1636,17 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             {isOllama && (
               <Section title={t('settings.ai.connection')} T={T}>
                 <FieldRow label={t('settings.ollamaEndpoint')} hint={t('settings.defaultHttpLocalhost11434')} T={T}>
-                  <input type="url" value={form.llmEndpoint} onChange={e => set('llmEndpoint', e.target.value)}
+                  <input aria-label={t('a11y.endpoint')} type="url" value={form.llmEndpoint} onChange={e => set('llmEndpoint', e.target.value)}
                     placeholder="http://localhost:11434" style={field} />
                 </FieldRow>
                 <FieldRow label={t('settings.tunnelSecret')} hint={t('settings.bearerTokenForNgrokSsh')} T={T}>
-                  <input type="password" value={form.tunnelSecret} onChange={e => set('tunnelSecret', e.target.value)}
+                  <input aria-label={t('a11y.tunnelSecret')} type="password" value={form.tunnelSecret} onChange={e => set('tunnelSecret', e.target.value)}
                     placeholder={t('settings.ai.tunnelPlaceholder')} style={field} />
                 </FieldRow>
                 {/* The trade is stated, because it is a real one: speed now, or
                     the RAM back sooner. */}
                 <FieldRow label={t('settings.keepAlive')} hint={t('settings.keepAliveHint')} T={T}>
-                  <select value={form.keepAlive} onChange={e => set('keepAlive', e.target.value)} style={{
+                  <select aria-label={t('a11y.keepAlive')} value={form.keepAlive} onChange={e => set('keepAlive', e.target.value)} style={{
                     fontFamily: T.fontMono, fontSize: 12.5, color: T.ink60,
                     background: T.paperSubtle, border: `1px solid ${T.hairline}`,
                     borderRadius: T.r6, padding: '5px 10px', cursor: 'pointer',
@@ -1742,6 +1747,22 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             </Section>
           </div>
 
+        ) : section === 'help' ? (
+          <div data-tour="help" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <PageHeader section={t('settings.section.help')} title={t('help.title')} T={T} />
+            <div style={{ fontSize: 13, color: T.ink60, lineHeight: 1.6, marginTop: -12 }}>{t('help.intro')}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {HELP_TOPICS.map(k => (
+                <details key={k} data-help={k} style={{ border: `1px solid ${T.hairline}`, borderRadius: T.r10, padding: '10px 14px', background: T.paper }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 13.5, fontWeight: 500, color: T.ink }}>{t(`help.${k}.q`)}</summary>
+                  <div style={{ fontSize: 13, color: T.ink80, lineHeight: 1.65, marginTop: 8, whiteSpace: 'pre-line' }}>{t(`help.${k}.a`)}</div>
+                </details>
+              ))}
+            </div>
+            <Section title={t('help.tourTitle')} T={T}>
+              <TourButtons version={health?.version} T={T} />
+            </Section>
+          </div>
         ) : section === 'data' ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             <PageHeader section={t('settings.section.data')} title={t('settings.section.data')} T={T} />
@@ -1749,6 +1770,12 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
             <Section title={t('settings.data.storage')} T={T}>
               <StorageInfo T={T} />
             </Section>
+
+            <div data-tour="import">
+              <Section title={t('import.title')} subtitle={t('import.subtitle')} T={T}>
+                <ImportTasks T={T} onImported={onSaved} />
+              </Section>
+            </div>
 
             <Section title={t('settings.data.backup')} subtitle={t('settings.data.backupHint')} T={T}>
               <SettingRow label={t('settings.autoBackup')} hint={t('settings.createDailySnapshots')} T={T}>
@@ -1859,7 +1886,7 @@ export default function SettingsView({ onSaved, onFeedback = null, initialSectio
 
             <Section title={t('settings.language.yourName')} subtitle={t('settings.language.yourNameHint')} T={T}>
               <div style={{ padding: '14px 16px', background: T.paperSubtle, borderRadius: T.r6, border: `1px solid ${T.hairlineSoft}` }}>
-                <input
+                <input aria-label={t('settings.language.yourName')}
                   type="text"
                   value={userName}
                   onChange={e => {
