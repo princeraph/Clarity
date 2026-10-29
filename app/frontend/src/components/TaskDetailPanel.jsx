@@ -7,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { localDay } from './glance.js';
 import useEscape from '../hooks/useEscape.js';
+import useNarrow from '../hooks/useNarrow.js';
 import { LEVEL_STYLE } from '../lib/niveaux.js';
 import { SUB_STATUSES, subtaskStatus, withSubtask, promote } from '../lib/sousTaches.js';
 
@@ -122,9 +123,9 @@ function SubtaskPanel({ task, subtask: s, onChange, onRemove, onPromote, onClose
       display: 'flex', flexDirection: 'column', fontFamily: T.fontUI, animation: 'fadeUp 0.12s ease-out',
     }}>
       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${T.hairlineSoft}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ flex: 1, fontSize: 12, color: T.ink40, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {task.title} <span aria-hidden="true">›</span> {t('task.subtasks')}
-        </span>
+        <button data-action="back-to-task" onClick={onClose} aria-label={t('detail.backToTask')} style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 12, color: T.ink40, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: T.fontUI, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span aria-hidden="true">‹ </span>{task.title} <span aria-hidden="true">›</span> {t('task.subtasks')}
+        </button>
         <button onClick={onClose} aria-label={t('common.close')} style={{ fontSize: 15, color: T.ink40, background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>✕</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -397,7 +398,9 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
   const getTitle = id => allTasks.find(t => t.id === id)?.title || id;
   const sub = openSub ? (task.subtasks || []).find(x => x.id === openSub) : null;
-  const subOpen = !!sub;
+  const narrow = useNarrow();
+  // Narrow window: the task stays put and its subtask's page goes over it.
+  const subOpen = !!sub && !narrow;
   async function promoteSub(id) {
     const plan = promote({ ...task, subtasks: currentSubtasks() }, id);
     if (!plan) return;

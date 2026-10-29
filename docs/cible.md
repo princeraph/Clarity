@@ -32,7 +32,7 @@ réunion, documents partagés. C'est le terrain de Motion, ClickUp, Notion.
 | Calme : Clarity se tait par défaut, une suggestion par jour au plus | Les avis de Sunsama louent l'absence de pression | **Fait** en 2.6.0 |
 | Rituels : planifier le matin (avec « ça déborde »), terminer le soir, « Un jour » à part revu chaque mois, vider sa tête | C'est ce que les clients de Sunsama citent comme la cause du soulagement | **Fait** en 2.7.0 |
 | Tâches rapides : un titre, une heure | Pour « courses 17h » sans remplir un formulaire | **Fait** en 2.7.0 |
-| Sous-tâches en pages, à côté de leur tâche ; « en faire une tâche » | Dessin du propriétaire | **Fait** en 2.8.0 |
+| Sous-tâches en pages, à côté de leur tâche ; « en faire une tâche » | Dessin du propriétaire | **Fait** en 2.8.0 ; écran étroit (< 1 100 px, sous-tâche par-dessus) fait, pas encore publié |
 | Sujets proposés pendant la frappe, Focus « Nouvelle séance » | Retours du propriétaire (29 oct.) | **Fait** en 2.9.0 |
 | Blocs de temps qui contiennent des tâches | Images de time blocking du propriétaire | **À faire** |
 
@@ -76,3 +76,4 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 | 29 oct. 2026 | Lot C′ publié en 2.9.0 | Propriétaire (« publish C ») |
 | 29 oct. 2026 | Nouveau texte de la page de téléchargement | Propriétaire (« ok text ») |
 | 29 oct. 2026 | Ordre : 6, 2, 5, 3, 4, 1, 7, 8 ; un lot par session | Propriétaire |
+| 29 oct. 2026 | Tâche 2 (écran étroit) faite ; part avec la prochaine version | Propriétaire (« tache 2, go ») |

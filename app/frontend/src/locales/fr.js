@@ -1473,6 +1473,7 @@ export default {
   'connectorAnim.task1': 'Envoyer le devis à Martin — pour aujourd’hui',
   'connectorAnim.task2': 'Prendre rendez-vous chez le dentiste — 10 min',
   // 2.6.0
+  'detail.backToTask': 'Retour à la tâche',
   'detail.subtaskTitle': 'Titre de la sous-tâche',
   'detail.subtaskNotes': 'Notes de la sous-tâche',
   'detail.subtaskNotesPlaceholder': 'Une note, un lien, ce qu’il faut savoir…',

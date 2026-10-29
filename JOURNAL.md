@@ -1457,6 +1457,17 @@ en référence.
 
 **Reste.** Blocs de temps contenant des tâches ; écran étroit.
 
+## Tâche 2 — écran étroit (29 octobre 2026, non publiée)
+
+**Changé.**
+- Fenêtre de moins de 1 100 px : la page d'une sous-tâche se pose par-dessus celle de sa tâche, qui reste au bord droit. Avant, la tâche glissait à gauche et les deux pages (720 px) mangeaient la liste. Au-delà de 1 100 px, rien ne change (2.8.0).
+- Le fil « tâche › Sous-tâches » en haut de la sous-tâche devient un bouton « ‹ » qui ramène à la tâche — seul chemin visible quand la tâche est cachée dessous. Échap fait toujours la même chose.
+- `hooks/useNarrow.js` (`NARROW_BELOW = 1100`, suit le redimensionnement).
+
+**Vérifié.** Essai navigateur `essai-navigateur-etroit.cjs` : 10 contrôles verts (1000 px, retour, 1400 px, rétrécir sous-tâche ouverte, Échap). Mutation (la tâche glisse encore en étroit) : 4 écarts vus. 2.8 vert. Serveur : 553 tests. Vérificateur de langues : aucun écart.
+
+**Reste.** Part avec la prochaine version publiée (pas de publication seule, minutes CI). Blocs de temps.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :
