@@ -69,6 +69,10 @@
     {
       "nom": "une sous-tâche a sa page : statut tenu avec « faite », devenir une tâche",
       "commande": "node frontend/tools/verifier-sous-taches.mjs"
+    },
+    {
+      "nom": "les sujets : une orthographe, les propositions pendant la frappe",
+      "commande": "node frontend/tools/verifier-sujets.mjs"
     }
   ]
 }

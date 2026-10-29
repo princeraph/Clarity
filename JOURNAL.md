@@ -1445,6 +1445,18 @@ en référence.
 
 **Reste.** Écran étroit (< 1100 px) : les deux panneaux mangent la liste ; pas traité.
 
+## Lot C′ (sur la branche, pas publié) — sujets proposés, nouvelle séance (29 octobre 2026)
+
+**Changé.**
+- Étiquettes : pendant la frappe, les sujets qui existent sont proposés (formulaire et Ctrl+K « #pe » → #Perso). Un sujet connu tapé garde son orthographe. Choisir une proposition dans Ctrl+K fait de la ligne une nouvelle tâche.
+- Focus : la séance dépassée, « Nouvelle séance » relance le compte (séance 2…) ; le temps suivi n'est pas touché.
+- Formulaire : Échap le ferme où que soit le curseur (avant, seulement si le curseur était dedans — vu par l'essai).
+- `suggestTopics`, `knownSpelling` (`lib/sujets.js`) ; `verifier-sujets.mjs` (10 cas).
+
+**Vérifié.** Essai navigateur 2.9 vert ; 2.4, 2.6, 2.7, 2.8 verts ; serveur 553 tests ; tous les vérificateurs verts. Pas de CI Windows lancée : pas publié.
+
+**Reste.** Publier (version 2.9.0, nouveautés) sur décision du propriétaire.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

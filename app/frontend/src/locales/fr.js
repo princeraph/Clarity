@@ -1567,4 +1567,7 @@ export default {
   'common.open': "Ouvrir",
   'whatsNew.subtaskPages.title': "Une sous-tâche, une page",
   'whatsNew.subtaskPages.body': "Cliquez une sous-tâche : elle s’ouvre à côté de sa tâche, avec sa date, son niveau, son statut, sa difficulté et ses notes. Une autre la remplace. « En faire une tâche » la sort de sa tâche.",
+  // 2.9.0
+  'focusmode.newSession': "Nouvelle séance",
+  'focusmode.sessionN': "séance {n}",
 };

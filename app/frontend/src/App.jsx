@@ -29,6 +29,7 @@ import { getShortcutKeys, keysMatchEvent } from './shortcuts.js';
 import { orderTasks, unblockedBy, dropPlan } from './lib/ordre.js';
 import { LEVEL_STYLE } from './lib/niveaux.js';
 import { suggestionsFor } from './lib/suggestions.js';
+import { topicsOf } from './lib/sujets.js';
 import { DISCOVER, TOUR_EVENT, whatsNewSteps } from './tour/tours.js';
 import SuggestionCard from './components/SuggestionCard.jsx';
 import FeedbackDialog from './components/FeedbackDialog.jsx';
@@ -957,7 +958,7 @@ function AppInner() {
         />
       )}
       {showForm && (
-        <TaskForm task={editingTask} onSave={handleSaveTask}
+        <TaskForm task={editingTask} onSave={handleSaveTask} knownTopics={topicsOf(presentTasks).map(x => x.tag)}
           onClose={() => { setShowForm(false); setEditingTask(null); }} saving={saving} />
       )}
       {showChat   && <ChatPanel onClose={() => setShowChat(false)} taskCount={data.tasks.length} />}

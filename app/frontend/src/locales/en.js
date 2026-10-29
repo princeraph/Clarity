@@ -1566,4 +1566,7 @@ export default {
   'common.open': "Open",
   'whatsNew.subtaskPages.title': "A subtask, a page",
   'whatsNew.subtaskPages.body': "Click a subtask: it opens beside its task, with its date, level, status, difficulty and notes. Another one replaces it. “Make it a task” takes it out of its task.",
+  // 2.9.0
+  'focusmode.newSession': "New session",
+  'focusmode.sessionN': "session {n}",
 };

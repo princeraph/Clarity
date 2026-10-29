@@ -99,6 +99,16 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
     setPaused(true);
   }
 
+  // 2.9.0: the session is over, the work is not — another one, from zero.
+  // The tracked time is not touched: only the session clock restarts.
+  const [session, setSession] = useState(1);
+  function newSession() {
+    startRef.current = Date.now();
+    setElapsed(0);
+    setSession(n => n + 1);
+    if (paused) { startBackendTimer(); setPaused(false); }
+  }
+
   async function handleDone() {
     // Awaited: stopping is what converts timerStarted into tracked minutes, and
     // the done-write that follows reloads this task from the server.
@@ -167,7 +177,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
               {overrun ? '+' : ''}{fmtTime(overrun ? elapsed - SESSION_SECS : remaining)}
             </span>
             <span style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em', textTransform: 'uppercase', color: T.ink40, marginTop: 4 }}>
-              {overrun ? t('focusmode.overSession') : t('focusmode.remaining')}
+              {overrun ? t('focusmode.overSession') : t('focusmode.remaining')}{session > 1 ? ` · ${t('focusmode.sessionN', { n: session })}` : ''}
             </span>
           </div>
         </div>
@@ -233,6 +243,7 @@ export default function FocusMode({ task, nextTask, onDone, onSkip, onExit, onTi
           <FMBtn label={paused ? t('focusmode.resume') : t('focusmode.pause')} T={T} onClick={handleToggleTimer} />
           <FMBtn label={t('focusmode.done')} primary T={T} onClick={handleDone} />
           <FMBtn label={t('focusmode.takeABreak')} ghost T={T} onClick={handleBreak} />
+          {overrun && <FMBtn label={t('focusmode.newSession')} T={T} onClick={newSession} />}
         </div>
       </div>
 

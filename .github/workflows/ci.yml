@@ -121,6 +121,9 @@ jobs:
       - name: une sous-tâche a sa page, et peut devenir une tâche
         working-directory: app/frontend
         run: node tools/verifier-sous-taches.mjs
+      - name: les sujets proposés pendant la frappe
+        working-directory: app/frontend
+        run: node tools/verifier-sujets.mjs
 
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app

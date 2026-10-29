@@ -9,6 +9,7 @@ import { localDay } from './glance.js';
 const REPEATS = [['none', 'form.oneTime'], ['daily', 'form.daily'], ['weekly', 'form.weekly'], ['monthly', 'form.monthly']];
 import { useFeatures } from '../features.js';
 import { useBackdropClose } from '../hooks/useBackdropClose.js';
+import { suggestTopics, topicsOf } from '../lib/sujets.js';
 
 const API = 'http://localhost:3001/api';
 
@@ -340,6 +341,18 @@ export default function SearchCapture({
           )}
         </div>
 
+        {/* 2.9.0: « #per » offers the topics that exist, in their spelling; picking one makes the line a new task. */}
+            {(() => {
+              const m = /(^|\s)#([^\s#]*)$/.exec(query);
+              const list = m && m[2] ? suggestTopics(m[2], topicsOf(allTasks).map(x => x.tag)) : [];
+              if (!list.length) return null;
+              const pick = (s) => { setMode('capture'); setQuery(query.slice(0, m.index) + `${m[1]}#${s} `); inputRef.current?.focus(); };
+              return (
+                <div data-tag-suggestions style={{ padding: '8px 18px', display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: `1px solid ${T.hairlineSoft}` }}>
+                  {list.map(s => <button key={s} type="button" data-suggest-tag={s} onMouseDown={e => e.preventDefault()} onClick={() => pick(s)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, padding: '3px 9px', borderRadius: T.rPill, background: T.paper, color: T.ink80, border: `1px dashed ${T.hairline}`, cursor: 'pointer', fontFamily: T.fontMono }}>#{s}</button>)}
+                </div>
+              );
+            })()}
         {/* Body — capture mode */}
         {mode === 'capture' && (
           <>

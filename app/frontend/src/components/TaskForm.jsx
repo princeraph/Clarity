@@ -4,6 +4,8 @@ import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { localDay } from './glance.js';
 import { useBackdropClose } from '../hooks/useBackdropClose.js';
+import { suggestTopics, knownSpelling } from '../lib/sujets.js';
+import useEscape from '../hooks/useEscape.js';
 
 function generateId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -34,7 +36,10 @@ export function tagColor(tag) {
   return { color: hex, hex };
 }
 
-export default function TaskForm({ task, onSave, onClose, saving }) {
+export default function TaskForm({ task, onSave, onClose, saving, knownTopics = [] }) {
+  // Esc closes the form wherever the focus is (2.9.0). It used to listen on the
+  // form itself: opened from a button, focus was outside, and Esc did nothing.
+  useEscape(onClose);
   const backdrop = useBackdropClose(onClose);
   const { t } = useLocale();
   const { T } = useTheme();
@@ -84,8 +89,9 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
     setNewSubtask('');
   }
 
-  function addTag() {
-    const t = newTag.trim().replace(/^#/, '').toLowerCase();
+  // 2.9.0: an existing topic keeps its spelling (« perso » typed → « Perso »).
+  function addTag(pick) {
+    const t = pick || knownSpelling(newTag, knownTopics) || newTag.trim().replace(/^#/, '').toLowerCase();
     if (!t) { setNewTag(''); return; }
     setForm(prev => {
       if (prev.tags.includes(t)) return prev;
@@ -103,7 +109,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
     // A tag or subtask typed but not confirmed with Enter was dropped on Save:
     // the task was saved without it, and a tagged task never reached its
     // topic (tester, 13 October). What is in the field is what was meant.
-    const pendingTag = newTag.trim().replace(/^#/, '').toLowerCase();
+    const pendingTag = knownSpelling(newTag, knownTopics) || newTag.trim().replace(/^#/, '').toLowerCase();
     const pendingSub = newSubtask.trim();
     const tags = pendingTag && !rest.tags.includes(pendingTag) ? [...rest.tags, pendingTag] : rest.tags;
     const subtasks = pendingSub ? [...rest.subtasks, { id: generateId(), title: pendingSub, done: false }] : rest.subtasks;
@@ -138,7 +144,6 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
       }}
       {...backdrop}
       className="clarity-backdrop"
-      onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } }}
     >
       <div style={{
         background: T.paper, borderRadius: T.r14,
@@ -221,6 +226,13 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
                 placeholder={t('form.addTagAndPressEnter')}
                 style={{ ...field, flex: 1, padding: '7px 12px' }} />
             </div>
+            {suggestTopics(newTag, knownTopics, form.tags).length > 0 && (
+              <div data-tag-suggestions style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {suggestTopics(newTag, knownTopics, form.tags).map(s => (
+                  <button key={s} type="button" data-suggest-tag={s} onClick={() => addTag(s)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, padding: '3px 9px', borderRadius: T.rPill, background: T.paper, color: T.ink80, border: `1px dashed ${T.hairline}`, cursor: 'pointer', fontFamily: T.fontMono }}>#{s}</button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Deadline + Status */}

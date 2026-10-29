@@ -25,3 +25,22 @@ export function topicsOf(tasks) {
     return { tag, count: e.open };
   });
 }
+
+// While a tag is typed (2.9.0): the existing topics that match, so « per »
+// offers « Perso » instead of starting « perso » beside it. Starts-with first,
+// then contains; none already on the task; at most `max`.
+export function suggestTopics(typed, known, exclude = [], max = 6) {
+  const q = topicKey(String(typed || '').replace(/^#/, ''));
+  if (!q) return [];
+  const taken = new Set(exclude.map(topicKey));
+  const pool = [...new Set(known)].filter(k => !taken.has(topicKey(k)) && topicKey(k) !== q);
+  const starts = pool.filter(k => topicKey(k).startsWith(q));
+  const inside = pool.filter(k => !topicKey(k).startsWith(q) && topicKey(k).includes(q));
+  return [...starts, ...inside].slice(0, max);
+}
+
+/** A typed tag in the spelling already used, if it is a known topic. */
+export function knownSpelling(typed, known) {
+  const k = topicKey(String(typed || '').replace(/^#/, ''));
+  return known.find(x => topicKey(x) === k) || null;
+}
