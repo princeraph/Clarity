@@ -4,6 +4,8 @@ Windows-first Electron + React task manager, local AI backend. App in `app/`.
 
 Repo holds **Clarity only** — extracted from multi-project repo, file used to say so. `README.md` = entry point for reader, `CONTRIBUTING.md` = contributor rules, `JOURNAL.md` = record of what done and measured.
 
+**`docs/cible.md` = who Clarity is for, what sets it apart, gaps, what we still need to know, what the public page promises.** Owner's request (29 October 2026): update it at **every published version**, in the same change as the version bump — status column of section 2, gaps, decision log. The public download page (`app/release-site/`) follows its section 1 and promises only what section 2 marks **Fait**; any change to that page's wording is shown to the owner before it is published.
+
 ## How to run
 
 ```bash
