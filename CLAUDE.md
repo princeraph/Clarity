@@ -6,6 +6,19 @@ Repo holds **Clarity only** — extracted from multi-project repo, file used to 
 
 **`docs/cible.md` = who Clarity is for, what sets it apart, gaps, what we still need to know, what the public page promises.** Owner's request (29 October 2026): update it at **every published version**, in the same change as the version bump — status column of section 2, gaps, decision log. The public download page (`app/release-site/`) follows its section 1 and promises only what section 2 marks **Fait**; any change to that page's wording is shown to the owner before it is published.
 
+## Économie de jetons — demande du propriétaire (29 octobre 2026)
+
+Limite hebdomadaire : ~25 % brûlés dès le 1er soir, alerte « en voie d'atteindre » 6 jours avant la fin. Règle pour **toute** session ici :
+
+1. **Un lot par session.** Lot fini et poussé → session neuve. L'état vit dans `JOURNAL.md`, `docs/cible.md` et le doc « Clarity — suivi du projet », pas dans la conversation.
+2. **Lire peu.** Jamais un fichier entier quand `grep -n` + `sed -n a,bp` suffit. Jamais `cat` d'un gros fichier (`App.jsx`, `server.js`, `SettingsView.jsx`, `fr.js`). Logs CI : étape en échec seulement, 40 dernières lignes.
+3. **Tester juste.** Le contrôle du lot + l'essai navigateur du lot. Anciens essais navigateur : seulement ceux qui touchent les fichiers modifiés. Mutation : une fois, sur le contrôle neuf. Tests serveur : une fois avant commit.
+4. **Rien rejouer sans cause.** Un échec se lit avant de relancer ; jamais deux fois la même commande pour voir.
+5. **Déléguer le mécanique** (chaînes de traduction, renommages, captures) à un sous-agent `model: haiku` ou `sonnet`, consigne courte. Garder le modèle fort pour la conception et le débogage.
+6. **Répondre court.** Format télégraphique de fin de tâche ; aucun point d'étape intermédiaire sauf décision ou blocage.
+7. **Estimer avant.** Chaque lot annonce durée et jetons ; à 150 % de l'estimation, s'arrêter, pousser, dire où on en est.
+8. **CI** : publier par lots groupés, pas à chaque petit changement (minutes Actions comptées dès le 1er novembre 2026).
+
 ## How to run
 
 ```bash
