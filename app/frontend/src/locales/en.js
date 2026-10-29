@@ -1114,7 +1114,7 @@ export default {
   'whatsNew.check.body': 'The circle fills and the check draws itself as you click, before the task joins the finished ones.',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': "Tags: type “#pe” and Clarity offers your existing topics (#Perso) — no more duplicates.\nFocus: once the session is over, “New session” starts the count again.\nThe task form closes with Esc, wherever the cursor is.",
+  'update.news': "Reminders: one missed while Clarity was closed comes back, as a single card. “Start with Windows” now sits in Settings › Reminders.\nCalendar (.ics): repeating meetings show every week, cancelled ones disappear, a weekend away fills its three days.\nNarrow window: a subtask opens over its task, the list stays in view.",
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',

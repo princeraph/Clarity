@@ -298,6 +298,10 @@ Mutation (le preload ne donne plus la clé) : 3 écarts puis arrêt. Étape CI r
 
 **Reste.** Le démarrage avec Windows reste éteint par défaut : l'allumer d'office serait décider à la place de la personne. Sur Linux, l'interrupteur n'apparaît pas (non pris en charge).
 
+## 2.10.0 — publication des tâches 2, 3, 4, 5 (29 octobre 2026)
+
+Version, `update.news` (deux langues), `docs/cible.md` (section 2 : rappels et .ics **Fait** en 2.10.0 ; décision). Page de téléchargement : texte validé le 29 oct., part avec cette version. CI branche verte (Windows compris) avant fusion.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

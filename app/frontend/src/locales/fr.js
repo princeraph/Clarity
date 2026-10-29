@@ -1115,7 +1115,7 @@ export default {
   'whatsNew.check.body': 'Le rond se remplit et la coche se dessine dès le clic, avant que la tâche rejoigne les terminées.',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': "Étiquettes : en tapant « #pe », Clarity propose vos sujets existants (#Perso) — fini les doublons.\nFocus : une fois la séance dépassée, « Nouvelle séance » relance le compte.\nLe formulaire de tâche se ferme avec Échap, où que soit le curseur.",
+  'update.news': "Rappels : un rappel manqué pendant que Clarity était fermée revient, en une seule carte. « Démarrer avec Windows » est maintenant dans Réglages › Rappels.\nAgenda (.ics) : les réunions qui se répètent apparaissent chaque semaine, les annulées disparaissent, un week-end au chalet occupe ses trois jours.\nÉcran étroit : une sous-tâche s’ouvre par-dessus sa tâche, la liste reste visible.",
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
