@@ -68,3 +68,4 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 |---|---|---|
 | 29 oct. 2026 | Cible proposée (section 1) : suivre Sunsama, pas Motion | Proposition, en attente du propriétaire |
 | 29 oct. 2026 | Suggestions : une par jour par défaut | Propriétaire (« pushy »), fait en 2.6.0 |
+| 29 oct. 2026 | Tâches ouvertes en deux panneaux latéraux (tâche, puis sous-tâche à côté ; une autre sous-tâche remplace la première), d'après le dessin du propriétaire | Propriétaire, option A — lot B |
