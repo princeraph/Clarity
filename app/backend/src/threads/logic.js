@@ -186,6 +186,7 @@ export function stalledTasks(tasks, { now = new Date(), stallDays = STALL_DAYS, 
   const out = [];
   for (const t of tasks || []) {
     if (!t || t.archived || t.status === 'done') continue;
+    if (t.someday || t.quick) continue;   // parked on purpose, or too small to stall (2.7.0)
     if (hasThread(t.id)) continue;
 
     // A move made by auto-reschedule is not the person postponing (src/reschedule.js).

@@ -35,7 +35,7 @@ export function rescheduleOverdue(tasks, now = new Date()) {
   const at = now.toISOString();
   const moved = [];
   const next = tasks.map(t => {
-    if (t.archived || t.status === 'done' || !t.deadline) return t;
+    if (t.archived || t.status === 'done' || !t.deadline || t.someday) return t;
     const due = String(t.deadline).slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || due >= today) return t;
     moved.push(t.id);

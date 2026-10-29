@@ -61,6 +61,10 @@
     {
       "nom": "les rappels proposent les bons moments",
       "commande": "node frontend/tools/verifier-rappels.mjs"
+    },
+    {
+      "nom": "les rituels du jour : restes, capacité, vidage de tête, revue d'« Un jour »",
+      "commande": "node frontend/tools/verifier-rituels.mjs"
     }
   ]
 }

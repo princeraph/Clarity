@@ -4,9 +4,9 @@ Document interne, tenu à jour à **chaque version publiée** (règle dans
 `CLAUDE.md`). Il sert à décider : quoi construire, quoi refuser, quoi écrire sur
 la page publique. Ce qui est **mesuré** est séparé de ce qui est **supposé**.
 
-Dernière mise à jour : 29 octobre 2026 (2.6.0).
+Dernière mise à jour : 29 octobre 2026 (2.7.0).
 
-## 1. La personne visée — HYPOTHÈSE, pas encore validée
+## 1. La personne visée — validée par le propriétaire le 29 octobre 2026
 
 Une personne **seule** (pas une équipe) qui a trop de choses en tête et veut
 **finir sa journée**, pas gérer des projets :
@@ -30,7 +30,9 @@ réunion, documents partagés. C'est le terrain de Motion, ClickUp, Notion.
 | Privé et local : l'assistant tourne sur l'ordinateur | Sunsama et Motion sont dans le nuage | **Fait** (vérifié en CI : rien ne charge d'Internet) |
 | Un plan du jour qui connaît votre vraie lenteur (écart mesuré estimation / temps réel) | Personne d'autre ne corrige les durées avec ses propres mesures | **Fait** depuis 2.0 ; utile seulement après 5 tâches chronométrées |
 | Calme : Clarity se tait par défaut, une suggestion par jour au plus | Les avis de Sunsama louent l'absence de pression | **Fait** en 2.6.0 |
-| Rituels : planifier le matin, bilan du soir, liste « Un jour » à part | C'est ce que les clients de Sunsama citent comme la cause du soulagement | **À faire** (lot D) |
+| Rituels : planifier le matin (avec « ça déborde »), terminer le soir, « Un jour » à part revu chaque mois, vider sa tête | C'est ce que les clients de Sunsama citent comme la cause du soulagement | **Fait** en 2.7.0 |
+| Tâches rapides : un titre, une heure | Pour « courses 17h » sans remplir un formulaire | **Fait** en 2.7.0 |
+| Blocs de temps qui contiennent des tâches | Images de time blocking du propriétaire | **À faire** |
 
 ## 3. Écarts connus avec la cible
 
@@ -38,7 +40,7 @@ réunion, documents partagés. C'est le terrain de Motion, ClickUp, Notion.
   de son PC. Plus grand trou. Cité dans l'avis Sunsama (« mobile, web, desktop »).
 - **Installateur non signé** : Windows avertit à l'installation. Frein à une
   sortie publique. Décision du propriétaire (certificat).
-- **Agenda Google** : pas encore relié (lot E, par lien iCal privé d'abord).
+- **Agenda Google** : pas encore relié. Repoussé par le propriétaire (29 oct.). Gratuit par le lien iCal privé ; la connexion Google complète est gratuite aussi mais demande une vérification Google avant un usage public.
 
 ## 4. Ce qu'il faudrait savoir pour mieux décider
 
@@ -66,6 +68,7 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 
 | Date | Décision | Par |
 |---|---|---|
-| 29 oct. 2026 | Cible proposée (section 1) : suivre Sunsama, pas Motion | Proposition, en attente du propriétaire |
+| 29 oct. 2026 | Cible (section 1) : suivre Sunsama, pas Motion | Propriétaire (« ok cible ») |
 | 29 oct. 2026 | Suggestions : une par jour par défaut | Propriétaire (« pushy »), fait en 2.6.0 |
 | 29 oct. 2026 | Tâches ouvertes en deux panneaux latéraux (tâche, puis sous-tâche à côté ; une autre sous-tâche remplace la première), d'après le dessin du propriétaire | Propriétaire, option A — lot B |
+| 29 oct. 2026 | Agenda Google repoussé ; lot B (deux panneaux) avant | Propriétaire |

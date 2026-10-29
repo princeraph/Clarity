@@ -6,6 +6,8 @@ import FocusView from './components/views/FocusView.jsx';
 import TasksView from './components/views/TasksView.jsx';
 import CalendarView from './components/views/CalendarView.jsx';
 import ArchiveView from './components/views/ArchiveView.jsx';
+import SomedayView from './components/views/SomedayView.jsx';
+import { MorningPlan, Shutdown, BrainDump } from './components/Rituels.jsx';
 import WeeklySummaryView from './components/views/WeeklySummaryView.jsx';
 import SettingsView from './components/views/SettingsView.jsx';
 import TaskForm from './components/TaskForm.jsx';
@@ -84,6 +86,7 @@ function AppInner() {
   const [editingTask, setEditingTask] = useState(null);
   const [showChat, setShowChat]   = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [ritual, setRitual] = useState(null);   // 'plan' | 'shutdown' | 'dump' (2.7.0)
   const [showCapture, setShowCapture] = useState(false);
   const [detailTask, setDetailTask]   = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
@@ -564,7 +567,7 @@ function AppInner() {
   const updateWindow = useUpdates();
   const [askCrash, setAskCrash] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  busyRef.current = showOnboarding || showTutorial || showForm || showCapture || showChat || showExport
+  busyRef.current = showOnboarding || showTutorial || showForm || showCapture || showChat || showExport || !!ritual
     || !!focusTask || !!detailTask || !!suggestion || !!feedbackMode
     || updateWindow.open || !!updateWindow.updated || askCrash
     || !!contextMenu || !!scheduling || showShortcuts;
@@ -698,9 +701,12 @@ function AppInner() {
   // a blocked task under the rest; a blocker carrying the level and deadline
   // of what it holds up. Each task says why in `order`.
   // Then what Clarity proposes for each (lib/suggestions.js, 1.9.0).
+  // « Someday » (2.7.0) is kept out of everything but its own page: Today, the
+  // Inbox, the plan, topics, the calendar, the counts.
+  const presentTasks = useMemo(() => data.tasks.filter(t => !t.someday), [data.tasks]);
   const rankedTasks = useMemo(() => {
     const ordered = orderTasks(
-      data.tasks
+      presentTasks
         .filter(t => !hiddenTaskIds.has(t.id))
         .map(task => ({ ...task, aiData: data.analysis?.taskAnalysis?.find(a => a.id === task.id) || null })),
       analyzedAt,
@@ -708,7 +714,18 @@ function AppInner() {
     const proposals = suggestionsFor(ordered, Date.now());
     return ordered.map(t => ({ ...t, suggestions: proposals.get(t.id) || [] }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.tasks, data.analysis, hiddenTaskIds]);
+  }, [presentTasks, data.analysis, hiddenTaskIds]);
+
+  // « Someday » (2.7.0): out of the day, one click, one undo.
+  async function handleSomeday(task, on) {
+    try {
+      const resp = await fetch(`${API}/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ someday: on }) });
+      if (!resp.ok) throw new Error('Server error');
+      if (on) setDetailTask(null);
+      await loadData();
+      showToast(t(on ? 'someday.moved' : 'someday.back', { title: task.title }), 'success', undoTo(task.id, { someday: !!task.someday }));
+    } catch { showToast(t('toast.saveFailed'), 'error'); }
+  }
 
   // Topics (2.6.0): renamed (or merged) and removed on every task at once.
   async function handleRenameTopic(from, to) {
@@ -749,10 +766,10 @@ function AppInner() {
   };
 
   const stats = {
-    total:      data.tasks.length,
-    inProgress: data.tasks.filter(t => t.status === 'in_progress').length,
-    done:       data.tasks.filter(t => t.status === 'done').length,
-    overdue:    (() => { const s = new Date(); s.setHours(0,0,0,0); return data.tasks.filter(t => t.deadline && new Date(t.deadline + 'T00:00:00') < s && t.status !== 'done').length; })(),
+    total:      presentTasks.length,
+    inProgress: presentTasks.filter(t => t.status === 'in_progress').length,
+    done:       presentTasks.filter(t => t.status === 'done').length,
+    overdue:    (() => { const s = new Date(); s.setHours(0,0,0,0); return presentTasks.filter(t => t.deadline && new Date(t.deadline + 'T00:00:00') < s && t.status !== 'done').length; })(),
   };
 
   return (
@@ -780,8 +797,10 @@ function AppInner() {
           onReanalyze={handleReanalyze}
           onOpenSettings={() => setView('settings')}
           onOpenAiSettings={openAiSettings}
-          taskCount={data.tasks.length} archivedCount={data.archivedTasks.length}
-          allTasks={data.tasks}
+          taskCount={presentTasks.length} archivedCount={data.archivedTasks.length}
+          somedayCount={data.tasks.length - presentTasks.length}
+          onBrainDump={() => setRitual('dump')}
+          allTasks={presentTasks}
           activeArea={activeArea}
           onAreaClick={tag => { setActiveArea(tag); setView('topic-detail'); }}
         />
@@ -794,7 +813,11 @@ function AppInner() {
               analyzing={data.analyzing} analysisError={data.analysisError} health={health} {...taskHandlers}
               onAddTask={openAddTask} onAcceptAiTask={handleAcceptAiTask} onEditPlan={editPlan} onDismissPlan={markPlanHandled} onViewAll={() => goTo('tasks')} onOpenDay={(date) => { setCalendarFocus({ date, at: Date.now() }); setView('calendar'); }} handledPlan={handledPlan} onViewTasks={() => setView('calendar')}
               onOpenSettings={openAiSettings} onReanalyze={handleReanalyze}
-              onOpenChat={() => setShowChat(true)} />
+              onOpenChat={() => setShowChat(true)} onOpenRitual={setRitual} />
+          )}
+          {view === 'someday' && (
+            <SomedayView tasks={data.tasks} onOpenDetail={openDetail}
+              onChanged={async (task, choice) => { await loadData(); showToast(t(choice === 'today' ? 'someday.backToday' : 'someday.back', { title: task.title }), 'success', undoTo(task.id, { someday: true, deadline: task.deadline ?? null })); }} />
           )}
           {(view === 'tasks' || view === 'anytime') && (
             <TasksView rankedTasks={rankedTasks} analyzing={data.analyzing}
@@ -832,7 +855,7 @@ function AppInner() {
           {view === 'topic-detail' && (
             <TopicDetailView
               topic={activeArea}
-              allTasks={data.tasks}
+              allTasks={presentTasks}
               archivedTasks={data.archivedTasks}
               onOpenDetail={openDetail}
               onBack={() => setView('focus')}
@@ -939,6 +962,9 @@ function AppInner() {
       )}
       {showChat   && <ChatPanel onClose={() => setShowChat(false)} taskCount={data.tasks.length} />}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+      {ritual === 'plan' && <MorningPlan tasks={data.tasks} onClose={() => setRitual(null)} onChanged={loadData} />}
+      {ritual === 'shutdown' && <Shutdown tasks={data.tasks} onClose={() => setRitual(null)} onChanged={loadData} />}
+      {ritual === 'dump' && <BrainDump onClose={() => setRitual(null)} onChanged={async (n) => { await loadData(); showToast(t(n === 1 ? 'ritual.dump.createdOne' : 'ritual.dump.created', { n }), 'success'); }} />}
       {feedbackMode && <FeedbackDialog mode={feedbackMode} onClose={closeFeedback} />}
       <UpdateDialog />
       <ReminderToasts tasks={data.tasks} onOpenTask={(id) => { const task = dataRef.current.tasks.find(x => x.id === id); if (task) openDetail(task); }} onGoToday={() => setView('focus')} />
@@ -960,6 +986,7 @@ function AppInner() {
           onSaved={loadData}
           onEdited={offerEditUndo}
           onFocusMode={enterFocusMode}
+          onSomeday={handleSomeday}
         />
       )}
       {contextMenu && (
@@ -977,6 +1004,7 @@ function AppInner() {
           onSaved={loadData}
           onFocusMode={enterFocusMode}
           onSchedule={openScheduling}
+          onSomeday={handleSomeday}
         />
       )}
       {scheduling && (

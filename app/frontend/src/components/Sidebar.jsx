@@ -40,6 +40,13 @@ const IcoSomeday = ({ color }) => (
   </svg>
 );
 
+// « Someday » (2.7.0): a cloud — not now, not lost.
+const IcoLater = ({ color }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M4.5 12.5h7a2.5 2.5 0 0 0 .3-5A3.5 3.5 0 0 0 5 6.6a3 3 0 0 0-.5 5.9Z" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+  </svg>
+);
+
 const IcoHistory = ({ color }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
     <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.2" />
@@ -113,6 +120,7 @@ const NAV_ITEMS = [
   { id: 'today',    labelKey: 'nav.today',    view: 'focus',    Icon: IcoToday },
   { id: 'upcoming', labelKey: 'nav.calendar', view: 'calendar', Icon: IcoUpcoming },
   { id: 'anytime',  labelKey: 'nav.anytime',  view: 'anytime',  Icon: IcoAnytime },
+  { id: 'later',    labelKey: 'nav.someday',  view: 'someday',  Icon: IcoLater },
   { id: 'someday',  labelKey: 'nav.archive',  view: 'archive',  Icon: IcoSomeday },
   { id: 'history',  labelKey: 'nav.history',  view: 'history',  Icon: IcoHistory },
   { id: 'graph',    labelKey: 'nav.graph',    view: 'graph',    Icon: IcoGraph },
@@ -226,6 +234,7 @@ function getUserName() {
 export default function Sidebar({
   view, setView, health, analyzing, onAddTask, onCapture, onChat, onExport, onReanalyze,
   taskCount, archivedCount, allTasks, activeArea, onAreaClick, onOpenSettings, onOpenAiSettings,
+  somedayCount = 0, onBrainDump,
   onFeedback,   // null while no feedback form is configured: nothing is shown
 }) {
   // While the built-in assistant downloads, say so: a new tester's first
@@ -259,6 +268,7 @@ export default function Sidebar({
     if (item.id === 'inbox') return active.length;
     if (item.id === 'anytime') return active.filter(t => !t.deadline).length;
     if (item.id === 'someday') return archivedCount;
+    if (item.id === 'later') return somedayCount || undefined;
     if (item.id === 'today') { const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; return active.filter(t => t.deadline && t.deadline.slice(0, 10) <= today).length || undefined; }
     return undefined;
   };
@@ -409,6 +419,14 @@ export default function Sidebar({
           </span>
           <span style={{ fontFamily: T.fontMono, fontSize: 10, opacity: 0.6 }}>Ctrl+K</span>
         </button>
+      )}
+      {/* Empty your head (2.7.0): everything typed at once, sorted after. */}
+      {onBrainDump && (
+        <button data-tour="brain-dump" onClick={onBrainDump} style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', marginTop: -10, width: '100%', boxSizing: 'border-box',
+          background: 'transparent', color: T.ink60, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+          cursor: 'pointer', fontFamily: T.fontUI, fontSize: 12.5,
+        }}>{t('ritual.dump.title')}</button>
       )}
 
       {/* Primary nav + Ask Clarity */}

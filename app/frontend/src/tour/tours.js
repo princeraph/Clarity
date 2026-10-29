@@ -83,6 +83,11 @@ export const WHATS_NEW = {
     { key: 'topicsTidy', view: 'focus', target: 'topics' },
     { key: 'suggestCalm', settings: 'suggestions', target: 'suggest-mode' },
   ],
+  '2.7.0': [
+    { key: 'rituals', view: 'focus', target: 'today-header' },
+    { key: 'quickTasks', view: 'focus', target: 'quick' },
+    { key: 'somedayList', view: 'focus', target: 'brain-dump' },
+  ],
 };
 
 export function compareVersions(a, b) {

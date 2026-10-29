@@ -290,7 +290,7 @@ function NotesEditor({ task, onSaved, T, t }) {
   );
 }
 
-export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode }) {
+export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode, onSomeday }) {
   useEscape(onClose);
   const { T } = useTheme();
   const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
@@ -810,6 +810,13 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               border: `1px solid ${T.hairline}`, borderRadius: T.r6,
               fontSize: 12.5, color: T.accentInk, cursor: 'pointer', fontFamily: T.fontUI,
             }}>{t('task.focus')}</button>
+          )}
+          {onSomeday && task.status !== 'done' && (
+            <button data-action="someday" onClick={() => onSomeday(task, !task.someday)} style={{
+              padding: '8px 12px', background: 'transparent',
+              border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+              fontSize: 12.5, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
+            }}>{t(task.someday ? 'someday.bringBack' : 'someday.put')}</button>
           )}
           <button onClick={() => onDelete(task.id)} style={{
             padding: '8px 12px', background: 'transparent',

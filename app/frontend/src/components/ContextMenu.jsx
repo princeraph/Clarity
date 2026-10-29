@@ -5,7 +5,7 @@ import { useLocale } from '../contexts/LocaleContext.jsx';
 
 const API = 'http://localhost:3001/api';
 
-export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onOpenDetail, onSaved, onFocusMode, onSchedule }) {
+export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onOpenDetail, onSaved, onFocusMode, onSchedule, onSomeday }) {
   async function setPriority(priority) {
     try {
       const r = await fetch(`http://localhost:3001/api/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ priority }) });
@@ -157,6 +157,10 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
           muted
           onClick={() => { onSchedule?.(task, pos.x + 228, pos.y); onClose(); }}
         />
+        {onSomeday && task.status !== 'done' && (
+          <MenuItem icon="☁" muted label={t(task.someday ? 'someday.bringBack' : 'someday.put')}
+            onClick={() => { onSomeday(task, !task.someday); onClose(); }} />
+        )}
         {!showMoveToArea ? (
           <MenuItem
             icon="⤢"

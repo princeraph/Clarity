@@ -1413,6 +1413,24 @@ en référence.
 
 **Reste.** Glisser au pavé tactile et notification Windows : pas vérifiés à la main.
 
+## 2.7.0 — Lot D : les rituels du jour (29 octobre 2026)
+
+**Changé.**
+- **Planifier ma journée** (proposé le matin, jamais imposé) : ce qui reste d'avant → aujourd'hui / demain / plus tard / un jour ; aujourd'hui, avec la capacité (estimations corrigées par l'écart mesuré, contre les heures de travail encore libres) et « ça déborde » ; des tâches sans date à tirer vers aujourd'hui ; une fois par mois, « Un jour ».
+- **Terminer ma journée** : ce qui est fait, puis une place pour ce qui ne l'est pas.
+- **Tâches rapides** (`quick`) : « courses 17h » depuis Aujourd'hui ; ni niveau ni difficulté ; hors analyse, suggestions et fils de suivi ; leur propre liste.
+- **Un jour** (`someday`) : page à part, hors d'Aujourd'hui, de la Boîte de réception, du plan, des sujets, des compteurs, de l'analyse et du report automatique. Depuis le détail ou le clic droit.
+- **Vider sa tête** : tout écrire, une ligne par tâche (la grammaire de saisie garde jours, heures, sujets), trier, créer.
+- `lib/rituels.js` pur, `verifier-rituels.mjs` (26 cas) dans `qualite.json` et la CI.
+
+**Pourquoi.** Cible validée (« finir sa journée ») ; c'est ce que les avis Sunsama citent.
+
+**Vérifié.**
+- Serveur : 553 tests (3 nouveaux : « Un jour » et tâches rapides ne reviennent ni en suggestion, ni en tâche bloquée, ni en report).
+- Navigateur (`essai-navigateur-2.7.cjs`) : vert. Mutations : sans le filtre « Un jour », sans « ça déborde » → 3 écarts vus. 2.4 et 2.6 rejoués : verts.
+
+**Reste.** Blocs de temps contenant des tâches (images 6 à 8) : pas fait. Les marques « plan fait / journée terminée » sont par appareil (localStorage), pas synchronisées.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

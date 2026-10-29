@@ -115,6 +115,9 @@ jobs:
       - name: les rappels proposent les bons moments
         working-directory: app/frontend
         run: node tools/verifier-rappels.mjs
+      - name: les rituels du jour suivent leurs règles
+        working-directory: app/frontend
+        run: node tools/verifier-rituels.mjs
 
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app

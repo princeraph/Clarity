@@ -400,7 +400,8 @@ async function runAnalysis(allTasks) {
 }
 
 function scheduleAnalysis(tasks) {
-  const active = tasks.filter(t => !t.archived && t.status !== 'done');
+  // « Someday » and quick tasks are not the assistant's to rank (2.7.0).
+  const active = tasks.filter(t => !t.archived && t.status !== 'done' && !t.someday && !t.quick);
   if (analysisDebounce) clearTimeout(analysisDebounce);
   analysisDebounce = setTimeout(() => runAnalysis(active), 800);
 }
@@ -1426,6 +1427,9 @@ const MUTABLE_FIELDS = [
   'title', 'description', 'deadline', 'time', 'estimatedDuration',
   'deliverable', 'status', 'notes', 'tags', 'subtasks', 'recurring',
   'priority', 'difficulty', 'links', 'dismissed', 'reminder', 'rank',
+  // 2.7.0: a quick task (a title, an hour at most — the assistant leaves it
+  // alone) and « Someday » (out of Today, the Inbox, the plan and the analysis).
+  'quick', 'someday',
 ];
 
 function pickMutable(body) {
@@ -1452,6 +1456,9 @@ function validateFields(body, res) {
   if (body.time !== undefined && body.time !== null && body.time !== '' &&
       !(typeof body.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(body.time)))
     return res.status(400).json({ error: 'Invalid time — use HH:MM' });
+  for (const k of ['quick', 'someday'])
+    if (body[k] !== undefined && body[k] !== null && typeof body[k] !== 'boolean')
+      return res.status(400).json({ error: `${k} must be true or false` });
 
   // Text fields must be text. A number in `notes` stored fine, then crashed
   // the AI analysis prompt and the AI connector's views for every task.
@@ -1585,6 +1592,8 @@ function newTask(body, now) {
     priority:          body.priority            ?? null,
     difficulty:        body.difficulty          ?? null,
     links:             normalizeLinks(body.links ?? null, null) || [],
+    quick:             body.quick === true,
+    someday:           body.someday === true,
     timeTracked:       0,
     timerStarted:      null,
     archived:          false,

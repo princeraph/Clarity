@@ -29,7 +29,8 @@ function daysBetween(a, b) { return Math.floor((a - b) / DAY); }
 export function candidates({ tasks = [], threads = {}, observed = null, now = new Date() } = {}) {
   const out = [];
   const nowMs = now.getTime();
-  const live = (tasks || []).filter(t => t && !t.archived && t.status !== 'done');
+  // « Someday » and quick tasks never interrupt (2.7.0).
+  const live = (tasks || []).filter(t => t && !t.archived && t.status !== 'done' && !t.someday && !t.quick);
 
   // 1. A follow-up whose check-in has come due. The person already agreed to be
   //    asked about this one, which makes it the least intrusive thing to raise.

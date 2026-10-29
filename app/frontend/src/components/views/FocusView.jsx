@@ -8,6 +8,8 @@ import { useLocale } from '../../contexts/LocaleContext.jsx';
 import AiOfflineNotice from '../AiOfflineNotice.jsx';
 import TimeBlockingStrip from '../TimeBlockingStrip.jsx';
 import { useFeatures } from '../../features.js';
+import { parseInput, dateOrderFor } from '../../lib/saisie.js';
+import { RITUAL_KEYS, readMark } from '../Rituels.jsx';
 
 const API = 'http://localhost:3001/api';
 
@@ -212,7 +214,40 @@ function stalledWhy(s, t) {
   return s.why;
 }
 
-export default function FocusView({ rankedTasks, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onViewAll, onOpenSettings, onOpenChat, onOpenDay, ...handlers }) {
+// A quick task (2.7.0): a title, and an hour if it has one — « courses 17h ».
+// No deadline to choose, no level, no difficulty; the assistant leaves it
+// alone. An hour without a day means today.
+function QuickAdd({ onAdded, T }) {
+  const { t, locale } = useLocale();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState(false);
+  async function add() {
+    const p = parseInput(value, new Date(), { dateOrder: dateOrderFor(locale), duration: false });
+    if (!p.title?.trim()) return;
+    const d = new Date(), today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const body = { title: p.title.trim(), quick: true, tags: p.tags, time: p.time, deadline: p.deadline || (p.time ? today : null) };
+    try {
+      const r = await fetch(`${API}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error();
+      setValue(''); setError(false); onAdded?.();
+    } catch { setError(true); }
+  }
+  return (
+    <div>
+      <input data-field="quick-add" aria-label={t('quick.label')} value={value} placeholder={t('quick.placeholder')}
+        onChange={e => setValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }}
+        style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', fontSize: 13.5, fontFamily: T.fontUI, color: T.ink, background: T.paperSubtle, border: `1px solid ${error ? T.dangerBorder : T.hairline}`, borderRadius: T.r6, outline: 'none' }} />
+      {error && <div role="alert" style={{ fontSize: 12, color: T.danger, marginTop: 4 }}>{t('quick.failed')}</div>}
+    </div>
+  );
+}
+
+export default function FocusView({ rankedTasks: allRanked, analysis, stats, analyzing, analysisError, health, onAddTask, onAcceptAiTask, onEditPlan, onDismissPlan, handledPlan, onViewTasks, onViewAll, onOpenSettings, onOpenChat, onOpenDay, onOpenRitual, ...handlers }) {
+  // Quick tasks have their own short list; the plan and the groups below are
+  // for the rest (2.7.0).
+  const rankedTasks = allRanked.filter(t => !t.quick);
+  const quickTasks = allRanked.filter(t => t.quick && t.status !== 'done')
+    .sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999') || (a.time || '99').localeCompare(b.time || '99'));
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
   const userName = getUserName();
@@ -264,6 +299,9 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
 
   const now = new Date();
   const dateStr = fmtDate(now, { weekday: 'long', day: 'numeric', month: 'long' });
+  const [skipped, setSkipped] = useState(() => readMark('clarity-planSkippedOn'));
+  const morningHidden = readMark(RITUAL_KEYS.planned) === todayISO || skipped === todayISO || now.getHours() >= 14;
+  const skipMorning = () => { try { localStorage.setItem('clarity-planSkippedOn', todayISO); } catch {} setSkipped(todayISO); };
 
   return (
     <div style={{
@@ -284,12 +322,25 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {onOpenRitual && (<>
+            <button type="button" data-act="plan-day" onClick={() => onOpenRitual('plan')} style={{ fontFamily: T.fontUI, fontSize: 12, color: T.ink60, background: 'transparent', border: `1px solid ${T.hairline}`, padding: '6px 11px', borderRadius: T.rPill, cursor: 'pointer' }}>{t('ritual.plan.title')}</button>
+            <button type="button" data-act="shutdown" onClick={() => onOpenRitual('shutdown')} style={{ fontFamily: T.fontUI, fontSize: 12, color: T.ink60, background: 'transparent', border: `1px solid ${T.hairline}`, padding: '6px 11px', borderRadius: T.rPill, cursor: 'pointer' }}>{t('ritual.shutdown.title')}</button>
+          </>)}
           <StatPill label={t('focus.stat.total')} value={stats.total} T={T} />
           {stats.inProgress > 0 && <StatPill label={t('focus.stat.inProgress')} value={stats.inProgress} T={T} />}
           {stats.done > 0 && <StatPill label={t('focus.stat.done', { n: stats.done })} value={stats.done} accent={T.done} T={T} />}
           {stats.overdue > 0 && <StatPill label={t('focus.stat.overdue')} value={stats.overdue} accent={T.warn} T={T} />}
         </div>
       </header>
+
+      {/* Plan my day (2.7.0): offered once a day, in the morning, never forced. */}
+      {onOpenRitual && !morningHidden && (
+        <div data-ritual-offer="plan" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', background: T.paperSubtle, border: `1px solid ${T.hairline}`, borderRadius: T.r10 }}>
+          <span style={{ flex: 1, fontSize: 13.5, color: T.ink80 }}>{t('ritual.offer.plan')}</span>
+          <button type="button" data-act="open-plan" onClick={() => onOpenRitual('plan')} style={{ fontFamily: T.fontUI, fontSize: 12.5, fontWeight: 500, color: T.paper, background: T.ink, border: 'none', padding: '7px 14px', borderRadius: T.r6, cursor: 'pointer' }}>{t('ritual.plan.title')}</button>
+          <button type="button" onClick={skipMorning} style={{ fontFamily: T.fontUI, fontSize: 12.5, color: T.ink60, background: 'transparent', border: 'none', cursor: 'pointer' }}>{t('ritual.notToday')}</button>
+        </div>
+      )}
 
       {/* Time blocking strip */}
       {planMode !== 'grid' && <TimeBlockingStrip blocks={timelineBlocks} />}
@@ -367,6 +418,14 @@ export default function FocusView({ rankedTasks, analysis, stats, analyzing, ana
       )}
 
       <FollowUpsDue tasks={handlers.allTasks || []} onOpenDetail={handlers.onOpenDetail} T={T} />
+
+      {/* Quick tasks (2.7.0): what just needs to be written down. */}
+      <section data-tour="quick" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <TaskGroup title={t('quick.title')} subtitle={quickTasks.length ? t(quickTasks.length === 1 ? 'focus.nTasksOne' : 'focus.nTasks', { n: quickTasks.length }) : null} T={T}>
+          <QuickAdd onAdded={handlers.onReload} T={T} />
+          {quickTasks.map(task => <TaskCard key={task.id} task={task} {...handlers} />)}
+        </TaskGroup>
+      </section>
 
       {/* Task groups */}
       {activeTasks.length > 0 ? (
