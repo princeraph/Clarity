@@ -65,6 +65,10 @@
     {
       "nom": "les rituels du jour : restes, capacité, vidage de tête, revue d'« Un jour »",
       "commande": "node frontend/tools/verifier-rituels.mjs"
+    },
+    {
+      "nom": "une sous-tâche a sa page : statut tenu avec « faite », devenir une tâche",
+      "commande": "node frontend/tools/verifier-sous-taches.mjs"
     }
   ]
 }

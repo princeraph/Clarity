@@ -101,14 +101,15 @@ const wait = (ms) => new Promise(r => setTimeout(r, ms));
   await p.keyboard.press('Escape').catch(() => {});
   const lait = (await tasks()).find(t => t.id === P1.id).subtasks[0];
   await p.waitForSelector(`[data-detail-panel] [data-subtask-id="${lait.id}"]`);
-  await p.click(`[data-detail-panel] [data-subtask-id="${lait.id}"] > div`);
-  await p.fill(`[data-subtask-id="${lait.id}"] [data-field="subtask-title"]`, 'Lait d’avoine');
-  await p.fill(`[data-subtask-id="${lait.id}"] [data-field="subtask-notes"]`, 'Celui sans sucre');
+  await p.click(`[data-detail-panel] [data-subtask-id="${lait.id}"]`);   // 2.8.0: opens its page beside the task
+  await p.fill(`[data-subtask-panel="${lait.id}"] [data-field="subtask-title"]`, 'Lait d’avoine');
+  await p.fill(`[data-subtask-panel="${lait.id}"] [data-field="subtask-notes"]`, 'Celui sans sucre');
   await p.click('[data-detail-panel]', { position: { x: 20, y: 20 } });   // leave the fields
   ok(!(await p.$('[data-task-form]')), 'modifier une sous-tâche n’ouvre pas la fenêtre complète');
   ok(await until(async () => { const s = (await tasks()).find(t => t.id === P1.id).subtasks[0]; return s.title === 'Lait d’avoine' && s.notes === 'Celui sans sucre'; }), 'titre et notes de la sous-tâche enregistrés');
   await wait(5500);   // one refresh: what is typed is not overwritten
-  ok(await p.$eval(`[data-subtask-id="${lait.id}"] [data-field="subtask-notes"]`, el => el.value) === 'Celui sans sucre', 'le rafraîchissement n’efface pas les champs ouverts');
+  ok(await p.$eval(`[data-subtask-panel="${lait.id}"] [data-field="subtask-notes"]`, el => el.value) === 'Celui sans sucre', 'le rafraîchissement n’efface pas les champs ouverts');
+  await p.keyboard.press('Escape');   // the subtask's page
   await p.keyboard.press('Escape');
   await p.waitForSelector('[data-detail-panel]', { state: 'detached' }).catch(() => {});
 

@@ -19,10 +19,13 @@ const pill = (T, on, color) => ({
   border: `1px solid ${on ? (color || T.ink) : T.hairline}`,
 });
 
-export function PriorityRow({ task, T, onSaved, onEdited }) {
+// `onChange`: a subtask's panel (2.8.0) passes its own save instead of a PUT
+// on a task.
+export function PriorityRow({ task, T, onSaved, onEdited, onChange }) {
   const { t } = useLocale();
   const set = async (priority) => {
     if (priority === (task.priority ?? null)) return;
+    if (onChange) return onChange({ priority });
     try { await put(task.id, { priority }); onSaved?.(); onEdited?.(task, { priority }); } catch {}
   };
   return (
@@ -44,10 +47,11 @@ export function PriorityRow({ task, T, onSaved, onEdited }) {
   );
 }
 
-export function DifficultyRow({ task, T, onSaved, onEdited }) {
+export function DifficultyRow({ task, T, onSaved, onEdited, onChange }) {
   const { t } = useLocale();
   const set = async (difficulty) => {
     const next = difficulty === task.difficulty ? null : difficulty;   // a second click clears it
+    if (onChange) return onChange({ difficulty: next });
     try { await put(task.id, { difficulty: next }); onSaved?.(); onEdited?.(task, { difficulty: next }); } catch {}
   };
   return (

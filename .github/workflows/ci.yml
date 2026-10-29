@@ -118,6 +118,9 @@ jobs:
       - name: les rituels du jour suivent leurs règles
         working-directory: app/frontend
         run: node tools/verifier-rituels.mjs
+      - name: une sous-tâche a sa page, et peut devenir une tâche
+        working-directory: app/frontend
+        run: node tools/verifier-sous-taches.mjs
 
       - name: le paquet chargé par Electron est complet, et ne charge rien d'Internet
         working-directory: app

@@ -4,7 +4,7 @@ Document interne, tenu à jour à **chaque version publiée** (règle dans
 `CLAUDE.md`). Il sert à décider : quoi construire, quoi refuser, quoi écrire sur
 la page publique. Ce qui est **mesuré** est séparé de ce qui est **supposé**.
 
-Dernière mise à jour : 29 octobre 2026 (2.7.0).
+Dernière mise à jour : 29 octobre 2026 (2.8.0).
 
 ## 1. La personne visée — validée par le propriétaire le 29 octobre 2026
 
@@ -32,6 +32,7 @@ réunion, documents partagés. C'est le terrain de Motion, ClickUp, Notion.
 | Calme : Clarity se tait par défaut, une suggestion par jour au plus | Les avis de Sunsama louent l'absence de pression | **Fait** en 2.6.0 |
 | Rituels : planifier le matin (avec « ça déborde »), terminer le soir, « Un jour » à part revu chaque mois, vider sa tête | C'est ce que les clients de Sunsama citent comme la cause du soulagement | **Fait** en 2.7.0 |
 | Tâches rapides : un titre, une heure | Pour « courses 17h » sans remplir un formulaire | **Fait** en 2.7.0 |
+| Sous-tâches en pages, à côté de leur tâche ; « en faire une tâche » | Dessin du propriétaire | **Fait** en 2.8.0 |
 | Blocs de temps qui contiennent des tâches | Images de time blocking du propriétaire | **À faire** |
 
 ## 3. Écarts connus avec la cible

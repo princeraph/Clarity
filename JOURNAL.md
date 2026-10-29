@@ -1431,6 +1431,20 @@ en référence.
 
 **Reste.** Blocs de temps contenant des tâches (images 6 à 8) : pas fait. Les marques « plan fait / journée terminée » sont par appareil (localStorage), pas synchronisées.
 
+## 2.8.0 — Lot B : une sous-tâche, une page (29 octobre 2026)
+
+**Changé.**
+- Cliquer une sous-tâche ouvre sa page à droite ; la tâche glisse à gauche (option A choisie par le propriétaire, d'après son dessin). Une autre sous-tâche remplace la page ; Échap ferme la sous-tâche, puis la tâche.
+- Une sous-tâche a désormais date, niveau, statut, difficulté, titre, notes. `done` reste lu partout ; `status` le suit (`lib/sousTaches.js`).
+- « En faire une tâche » : nouvelle tâche avec tout ce qu'avait la sous-tâche, les sujets de sa tâche, un lien « liée à » vers elle.
+- Sélecteurs de niveau et de difficulté réutilisés (`onChange`), pas recopiés.
+
+**Vérifié.**
+- `verifier-sous-taches.mjs` : 15 cas, dans `qualite.json` et la CI.
+- Navigateur `essai-navigateur-2.8.cjs` : vert. Mutation (la tâche ne glisse plus) : 2 écarts vus. 2.4, 2.6 (adapté : la sous-tâche s'ouvre en page), 2.7 : verts. Serveur : 553 tests.
+
+**Reste.** Écran étroit (< 1100 px) : les deux panneaux mangent la liste ; pas traité.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

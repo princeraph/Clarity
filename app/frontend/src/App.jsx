@@ -987,6 +987,7 @@ function AppInner() {
           onEdited={offerEditUndo}
           onFocusMode={enterFocusMode}
           onSomeday={handleSomeday}
+          onPromoted={(created) => { loadData(); showToast(t('toast.subtaskPromoted', { title: created.title }), 'success', () => openDetail(created), t('common.open')); }}
         />
       )}
       {contextMenu && (

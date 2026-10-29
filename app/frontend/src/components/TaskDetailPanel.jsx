@@ -7,6 +7,8 @@ import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLocale } from '../contexts/LocaleContext.jsx';
 import { localDay } from './glance.js';
 import useEscape from '../hooks/useEscape.js';
+import { LEVEL_STYLE } from '../lib/niveaux.js';
+import { SUB_STATUSES, subtaskStatus, withSubtask, promote } from '../lib/sousTaches.js';
 
 const API = 'http://localhost:3001/api';
 const newId = () => (globalThis.crypto?.randomUUID?.() || `st-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -45,119 +47,125 @@ function TDPill({ label, value, accent, T }) {
   );
 }
 
-// A subtask, edited where it is (2.6.0). Opening one used to send the person
-// to the full task form — from the side panel of a topic, that meant leaving
-// the panel to change one line. Title, notes and date are written here, saved
-// on leaving the field (or Enter on the title); the 5-second refresh never
-// overwrites what is being typed: the fields keep their own copy while open.
-function SubtaskCard({ subtask: s, task, onToggle, onChange, onRemove, T }) {
-  const { t } = useLocale();
-  const [expanded, setExpanded] = useState(false);
+// A subtask, as a line of its task (2.8.0): tick it, or click it to open it
+// as a page of its own beside the task (SubtaskPanel). Another click on
+// another subtask replaces the page. In 2.6.0 it opened inline; the owner's
+// drawing asked for a page beside the task, as Notion's side peek does.
+function SubtaskCard({ subtask: s, task, onToggle, onOpen, open, T }) {
+  const { fmtDate } = useLocale();
   const [hov, setHov] = useState(false);
-  const [draft, setDraft] = useState(null);   // { title, notes, dueDate } while open
-
-  const open = () => { setDraft({ title: s.title, notes: s.notes || '', dueDate: s.dueDate || '' }); setExpanded(true); };
-  const commit = (field) => {
-    if (!draft) return;
-    const value = field === 'title' ? draft.title.trim() : field === 'dueDate' ? (draft.dueDate || null) : draft.notes;
-    if (field === 'title' && !value) { setDraft(d => ({ ...d, title: s.title })); return; }
-    if ((s[field] ?? (field === 'dueDate' ? null : '')) === value) return;
-    onChange?.(s.id, { [field]: value });
-  };
-  const field = {
-    width: '100%', boxSizing: 'border-box', padding: '6px 8px',
-    background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
-    fontSize: 12.5, color: T.ink, fontFamily: T.fontUI, outline: 'none',
-  };
-
+  const meta = [s.dueDate ? fmtDate(s.dueDate + 'T00:00:00', { day: 'numeric', month: 'short' }) : null].filter(Boolean).join(' · ');
   return (
     <div
-      data-subtask-id={s.id}
-      style={{
-        background: T.paperSubtle, borderRadius: T.r6,
-        border: `1px solid ${T.hairlineSoft}`,
-        overflow: 'hidden',
-        transition: 'border-color 0.1s',
-        borderColor: hov && !expanded ? T.hairline : T.hairlineSoft,
-      }}
+      data-subtask-id={s.id} data-open={open ? '' : undefined}
+      onClick={() => onOpen?.(s.id)}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', cursor: 'pointer',
+        background: open ? T.paper : T.paperSubtle, borderRadius: T.r6,
+        border: `1px solid ${open ? T.accent : hov ? T.hairline : T.hairlineSoft}`,
+        transition: 'border-color 0.1s',
+      }}
     >
-      {/* Header row — always visible */}
-      <div
-        onClick={() => (expanded ? setExpanded(false) : open())}
+      <span
+        data-check
+        onClick={e => { e.stopPropagation(); onToggle?.(task, s.id); }}
         style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '9px 12px', cursor: 'pointer',
+          width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+          background: s.done ? T.done : 'transparent',
+          border: `1.5px solid ${s.done ? T.done : T.ink40}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}
       >
-        {/* Check circle */}
-        <span
-          data-check
-          onClick={e => { e.stopPropagation(); onToggle?.(task, s.id); }}
-          style={{
-            width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-            background: s.done ? T.done : 'transparent',
-            border: `1.5px solid ${s.done ? T.done : T.ink40}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          {s.done && <span style={{ color: T.paper, fontSize: 8, lineHeight: 1 }}>✓</span>}
-        </span>
-        <span style={{
-          flex: 1, fontSize: 13, color: s.done ? T.ink40 : T.ink,
-          textDecoration: s.done ? 'line-through' : 'none',
-          lineHeight: 1.4,
-        }}>{s.title}</span>
-        <svg
-          width="10" height="10" viewBox="0 0 24 24" fill="none"
-          stroke={T.ink40} strokeWidth="2.5"
-          style={{ flexShrink: 0, transition: 'transform 0.15s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        >
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
+        {s.done && <span style={{ color: T.paper, fontSize: 8, lineHeight: 1 }}>✓</span>}
+      </span>
+      <span style={{ flex: 1, fontSize: 13, color: s.done ? T.ink40 : T.ink, textDecoration: s.done ? 'line-through' : 'none', lineHeight: 1.4 }}>{s.title}</span>
+      {s.priority && <span style={{ width: 8, height: 8, borderRadius: 2, background: LEVEL_STYLE[s.priority]?.color, flexShrink: 0 }} />}
+      {meta && <span style={{ fontFamily: T.fontMono, fontSize: 10.5, color: T.ink40 }}>{meta}</span>}
+      <span aria-hidden="true" style={{ color: open ? T.accent : T.ink40, fontSize: 12 }}>›</span>
+    </div>
+  );
+}
 
-      {/* Expanded body: the subtask, editable */}
-      {expanded && draft && (
-        <div style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: `1px solid ${T.hairlineSoft}` }}>
-          <input
-            data-field="subtask-title" aria-label={t('detail.subtaskTitle')}
-            value={draft.title}
-            onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
-            onBlur={() => commit('title')}
-            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-            style={{ ...field, fontSize: 13 }}
-          />
-          <textarea
-            data-field="subtask-notes" aria-label={t('detail.subtaskNotes')}
-            placeholder={t('detail.subtaskNotesPlaceholder')}
-            value={draft.notes} rows={3}
-            onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))}
-            onBlur={() => commit('notes')}
-            style={{ ...field, resize: 'vertical', lineHeight: 1.5 }}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.ink60 }}>
-              {t('detail.subtaskDue')}
-              <input
-                type="date" data-field="subtask-due"
-                value={draft.dueDate}
-                onChange={e => { const v = e.target.value; setDraft(d => ({ ...d, dueDate: v })); onChange?.(s.id, { dueDate: v || null }); }}
-                style={{ ...field, width: 'auto', fontFamily: T.fontMono, fontSize: 11.5 }}
-              />
-            </label>
-            <button
-              onClick={() => onRemove?.(s.id)}
-              style={{
-                padding: '5px 10px', background: 'transparent', border: `1px solid ${T.hairline}`,
-                borderRadius: T.r6, fontSize: 12, color: T.danger, cursor: 'pointer', fontFamily: T.fontUI,
-              }}
-            >{t('detail.subtaskRemove')}</button>
+// The subtask's own page (2.8.0), beside its task: title, date, level,
+// status, difficulty, notes — what a task has — and « Make it a task ». Text
+// is saved on leaving the field; the rest on the click. The fields keep their
+// own copy while it is open, so the 5-second refresh never overwrites typing.
+// Esc closes this page first, then the task's.
+export const SUB_PANEL_WIDTH = 360;
+function SubtaskPanel({ task, subtask: s, onChange, onRemove, onPromote, onClose, T }) {
+  const { t } = useLocale();
+  useEscape(onClose);
+  const [draft, setDraft] = useState({ title: s.title, notes: s.notes || '' });
+  const [promoting, setPromoting] = useState(false);
+  const commit = (k) => {
+    const v = k === 'title' ? draft.title.trim() : draft.notes;
+    if (k === 'title' && !v) { setDraft(d => ({ ...d, title: s.title })); return; }
+    if ((s[k] ?? '') !== v) onChange({ [k]: v });
+  };
+  const status = subtaskStatus(s);
+  const field = {
+    width: '100%', boxSizing: 'border-box', padding: '7px 9px',
+    background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+    fontSize: 13, color: T.ink, fontFamily: T.fontUI, outline: 'none',
+  };
+  const label = { fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 6 };
+  const pill = (on) => ({
+    padding: '5px 10px', fontSize: 12, fontFamily: T.fontUI, borderRadius: T.rPill, cursor: 'pointer',
+    background: on ? T.ink : T.paperSubtle, color: on ? T.paper : T.ink60, border: `1px solid ${on ? T.ink : T.hairline}`,
+  });
+  return (
+    <div data-subtask-panel={s.id} role="dialog" aria-label={s.title} style={{
+      position: 'fixed', top: 32, right: 0, bottom: 0, width: SUB_PANEL_WIDTH, zIndex: 92,
+      background: T.paper, borderLeft: `1px solid ${T.hairline}`, boxShadow: '-12px 0 32px rgba(25,25,26,0.08)',
+      display: 'flex', flexDirection: 'column', fontFamily: T.fontUI, animation: 'fadeUp 0.12s ease-out',
+    }}>
+      <div style={{ padding: '14px 18px', borderBottom: `1px solid ${T.hairlineSoft}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ flex: 1, fontSize: 12, color: T.ink40, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {task.title} <span aria-hidden="true">›</span> {t('task.subtasks')}
+        </span>
+        <button onClick={onClose} aria-label={t('common.close')} style={{ fontSize: 15, color: T.ink40, background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>✕</button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <input data-field="subtask-title" aria-label={t('detail.subtaskTitle')} value={draft.title}
+          onChange={e => setDraft(d => ({ ...d, title: e.target.value }))} onBlur={() => commit('title')}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+          style={{ ...field, fontSize: 17, fontWeight: 500, border: '1px solid transparent', padding: '4px 6px', marginLeft: -6 }} />
+        <div>
+          <div style={label}>{t('detail.subtaskDue')}</div>
+          <input type="date" data-field="subtask-due" value={s.dueDate || ''}
+            onChange={e => onChange({ dueDate: e.target.value || null })}
+            style={{ ...field, width: 'auto', fontFamily: T.fontMono, fontSize: 12 }} />
+        </div>
+        <PriorityRow task={s} T={T} onChange={onChange} />
+        <div>
+          <div style={label}>{t('detail.status')}</div>
+          <div role="radiogroup" aria-label={t('detail.status')} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {SUB_STATUSES.map(st => (
+              <button key={st} type="button" role="radio" aria-checked={status === st} data-status={st}
+                onClick={() => onChange({ status: st })} style={pill(status === st)}>{t(STATUS_KEY[st])}</button>
+            ))}
           </div>
         </div>
-      )}
+        <DifficultyRow task={s} T={T} onChange={onChange} />
+        <div>
+          <div style={label}>{t('detail.subtaskNotes')}</div>
+          <textarea data-field="subtask-notes" aria-label={t('detail.subtaskNotes')} placeholder={t('detail.subtaskNotesPlaceholder')}
+            value={draft.notes} rows={6} onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} onBlur={() => commit('notes')}
+            style={{ ...field, resize: 'vertical', lineHeight: 1.5 }} />
+        </div>
+      </div>
+      <div style={{ padding: '12px 18px', borderTop: `1px solid ${T.hairlineSoft}`, display: 'flex', gap: 8 }}>
+        <button data-action="promote-subtask" disabled={promoting}
+          onClick={async () => { setPromoting(true); try { await onPromote(); } finally { setPromoting(false); } }}
+          style={{ flex: 1, padding: '8px 12px', background: T.ink, color: T.paper, border: 'none', borderRadius: T.r6, fontSize: 12.5, fontWeight: 500, cursor: 'pointer', fontFamily: T.fontUI }}>
+          {t('detail.subtaskPromote')}
+        </button>
+        <button onClick={onRemove} style={{ padding: '8px 12px', background: 'transparent', border: `1px solid ${T.hairline}`, borderRadius: T.r6, fontSize: 12.5, color: T.danger, cursor: 'pointer', fontFamily: T.fontUI }}>
+          {t('detail.subtaskRemove')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -290,7 +298,8 @@ function NotesEditor({ task, onSaved, T, t }) {
   );
 }
 
-export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode, onSomeday }) {
+export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode, onSomeday, onPromoted }) {
+  const [openSub, setOpenSub] = useState(null);   // the subtask open beside the task (2.8.0)
   useEscape(onClose);
   const { T } = useTheme();
   const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
@@ -387,6 +396,20 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
   const subtasksTotal = task.subtasks?.length || 0;
 
   const getTitle = id => allTasks.find(t => t.id === id)?.title || id;
+  const sub = openSub ? (task.subtasks || []).find(x => x.id === openSub) : null;
+  const subOpen = !!sub;
+  async function promoteSub(id) {
+    const plan = promote({ ...task, subtasks: currentSubtasks() }, id);
+    if (!plan) return;
+    try {
+      const r = await fetch(`${API}/tasks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plan.task) });
+      if (!r.ok) throw new Error('Server error');
+      const { task: created } = await r.json();
+      setOpenSub(null);
+      await saveSubtasks(plan.parentSubtasks);
+      onPromoted?.(created);
+    } catch { setSubtaskError(t('detail.subtaskSaveFailed')); }
+  }
 
   // Subtasks are saved whole, as the form does: PUT { subtasks }. Two typed
   // in a row used to lose the first: the second change started from the list
@@ -444,7 +467,8 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
       <div data-detail-panel style={{
-        position: 'fixed', top: 32, right: 0, bottom: 0, width: 360,
+        position: 'fixed', top: 32, right: subOpen ? SUB_PANEL_WIDTH : 0, bottom: 0, width: 360,
+        transition: 'right 0.16s ease',
         background: T.paper,
         borderLeft: `1px solid ${T.hairline}`,
         display: 'flex', flexDirection: 'column',
@@ -672,9 +696,8 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {task.subtasks?.map(s => (
-                <SubtaskCard key={s.id} subtask={s} task={task} onToggle={onSubtaskToggle}
-                  onChange={(id, patch) => saveSubtasks(currentSubtasks().map(x => x.id === id ? { ...x, ...patch } : x))}
-                  onRemove={(id) => saveSubtasks(currentSubtasks().filter(x => x.id !== id))} T={T} />
+                <SubtaskCard key={s.id} subtask={s} task={task} onToggle={onSubtaskToggle} T={T}
+                  open={openSub === s.id} onOpen={(id) => setOpenSub(cur => (cur === id ? null : id))} />
               ))}
             </div>
             <AddSubtask T={T} t={t}
@@ -825,6 +848,13 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           }}>{t('common.delete')}</button>
         </div>
       </div>
+      {sub && (
+        <SubtaskPanel key={sub.id} task={task} subtask={sub} T={T}
+          onClose={() => setOpenSub(null)}
+          onChange={(patch) => saveSubtasks(withSubtask(currentSubtasks(), sub.id, patch))}
+          onRemove={() => { setOpenSub(null); saveSubtasks(currentSubtasks().filter(x => x.id !== sub.id)); }}
+          onPromote={() => promoteSub(sub.id)} />
+      )}
     </>
   );
 }

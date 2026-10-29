@@ -88,6 +88,9 @@ export const WHATS_NEW = {
     { key: 'quickTasks', view: 'focus', target: 'quick' },
     { key: 'somedayList', view: 'focus', target: 'brain-dump' },
   ],
+  '2.8.0': [
+    { key: 'subtaskPages', view: 'focus', target: 'today-list' },
+  ],
 };
 
 export function compareVersions(a, b) {

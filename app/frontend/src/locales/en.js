@@ -1109,7 +1109,7 @@ export default {
   'whatsNew.check.body': 'The circle fills and the check draws itself as you click, before the task joins the finished ones.',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': "Plan my day, in the morning: what is left from yesterday finds its place, and Clarity says when the day overflows. End my day, in the evening.\nQuick tasks: “groceries 5pm”, no level, no difficulty.\nSomeday: what can wait, kept out of your day, looked at once a month.\nBrain dump: write everything at once, sort after.",
+  'update.news': "A subtask, a page: click it and it opens beside its task, with its date, level, status, difficulty and notes. Another one replaces it; Esc closes it.\n“Make it a task”: the subtask leaves its task and keeps everything it had.",
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
@@ -1559,4 +1559,11 @@ export default {
   'whatsNew.quickTasks.body': "A title, an hour if needed: “groceries 5pm”. No level, no difficulty, the assistant stays out of it.",
   'whatsNew.somedayList.title': "Someday, and Brain dump",
   'whatsNew.somedayList.body': "What waits for someday is kept apart, out of your day. And Brain dump: write everything at once, sort after.",
+  // 2.8.0
+  'detail.status': "Status",
+  'detail.subtaskPromote': "Make it a task",
+  'toast.subtaskPromoted': "“{title}” is now a task",
+  'common.open': "Open",
+  'whatsNew.subtaskPages.title': "A subtask, a page",
+  'whatsNew.subtaskPages.body': "Click a subtask: it opens beside its task, with its date, level, status, difficulty and notes. Another one replaces it. “Make it a task” takes it out of its task.",
 };

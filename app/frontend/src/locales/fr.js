@@ -1110,7 +1110,7 @@ export default {
   'whatsNew.check.body': 'Le rond se remplit et la coche se dessine dès le clic, avant que la tâche rejoigne les terminées.',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': "Planifier ma journée, le matin : ce qui reste d’hier trouve sa place, et Clarity dit si la journée déborde. Terminer ma journée, le soir.\nTâches rapides : « courses 17h », sans niveau ni difficulté.\n« Un jour » : ce qui peut attendre, rangé hors de votre journée, revu une fois par mois.\nVider sa tête : tout écrire d’un coup, trier ensuite.",
+  'update.news': "Une sous-tâche, une page : cliquez-la, elle s’ouvre à côté de sa tâche, avec sa date, son niveau, son statut, sa difficulté et ses notes. Une autre la remplace ; Échap la referme.\n« En faire une tâche » : la sous-tâche quitte sa tâche et garde tout ce qu’elle avait.",
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
@@ -1560,4 +1560,11 @@ export default {
   'whatsNew.quickTasks.body': "Un titre, une heure si besoin : « courses 17h ». Pas de niveau, pas de difficulté, l’assistant ne s’en mêle pas.",
   'whatsNew.somedayList.title': "« Un jour » et « Vider sa tête »",
   'whatsNew.somedayList.body': "Ce qui attend un jour est rangé à part, hors de votre journée. Et « Vider sa tête » : tout écrire d’un coup, trier ensuite.",
+  // 2.8.0
+  'detail.status': "Statut",
+  'detail.subtaskPromote': "En faire une tâche",
+  'toast.subtaskPromoted': "« {title} » est devenue une tâche",
+  'common.open': "Ouvrir",
+  'whatsNew.subtaskPages.title': "Une sous-tâche, une page",
+  'whatsNew.subtaskPages.body': "Cliquez une sous-tâche : elle s’ouvre à côté de sa tâche, avec sa date, son niveau, son statut, sa difficulté et ses notes. Une autre la remplace. « En faire une tâche » la sort de sa tâche.",
 };
