@@ -18,6 +18,11 @@ Limite hebdomadaire : ~25 % brûlés dès le 1er soir, alerte « en voie d'attei
 6. **Répondre court.** Format télégraphique de fin de tâche ; aucun point d'étape intermédiaire sauf décision ou blocage.
 7. **Estimer avant.** Chaque lot annonce durée et jetons ; à 150 % de l'estimation, s'arrêter, pousser, dire où on en est.
 8. **CI** : publier par lots groupés, pas à chaque petit changement (minutes Actions comptées dès le 1er novembre 2026).
+9. **Plafond par jour** (repris d'Ahome, 29 oct.) : ~15 % de la semaine par jour. Claude ne voit pas le compteur hebdomadaire : il additionne ses estimations de la journée (journal + doc de suivi) et, au-delà, demande un go avant tout nouveau lot.
+10. **Seuil avec go** : un lot estimé au-delà de 100 k jetons s'annonce et attend le go du propriétaire avant de commencer.
+11. **Un agent à la fois**, sauf demande expresse. Une petite tâche (< 30 min) se fait sans agent.
+12. **Au plus 4 captures d'écran regardées par lot.** L'essai navigateur vérifie par assertions, pas par l'œil.
+13. **Journal court.** `JOURNAL.md` ne garde que les versions récentes ; le reste va dans `docs/journal-archive.md`, lu seulement par `grep -n`. Au-delà de ~400 lignes, archiver de nouveau.
 
 ## How to run
 
