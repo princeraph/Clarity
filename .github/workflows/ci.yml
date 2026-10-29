@@ -6,32 +6,20 @@
 # racine, et le workflow tourne.
 name: qualité
 
-# Dépôt privé à partir du 1er novembre 2026 : chaque minute compte dans le
-# quota de 2 000 min/mois partagé par tous les dépôts privés du propriétaire
-# (Windows compte double). D'où :
-#   - push sur main seulement, et seulement si app/ ou les workflows changent ;
-#   - une branche de travail se vérifie À LA MAIN (Actions › qualité › Run
-#     workflow, sur la branche) avant d'être fusionnée — Windows compris ;
-#   - Windows ne tourne que lancé à la main : un push sur main fusionne une
-#     branche déjà vérifiée (avance rapide), Linux suffit à le reconfirmer, et
-#     publication.yml fabrique de toute façon l'installateur sous Windows ;
-#   - ancienne-version ne teste que la version PUBLIÉE (pas ce commit) : à la
-#     main seulement, case « ancienne » cochée, après une publication.
+# Dépôt PUBLIC de nouveau (29 octobre 2026) : les runners standard sont
+# gratuits pour un dépôt public, les minutes ne comptent plus. D'où :
+#   - chaque push sur une branche claude/** est vérifié, Windows compris —
+#     c'est la vérification avant fusion, sans avoir à la lancer à la main ;
+#   - push sur main : Linux seul (avance rapide : le commit a déjà passé
+#     Windows sur sa branche ; publication.yml fabrique l'installateur) ;
+#   - ancienne-version teste la version PUBLIÉE, pas ce commit : à la main,
+#     case « ancienne » cochée, après une publication.
 # Pas de pull_request : il refaisait le même passage sur le même commit.
-#
-# controles passe de 1 à ~3 min avec l'essai Electron (29 octobre, estimé :
-# à remesurer au premier passage), soit ≈ +30 min/mois.
-# Coût estimé (mesuré le 15 octobre : controles 1 min, windows 7,5 min,
-# ancienne-version 3 min ; arrondi à la minute par job) :
-#   vérification d'une branche  1 + 8×2          = 17 min
-#   push sur main               1                =  1 min
-#   ancienne-version            3×2              =  6 min, après publication
-#   ~8 fusions/mois × 18 + 4 × 6                 ≈ 170 min/mois
-#   + publication.yml (~15 min Windows × 2 = 30 min par version, ~4/mois) ≈ 120
-#   total Clarity                                ≈ 290 min/mois
+# Si le dépôt redevient privé : revenir à « main seulement, Windows à la
+# main » (historique de ce fichier, 29 octobre) — ≈ 290 min/mois mesurées.
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
     paths: ['app/**', '.github/workflows/**']
   workflow_dispatch:
     inputs:
@@ -165,7 +153,7 @@ jobs:
   # rejoue les étapes d'Update.bat sur une machine Windows neuve, puis installe
   # l'app en silence et vérifie qu'elle démarre.
   windows:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/heads/claude/')
     runs-on: windows-latest
     timeout-minutes: 30
     # 2.5.0: the backend wants the window's key; the app takes this one instead of

@@ -17,7 +17,7 @@ Limite hebdomadaire : ~25 % brûlés dès le 1er soir, alerte « en voie d'attei
 5. **Déléguer le mécanique** (chaînes de traduction, renommages, captures) à un sous-agent `model: haiku` ou `sonnet`, consigne courte. Garder le modèle fort pour la conception et le débogage.
 6. **Répondre court.** Format télégraphique de fin de tâche ; aucun point d'étape intermédiaire sauf décision ou blocage.
 7. **Estimer avant.** Chaque lot annonce durée et jetons ; à 150 % de l'estimation, s'arrêter, pousser, dire où on en est.
-8. **CI** : publier par lots groupés, pas à chaque petit changement (minutes Actions comptées dès le 1er novembre 2026).
+8. **CI** : dépôt public (29 oct.), minutes gratuites ; publier quand même par lots groupés (chaque passage Windows ≈ 10 min d'attente).
 9. **Plafond par jour** (repris d'Ahome, 29 oct.) : ~15 % de la semaine par jour. Claude ne voit pas le compteur hebdomadaire : il additionne ses estimations de la journée (journal + doc de suivi) et, au-delà, demande un go avant tout nouveau lot.
 10. **Seuil avec go** : un lot estimé au-delà de 100 k jetons s'annonce et attend le go du propriétaire avant de commencer.
 11. **Un agent à la fois**, sauf demande expresse. Une petite tâche (< 30 min) se fait sans agent.
@@ -216,34 +216,19 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx), sorted by `aiData.priority
 - **Remote**: `princeraph/clarity` — Clarity is whole repo, at root
 - **Production branch**: `main`
 - **Author**: `git config user.email noreply@anthropic.com && git config user.name Claude`
-- Work on `claude/*` branch, merge into `main` — **only once CI green on that branch, `windows` job included.** Since 1 November 2026 branch CI does not start by itself: run `qualité` by hand on the branch (Actions › qualité › Run workflow, or `workflow_dispatch` via the GitHub tools), and merge by fast-forward so `main` receives exactly the commit that passed. User pulls from `main`, only other Windows machine; before this job, every Windows-only defect (`Update.bat` rebuilding `dist/`, CRLF line in `dist/index.html`) found by user, mid-update. Job replays `Update.bat` steps, installs silently, starts installed backend, rebuilds `dist/` to check byte-identical to committed one.
+- Work on `claude/*` branch, merge into `main` — **only once CI green on that branch, `windows` job included.** Repo public again (29 October 2026): a push to `claude/**` runs `qualité` with Windows by itself. Merge by fast-forward so `main` receives exactly the commit that passed. User pulls from `main`, only other Windows machine; before this job, every Windows-only defect (`Update.bat` rebuilding `dist/`, CRLF line in `dist/index.html`) found by user, mid-update. Job replays `Update.bat` steps, installs silently, starts installed backend, rebuilds `dist/` to check byte-identical to committed one.
 - Every commit must rebuild `app/frontend/dist/` when `app/frontend/src/` changes, in **same** commit — see `CONTRIBUTING.md`, rule that breaks fastest, shows least
 
 ### Minutes GitHub Actions
 
-Repo **private from 1 November 2026**: every minute counts against owner's shared 2 000 min/month quota (ran out 8 October 2026), Windows twice. Triggers since then (`ci.yml` header holds measured cost, ≈ 290 min/month):
+Repo **public again since 29 October 2026**: standard runners free, minutes not counted. Triggers:
 
-- `qualité` runs on push to `main` only when `app/**` or workflows change, plus `workflow_dispatch`. Never on `claude/**` push, never `pull_request`.
-- `windows` job only on `workflow_dispatch` — branch verification before merge. Push to `main` runs Linux `controles` only: fast-forward merge means same commit already passed Windows; `publication` builds installer on Windows anyway.
-- `ancienne-version` only on `workflow_dispatch` with input `ancienne` ticked: it tests the PUBLISHED version (1.3.0 → latest), not the commit — run it after a publication.
-- every job has `timeout-minutes` (stuck job otherwise runs 6 h);
-- `qualité` cancels superseded run on same branch (`concurrency`); `publication` never cancels (`cancel-in-progress: false`) — cut short, would leave half-uploaded release.
-- **If repo goes public again**, branch pushes can come back: standard runners free for public repos.
-
-**Storage — applies since 1 November 2026 (private).** No workflow uploads an
-artifact (checked 16 October 2026; `publication` publishes into a release of a
-public repo, which is the right place). Actions storage is a free 500 MB
-quota shared by every private repo of the owner, counted per month. On 16
-October 2026 an installer (~117 MB, kept 90 days) uploaded as an artifact on
-each run filled it: "100 % of storage used". So:
-
-- no `actions/upload-artifact` unless it is really needed, and then
-  `retention-days: 1` and small files only — never an installer or a full build;
-- a deliverable to distribute goes into a release of a public repo, or to the
-  platform;
-- no large custom cache;
-- the owner sets Settings › Actions › General › "Artifact and log retention"
-  to 1 day (a manual setting, not versionable).
+- `qualité` on push to `main` and `claude/**` when `app/**` or workflows change, plus `workflow_dispatch`. Never `pull_request` (same commit twice).
+- `windows` job on `claude/**` push and `workflow_dispatch`; push to `main` runs Linux `controles` only (fast-forward: commit already passed Windows; `publication` builds installer on Windows anyway).
+- `ancienne-version` only on `workflow_dispatch` with input `ancienne` ticked: tests the PUBLISHED version (1.3.0 → latest), run after a publication.
+- every job has `timeout-minutes`; `qualité` cancels superseded run (`concurrency`); `publication` never cancels — cut short, would leave half-uploaded release.
+- **If repo goes private again**: back to `main` only + Windows by hand (≈ 290 min/month measured, 2 000 shared quota, Windows ×2). See `ci.yml` history of 29 October.
+- No `actions/upload-artifact` of an installer or full build, ever (16 October 2026: one ~117 MB artifact per run filled the 500 MB storage while private). A deliverable goes into a release of `clarity-releases`.
 
 ### Publishing a version for testers
 
