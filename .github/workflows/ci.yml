@@ -6,16 +6,37 @@
 # racine, et le workflow tourne.
 name: qualité
 
-# Dépôt public : les exécuteurs standard de GitHub y sont gratuits, Windows
-# compris. Les branches de travail passent donc ici à chaque envoi : rien n'est
-# fusionné dans main — d'où l'utilisateur tire ses mises à jour — avant d'avoir
-# passé ici, Windows compris. Pas de déclenchement pull_request : il refaisait
-# le même passage sur le même commit. Si ce dépôt redevenait privé, chaque
-# minute compterait (Windows double) : revoir ces déclencheurs d'abord.
+# Dépôt privé à partir du 1er novembre 2026 : chaque minute compte dans le
+# quota de 2 000 min/mois partagé par tous les dépôts privés du propriétaire
+# (Windows compte double). D'où :
+#   - push sur main seulement, et seulement si app/ ou les workflows changent ;
+#   - une branche de travail se vérifie À LA MAIN (Actions › qualité › Run
+#     workflow, sur la branche) avant d'être fusionnée — Windows compris ;
+#   - Windows ne tourne que lancé à la main : un push sur main fusionne une
+#     branche déjà vérifiée (avance rapide), Linux suffit à le reconfirmer, et
+#     publication.yml fabrique de toute façon l'installateur sous Windows ;
+#   - ancienne-version ne teste que la version PUBLIÉE (pas ce commit) : à la
+#     main seulement, case « ancienne » cochée, après une publication.
+# Pas de pull_request : il refaisait le même passage sur le même commit.
+#
+# Coût estimé (mesuré le 15 octobre : controles 1 min, windows 7,5 min,
+# ancienne-version 3 min ; arrondi à la minute par job) :
+#   vérification d'une branche  1 + 8×2          = 17 min
+#   push sur main               1                =  1 min
+#   ancienne-version            3×2              =  6 min, après publication
+#   ~8 fusions/mois × 18 + 4 × 6                 ≈ 170 min/mois
+#   + publication.yml (~15 min Windows × 2 = 30 min par version, ~4/mois) ≈ 120
+#   total Clarity                                ≈ 290 min/mois
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
+    paths: ['app/**', '.github/workflows/**']
   workflow_dispatch:
+    inputs:
+      ancienne:
+        description: "Aussi tester la mise à jour depuis la 1.3.0 (après une publication)"
+        type: boolean
+        default: false
 
 concurrency:
   group: qualite-${{ github.ref }}
@@ -120,8 +141,9 @@ jobs:
   # rejoue les étapes d'Update.bat sur une machine Windows neuve, puis installe
   # l'app en silence et vérifie qu'elle démarre.
   windows:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     # 2.5.0: the backend wants the window's key; the app takes this one instead of
     # a random one, and every call below sends it (backend/src/security/jeton.js).
     env:
@@ -441,8 +463,9 @@ jobs:
   # ce que cette version-là sait faire : chercher, télécharger, installer
   # par-dessus. Une tâche témoin vérifie que les données passent la mise à jour.
   ancienne-version:
+    if: github.event_name == 'workflow_dispatch' && inputs.ancienne
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     # 2.5.0: the backend wants the window's key; the app takes this one instead of
     # a random one, and every call below sends it (backend/src/security/jeton.js).
     env:

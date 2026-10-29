@@ -1379,6 +1379,21 @@ en référence.
 - **Synchronisation entre deux PC** : pas éprouvée sur deux vraies machines.
 - **Electron** : clé et CSP vérifiées dans le navigateur, et par la CI pour le serveur. La fenêtre Electron elle-même n'a pas été ouverte à la main.
 
+## CI : règles du dépôt privé (29 octobre 2026)
+
+**Changé.**
+- `qualité` ne part plus à chaque envoi de branche : push sur `main` seulement (si `app/` ou les workflows changent), ou à la main.
+- Le job `windows` ne tourne qu'à la main : c'est la vérification d'une branche avant fusion. Fusion en avance rapide, donc `main` reçoit le commit déjà vérifié ; le push sur `main` relance Linux seul.
+- `ancienne-version` à la main, case « ancienne » cochée : il teste la version publiée, pas le commit.
+- Délais des jobs ramenés à la mesure : `windows` 60 → 30 min, `ancienne-version` 25 → 15 min.
+- Coût écrit en tête de `ci.yml` : ≈ 290 min/mois, publications comprises.
+
+**Pourquoi.** Clarity redevient privé le 1er novembre ; chaque minute comptera dans le quota partagé (épuisé le 8 octobre), Windows double.
+
+**Vérifié.** Durées mesurées sur la CI du 15 octobre (controles 1 min, windows 7,5 min, ancienne-version 3 min). YAML relu : déclencheurs et conditions des trois jobs. Passage lancé à la main sur la branche, puis push sur `main` : voir l'état dans le compte rendu de la session.
+
+**Reste.** Passer le dépôt en privé le 1er novembre (réglage GitHub, propriétaire).
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

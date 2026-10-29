@@ -196,25 +196,26 @@ Tasks get `aiData` merged in `rankedTasks` (App.jsx), sorted by `aiData.priority
 - **Remote**: `princeraph/clarity` — Clarity is whole repo, at root
 - **Production branch**: `main`
 - **Author**: `git config user.email noreply@anthropic.com && git config user.name Claude`
-- Work on `claude/*` branch, merge into `main` — **only once CI green on that branch, `windows` job included.** User pulls from `main`, only other Windows machine; before this job, every Windows-only defect (`Update.bat` rebuilding `dist/`, CRLF line in `dist/index.html`) found by user, mid-update. Job replays `Update.bat` steps, installs silently, starts installed backend, rebuilds `dist/` to check byte-identical to committed one.
+- Work on `claude/*` branch, merge into `main` — **only once CI green on that branch, `windows` job included.** Since 1 November 2026 branch CI does not start by itself: run `qualité` by hand on the branch (Actions › qualité › Run workflow, or `workflow_dispatch` via the GitHub tools), and merge by fast-forward so `main` receives exactly the commit that passed. User pulls from `main`, only other Windows machine; before this job, every Windows-only defect (`Update.bat` rebuilding `dist/`, CRLF line in `dist/index.html`) found by user, mid-update. Job replays `Update.bat` steps, installs silently, starts installed backend, rebuilds `dist/` to check byte-identical to committed one.
 - Every commit must rebuild `app/frontend/dist/` when `app/frontend/src/` changes, in **same** commit — see `CONTRIBUTING.md`, rule that breaks fastest, shows least
 
 ### Minutes GitHub Actions
 
-Repo **public**: GitHub standard runners free here, Windows included, so CI runs on every push to `main` and `claude/**`. Minutes only counted for private repos — owner's quota ran out 8 October 2026 for that reason. What still holds:
+Repo **private from 1 November 2026**: every minute counts against owner's shared 2 000 min/month quota (ran out 8 October 2026), Windows twice. Triggers since then (`ci.yml` header holds measured cost, ≈ 290 min/month):
 
+- `qualité` runs on push to `main` only when `app/**` or workflows change, plus `workflow_dispatch`. Never on `claude/**` push, never `pull_request`.
+- `windows` job only on `workflow_dispatch` — branch verification before merge. Push to `main` runs Linux `controles` only: fast-forward merge means same commit already passed Windows; `publication` builds installer on Windows anyway.
+- `ancienne-version` only on `workflow_dispatch` with input `ancienne` ticked: it tests the PUBLISHED version (1.3.0 → latest), not the commit — run it after a publication.
 - every job has `timeout-minutes` (stuck job otherwise runs 6 h);
-- `qualité` cancels superseded run on same branch (`concurrency`); `publication` never cancels (`cancel-in-progress: false`) — cut short, would leave half-uploaded release;
-- no `pull_request` trigger: re-ran same commit second time;
-- **if repo ever goes private again**, revisit triggers first: every minute counts, Windows twice.
+- `qualité` cancels superseded run on same branch (`concurrency`); `publication` never cancels (`cancel-in-progress: false`) — cut short, would leave half-uploaded release.
+- **If repo goes public again**, branch pushes can come back: standard runners free for public repos.
 
-**Storage — the rule that applies the day it goes private again.** Today
-nothing here counts, and no workflow uploads an artifact (checked 16 October
-2026; `publication` publishes into a release of a public repo, which is the
-right place). Once the repository is private, Actions storage is a free 500 MB
+**Storage — applies since 1 November 2026 (private).** No workflow uploads an
+artifact (checked 16 October 2026; `publication` publishes into a release of a
+public repo, which is the right place). Actions storage is a free 500 MB
 quota shared by every private repo of the owner, counted per month. On 16
 October 2026 an installer (~117 MB, kept 90 days) uploaded as an artifact on
-each run filled it: "100 % of storage used". So, as soon as it is private:
+each run filled it: "100 % of storage used". So:
 
 - no `actions/upload-artifact` unless it is really needed, and then
   `retention-days: 1` and small files only — never an installer or a full build;

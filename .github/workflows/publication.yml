@@ -28,7 +28,8 @@ on:
 # Jamais annulée en cours : une publication coupée laisserait une release à
 # moitié déposée. Deux déclenchements se suivent au lieu de s'interrompre.
 # Coût estimé : ~15 min Windows × 2 = ~30 min par version publiée, plus
-# ~1 min Linux par passage de la CI sur main (dépôt public : gratuit).
+# ~1 min Linux par passage de la CI sur main. Dépôt privé depuis le
+# 1er novembre 2026 : ces minutes comptent (voir l'en-tête de ci.yml).
 concurrency:
   group: publication
   cancel-in-progress: false
