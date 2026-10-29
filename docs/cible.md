@@ -77,3 +77,4 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 | 29 oct. 2026 | Nouveau texte de la page de téléchargement | Propriétaire (« ok text ») |
 | 29 oct. 2026 | Ordre : 6, 2, 5, 3, 4, 1, 7, 8 ; un lot par session | Propriétaire |
 | 29 oct. 2026 | Tâche 2 (écran étroit) faite ; part avec la prochaine version | Propriétaire (« tache 2, go ») |
+| 29 oct. 2026 | Tâche 5 : vrai .ics vérifié, réunions répétées désormais lues ; analyse locale à vérifier sur le PC | Propriétaire (« tâche 5 dans cette session ») |

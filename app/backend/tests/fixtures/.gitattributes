@@ -1,0 +1,2 @@
+# CRLF on purpose: a real .ics export ends its lines with CRLF.
+*.ics -text

@@ -1468,6 +1468,20 @@ en référence.
 
 **Reste.** Part avec la prochaine version publiée (pas de publication seule, minutes CI). Blocs de temps.
 
+## Tâche 5 — vérifications restées ouvertes (29 octobre 2026, non publiée)
+
+**Vrai fichier .ics : mesuré, cinq défauts.** Fixture façon export Agenda Google (`tests/fixtures/google-export.ics` : CRLF, lignes pliées, fuseau, alarme dans l'événement, séries, exception, annulé). Lecteur d'avant, semaine du 2 novembre :
+- titre long plié sur deux lignes → coupé (« …carte d'ass ») ; `\,` affiché tel quel ;
+- événement `STATUS:CANCELLED` affiché ;
+- fin de semaine au chalet (ven. 20 h → dim. 12 h) : samedi et dimanche absents ;
+- **toute réunion répétée (RRULE) invisible après sa première occurrence** — le pire : une réunion hebdomadaire n'apparaissait jamais dans le plan du jour.
+
+**Changé** (`src/calendrier.js`, toujours pur) : dépliage, échappements, alarmes ignorées, annulés retirés, plusieurs jours (chaque jour sa part), séries DAILY/WEEKLY/MONTHLY/YEARLY avec INTERVAL, COUNT, UNTIL, BYDAY (dont « 2e mardi », « dernier vendredi »), BYMONTHDAY, BYMONTH, EXDATE, occurrence déplacée ou annulée (RECURRENCE-ID). Toujours non lus : événements journée entière (choix : un congé ne bloque pas d'heures) ; heure TZID prise telle quelle (fuseau du calendrier supposé = celui du PC).
+
+**Vérifié.** `tests/calendrier.test.js` : 14 tests (8 neufs). Mutation (sans dépliage ni séries) : 6 échecs. Serveur : 561 tests.
+
+**Analyse par le modèle local : toujours pas vérifiée.** Installer Ollama dans la session a été refusé (script externe). Reste à regarder sur le PC du propriétaire : lancer l'analyse avec quelques tâches, vérifier que chaque carte reçoit une phrase et un plan.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :
