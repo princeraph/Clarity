@@ -128,6 +128,7 @@ export default function TaskForm({ task, onSave, onClose, saving }) {
 
   return (
     <div
+      data-task-form
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
         background: 'rgba(25,25,26,0.35)',

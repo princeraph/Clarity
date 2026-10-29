@@ -9,6 +9,7 @@ import { localDay } from './glance.js';
 import useEscape from '../hooks/useEscape.js';
 
 const API = 'http://localhost:3001/api';
+const newId = () => (globalThis.crypto?.randomUUID?.() || `st-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
 
 
 const STATUS_KEY = { not_started: 'status.notStarted', in_progress: 'status.inProgress', done: 'status.done' };
@@ -44,13 +45,34 @@ function TDPill({ label, value, accent, T }) {
   );
 }
 
-function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
-  const { t, fmtDate } = useLocale();
+// A subtask, edited where it is (2.6.0). Opening one used to send the person
+// to the full task form — from the side panel of a topic, that meant leaving
+// the panel to change one line. Title, notes and date are written here, saved
+// on leaving the field (or Enter on the title); the 5-second refresh never
+// overwrites what is being typed: the fields keep their own copy while open.
+function SubtaskCard({ subtask: s, task, onToggle, onChange, onRemove, T }) {
+  const { t } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [hov, setHov] = useState(false);
+  const [draft, setDraft] = useState(null);   // { title, notes, dueDate } while open
+
+  const open = () => { setDraft({ title: s.title, notes: s.notes || '', dueDate: s.dueDate || '' }); setExpanded(true); };
+  const commit = (field) => {
+    if (!draft) return;
+    const value = field === 'title' ? draft.title.trim() : field === 'dueDate' ? (draft.dueDate || null) : draft.notes;
+    if (field === 'title' && !value) { setDraft(d => ({ ...d, title: s.title })); return; }
+    if ((s[field] ?? (field === 'dueDate' ? null : '')) === value) return;
+    onChange?.(s.id, { [field]: value });
+  };
+  const field = {
+    width: '100%', boxSizing: 'border-box', padding: '6px 8px',
+    background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: T.r6,
+    fontSize: 12.5, color: T.ink, fontFamily: T.fontUI, outline: 'none',
+  };
 
   return (
     <div
+      data-subtask-id={s.id}
       style={{
         background: T.paperSubtle, borderRadius: T.r6,
         border: `1px solid ${T.hairlineSoft}`,
@@ -63,7 +85,7 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
     >
       {/* Header row — always visible */}
       <div
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => (expanded ? setExpanded(false) : open())}
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '9px 12px', cursor: 'pointer',
@@ -71,6 +93,7 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
       >
         {/* Check circle */}
         <span
+          data-check
           onClick={e => { e.stopPropagation(); onToggle?.(task, s.id); }}
           style={{
             width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
@@ -96,29 +119,86 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, T }) {
         </svg>
       </div>
 
-      {/* Expanded body */}
-      {expanded && (
-        <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 10, borderTop: `1px solid ${T.hairlineSoft}` }}>
-          <div style={{ paddingTop: 10, fontSize: 12.5, color: T.ink40, lineHeight: 1.5 }}>
-            {s.notes || <span style={{ fontStyle: 'italic' }}>{t('detail.noNotes')}</span>}
+      {/* Expanded body: the subtask, editable */}
+      {expanded && draft && (
+        <div style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: `1px solid ${T.hairlineSoft}` }}>
+          <input
+            data-field="subtask-title" aria-label={t('detail.subtaskTitle')}
+            value={draft.title}
+            onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
+            onBlur={() => commit('title')}
+            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            style={{ ...field, fontSize: 13 }}
+          />
+          <textarea
+            data-field="subtask-notes" aria-label={t('detail.subtaskNotes')}
+            placeholder={t('detail.subtaskNotesPlaceholder')}
+            value={draft.notes} rows={3}
+            onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))}
+            onBlur={() => commit('notes')}
+            style={{ ...field, resize: 'vertical', lineHeight: 1.5 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.ink60 }}>
+              {t('detail.subtaskDue')}
+              <input
+                type="date" data-field="subtask-due"
+                value={draft.dueDate}
+                onChange={e => { const v = e.target.value; setDraft(d => ({ ...d, dueDate: v })); onChange?.(s.id, { dueDate: v || null }); }}
+                style={{ ...field, width: 'auto', fontFamily: T.fontMono, fontSize: 11.5 }}
+              />
+            </label>
+            <button
+              onClick={() => onRemove?.(s.id)}
+              style={{
+                padding: '5px 10px', background: 'transparent', border: `1px solid ${T.hairline}`,
+                borderRadius: T.r6, fontSize: 12, color: T.danger, cursor: 'pointer', fontFamily: T.fontUI,
+              }}
+            >{t('detail.subtaskRemove')}</button>
           </div>
-          {s.dueDate && (
-            <div style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
-              {t('detail.dueOn', { date: fmtDate(s.dueDate + 'T00:00:00') })}
-            </div>
-          )}
-          <button
-            onClick={() => onOpen?.(task)}
-            style={{
-              alignSelf: 'flex-start', padding: '5px 12px',
-              background: T.paper, border: `1px solid ${T.hairline}`,
-              borderRadius: T.r6, fontSize: 12, color: T.ink60,
-              cursor: 'pointer', fontFamily: T.fontUI,
-            }}
-          >{t('detail.openInEditor')}</button>
         </div>
       )}
     </div>
+  );
+}
+
+// « Add subtask », in place: a line to type in, Enter adds and keeps the line
+// open for the next one. It used to open the full task form.
+function AddSubtask({ onAdd, T, t }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  if (!open) return (
+    <button
+      data-action="add-subtask"
+      onClick={() => setOpen(true)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 4px', marginTop: 4, cursor: 'pointer',
+        fontSize: 12.5, color: T.ink40,
+        background: 'transparent', border: 'none', fontFamily: T.fontUI,
+      }}
+    >
+      <span style={{ fontSize: 14 }}>+</span>
+      <span>{t('detail.addSubtask')}</span>
+    </button>
+  );
+  return (
+    <input
+      autoFocus data-field="new-subtask" aria-label={t('detail.addSubtask')}
+      placeholder={t('detail.newSubtaskPlaceholder')}
+      value={value}
+      onChange={e => setValue(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' && value.trim()) { onAdd(value.trim()); setValue(''); }
+        if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); setValue(''); }
+      }}
+      onBlur={() => { if (value.trim()) onAdd(value.trim()); setOpen(false); setValue(''); }}
+      style={{
+        width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '7px 10px',
+        background: T.paper, border: `1px solid ${T.accent}`, borderRadius: T.r6,
+        fontSize: 13, color: T.ink, fontFamily: T.fontUI, outline: 'none',
+      }}
+    />
   );
 }
 
@@ -308,6 +388,32 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
   const getTitle = id => allTasks.find(t => t.id === id)?.title || id;
 
+  // Subtasks are saved whole, as the form does: PUT { subtasks }. Two typed
+  // in a row used to lose the first: the second change started from the list
+  // as it was before the first save came back. The last list sent is the base
+  // until the refresh brings it back.
+  const [subtaskError, setSubtaskError] = useState('');
+  const sentSubtasks = useRef(null);
+  const currentSubtasks = () => sentSubtasks.current ?? task.subtasks ?? [];
+  useEffect(() => {
+    if (sentSubtasks.current && JSON.stringify(sentSubtasks.current) === JSON.stringify(task.subtasks || [])) sentSubtasks.current = null;
+  }, [task.subtasks]);
+  async function saveSubtasks(subtasks) {
+    sentSubtasks.current = subtasks;
+    setSubtaskError('');
+    try {
+      const resp = await fetch(`${API}/tasks/${task.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subtasks }),
+      });
+      if (!resp.ok) throw new Error('Server error');
+      onSaved?.();
+    } catch {
+      sentSubtasks.current = null;
+      setSubtaskError(t('detail.subtaskSaveFailed'));
+    }
+  }
+
   async function handleReschedule() {
     setRescheduleError('');
     try {
@@ -337,7 +443,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-      <div style={{
+      <div data-detail-panel style={{
         position: 'fixed', top: 32, right: 0, bottom: 0, width: 360,
         background: T.paper,
         borderLeft: `1px solid ${T.hairline}`,
@@ -520,7 +626,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
             </select>
           </div>
 
-          <TaskSuggestions task={task} allTasks={allTasks} T={T} onSaved={onSaved} onEdited={onEdited} onBreakdown={handleBreakdown} />
+          <TaskSuggestions key={task.id} task={task} allTasks={allTasks} T={T} onSaved={onSaved} onEdited={onEdited} onBreakdown={handleBreakdown} />
           <PriorityRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
           <DifficultyRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
           <ReminderRow task={task} T={T} onSaved={onSaved} onEdited={onEdited} />
@@ -547,6 +653,9 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
               </button>
             </div>
 
+            {subtaskError && (
+              <div role="alert" style={{ marginBottom: 8, padding: '6px 10px', background: T.dangerSoft, border: `1px solid ${T.dangerBorder}`, borderRadius: T.r6, fontSize: 12, color: T.danger }}>{subtaskError}</div>
+            )}
             {breakdownError && (
               <div style={{ marginBottom: 8, padding: '6px 10px', background: T.dangerSoft, border: `1px solid ${T.dangerBorder}`, borderRadius: T.r6, fontSize: 12, color: T.danger, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>{breakdownError}</span>
@@ -563,21 +672,13 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {task.subtasks?.map(s => (
-                <SubtaskCard key={s.id} subtask={s} task={task} onToggle={onSubtaskToggle} onOpen={onEdit} T={T} />
+                <SubtaskCard key={s.id} subtask={s} task={task} onToggle={onSubtaskToggle}
+                  onChange={(id, patch) => saveSubtasks(currentSubtasks().map(x => x.id === id ? { ...x, ...patch } : x))}
+                  onRemove={(id) => saveSubtasks(currentSubtasks().filter(x => x.id !== id))} T={T} />
               ))}
             </div>
-            <button
-              onClick={() => onEdit(task)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 4px', marginTop: 4, cursor: 'pointer',
-                fontSize: 12.5, color: T.ink40,
-                background: 'transparent', border: 'none', fontFamily: T.fontUI,
-              }}
-            >
-              <span style={{ fontSize: 14 }}>+</span>
-              <span>{t('detail.addSubtask')}</span>
-            </button>
+            <AddSubtask T={T} t={t}
+              onAdd={(title) => saveSubtasks([...currentSubtasks(), { id: newId(), title, notes: '', dueDate: null, done: false }])} />
           </div>
 
           {/* Follow-up thread — why it has not happened, which is the part anyone can help with */}

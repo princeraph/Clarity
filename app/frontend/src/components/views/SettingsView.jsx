@@ -452,6 +452,14 @@ function SuggestionSettings({ T }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  async function setMode(suggestionMode) {
+    setBusy(true);
+    try {
+      await fetch(`${API}/suggestions/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suggestionMode }) });
+      await load();
+    } catch {} finally { setBusy(false); }
+  }
+
   async function lift(id) {
     setBusy(true);
     try { await fetch(`${API}/suggestions/quiet/${id}`, { method: 'DELETE' }); await load(); }
@@ -477,8 +485,21 @@ function SuggestionSettings({ T }) {
       </div>
 
       <Section title={t('settings.suggest.budget')} subtitle={t('settings.suggest.budgetHint')} T={T}>
-        <FieldRow label={t('settings.suggest.mode')} hint={t(`settings.suggest.mode.${p.suggestionMode || 'active'}`)} T={T}>
-          <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>{t(MODE_NAME_KEY[p.suggestionMode || 'active'] || MODE_NAME_KEY.active)}</span>
+        <FieldRow label={t('settings.suggest.mode')} hint={t(`settings.suggest.mode.${p.suggestionMode || 'daily'}`)} T={T}>
+          <div role="radiogroup" aria-label={t('settings.suggest.mode')} style={{ display: 'flex', gap: 4 }}>
+            {Object.keys(MODE_NAME_KEY).map(m => {
+              const on = (p.suggestionMode || 'daily') === m;
+              return (
+                <button key={m} type="button" role="radio" aria-checked={on} data-mode={m} disabled={busy}
+                  onClick={() => setMode(m)}
+                  style={{
+                    padding: '5px 10px', fontSize: 12, fontFamily: T.fontUI, borderRadius: T.rPill, cursor: 'pointer',
+                    background: on ? T.ink : T.paperSubtle, color: on ? T.paper : T.ink60,
+                    border: `1px solid ${on ? T.ink : T.hairline}`,
+                  }}>{t(MODE_NAME_KEY[m])}</button>
+              );
+            })}
+          </div>
         </FieldRow>
         <FieldRow label={t('settings.suggest.perDay')} hint={t('settings.suggest.perDayHint')} T={T}>
           <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink60 }}>
@@ -1184,7 +1205,7 @@ function DensityPreview({ T, t }) {
   );
 }
 
-export default function SettingsView({ onSaved, onFeedback = null, initialSection = 'appearance', onSectionChange }) {
+export default function SettingsView({ onSaved, onFeedback = null, initialSection = 'account', onSectionChange }) {
   const { T, isDark, themeMode, setThemeMode, accent, setAccent, density, setDensity, font, setFont } = useTheme();
   const { t, locale, setLocale, fmtDate } = useLocale();
   const [form, setForm] = useState({

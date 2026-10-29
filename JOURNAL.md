@@ -1394,6 +1394,23 @@ en référence.
 
 **Reste.** Passer le dépôt en privé le 1er novembre (réglage GitHub, propriétaire).
 
+## Lot A (2.6, pas encore publié) — corrections du 29 octobre
+
+**Changé.**
+- Réglages s'ouvre sur Compte (Apparence était codé en dur).
+- Boîte de réception : l'animation des cartes (FLIP) mesurait par rapport à la fenêtre, pas à la liste ; après un défilement, chaque rafraîchissement de 5 s faisait glisser toutes les cartes. Mesuré : 84 glissements en 11 s avant, 0 après. Un rafraîchissement sans changement ne redessine plus rien.
+- Sujets : « perso » = « Perso » (le serveur range une étiquette sous l'orthographe déjà utilisée, `src/topics.js`) ; le compteur ne compte que les tâches à faire ; renommer (fusionne avec un sujet existant) et retirer un sujet, les tâches restent. `updatedAt` posé sur chaque tâche touchée, sinon la synchro ne l'enverrait pas.
+- Sous-tâches modifiables dans le panneau : titre, notes, date, ajout en ligne, suppression. Le panneau d'un sujet n'ouvre plus la fenêtre complète.
+- « Clarity suggère » plus calme : une par jour par défaut (au lieu de 6) ; un profil resté sur les anciens réglages passe au nouveau, un réglage choisi reste ; jamais par-dessus une fenêtre ouverte ; après une tâche terminée ; notification Windows seulement si Clarity n'est pas au premier plan ; dans le panneau, une suggestion à la fois, figée tant qu'il est ouvert. Le mode se choisit enfin dans Réglages › Suggestions.
+
+**Vérifié.**
+- Serveur : 550 tests (16 nouveaux).
+- Contrôles du frontend : tous verts.
+- Navigateur (`essai-navigateur-2.6.cjs`) : 24 vérifications vertes. L'essai a trouvé un défaut : deux sous-tâches tapées vite, la seconde effaçait la première ; corrigé.
+- Mutations : l'ancien FLIP (84 glissements) et l'ancien compteur de sujet sont vus par l'essai. Le contrôle de Réglages a été resserré après une mutation qu'il ne voyait pas ; sa nouvelle version n'a pas encore été vérifiée contre une mutation.
+
+**Reste.** CI à la main sur la branche (Windows), fusion, publication éventuelle en 2.6.0.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

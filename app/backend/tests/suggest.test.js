@@ -99,15 +99,24 @@ describe('the night guard', () => {
 
 describe('the interruption budget', () => {
   const now = AT(10);
+  // The budget and the gap are the « active » mode's rules; since 2.6.0 the
+  // default is once a day, so these say which mode they test.
+  const active = { suggestionMode: 'active' };
+
+  test('by default, Clarity volunteers once a day (2.6.0)', () => {
+    expect(DEFAULTS.suggestionMode).toBe('daily');
+    expect(mayInterrupt({ now, sentToday: 0 }).allowed).toBe(true);
+    expect(mayInterrupt({ now, sentToday: 1, lastSentAt: ago(now, 999) }).code).toBe('daily-done');
+  });
 
   test('allows the first one of the day', () => {
-    const r = mayInterrupt({ now, sentToday: 0 });
+    const r = mayInterrupt({ now, preferences: active, sentToday: 0 });
     expect(r.allowed).toBe(true);
     expect(r.remaining).toBe(DEFAULTS.maxSuggestionsPerDay);
   });
 
   test('stops at the limit', () => {
-    const r = mayInterrupt({ now, sentToday: DEFAULTS.maxSuggestionsPerDay, lastSentAt: ago(now, 999) });
+    const r = mayInterrupt({ now, preferences: active, sentToday: DEFAULTS.maxSuggestionsPerDay, lastSentAt: ago(now, 999) });
     expect(r.allowed).toBe(false);
     expect(r.code).toBe('budget-spent');
   });
@@ -117,14 +126,14 @@ describe('the interruption budget', () => {
   });
 
   test('honours the minimum gap, and says how long is left', () => {
-    const r = mayInterrupt({ now, sentToday: 1, lastSentAt: ago(now, 30) });
+    const r = mayInterrupt({ now, preferences: active, sentToday: 1, lastSentAt: ago(now, 30) });
     expect(r.allowed).toBe(false);
     expect(r.code).toBe('too-soon');
     expect(r.waitMinutes).toBe(60);
   });
 
   test('allows it once the gap has passed', () => {
-    expect(mayInterrupt({ now, sentToday: 1, lastSentAt: ago(now, 91) }).allowed).toBe(true);
+    expect(mayInterrupt({ now, preferences: active, sentToday: 1, lastSentAt: ago(now, 91) }).allowed).toBe(true);
   });
 
   test('on-request mode never volunteers', () => {

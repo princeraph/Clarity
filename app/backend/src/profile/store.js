@@ -40,7 +40,10 @@ export function emptyProfile() {
       traits: [], drivers: [], blockers: [], strengths: [], skills: [], context: [],
     },
     preferences: {
-      suggestionMode: 'active',     // active | daily | onRequest
+      // 2.6.0: once a day by default. « active » (up to 6 a day) was felt
+      // as pushy; it stays one click away in Settings › Suggestions.
+      suggestionMode: 'daily',      // active | daily | onRequest
+      suggestionDefaults: 2,
       quiet: [],
       maxSuggestionsPerDay: 6,      // the interruption budget
       minGapMinutes: 90,
@@ -63,6 +66,12 @@ function isProfile(p) {
 // than tripping the shape check on load.
 function withDefaults(p) {
   const base = emptyProfile();
+  // A profile still on the old defaults (active, 6 a day — never changed by
+  // the person) moves to the calmer ones once. One the person set stays.
+  if (p.preferences && !p.preferences.suggestionDefaults) {
+    const old = p.preferences.suggestionMode === 'active' && p.preferences.maxSuggestionsPerDay === 6;
+    p = { ...p, preferences: { ...p.preferences, ...(old ? { suggestionMode: 'daily' } : {}), suggestionDefaults: 2 } };
+  }
   return {
     ...base, ...p,
     understanding: { ...base.understanding, ...(p.understanding || {}) },

@@ -69,15 +69,16 @@ function AppInner() {
   const { T, isDark, toggleTheme } = useTheme();
   const [data, setData]         = useState({ tasks: [], archivedTasks: [], analysis: null, weeklySummary: null, analyzing: false, analysisError: null });
   const dataRef = useRef(data);   // for handlers registered once (tray commands)
+  const lastLoaded = useRef({ text: null, data: null });   // the last /tasks answer, as text, and what it became
   dataRef.current = data;
   const [health, setHealth]     = useState({ ollama: false, model: '', analyzing: false });
   const [view, setView]         = useState('focus');
   const [calendarFocus, setCalendarFocus] = useState(null);   // « Upcoming » › a day: the week that holds it
   // Which Settings page opens. "The AI isn't available" leads straight to the
-  // AI page — landing on Appearance would leave the person to find it.
-  const [settingsSection, setSettingsSection] = useState('appearance');
+  // AI page — landing on the first page would leave the person to find it.
+  const [settingsSection, setSettingsSection] = useState('account');
   const openAiSettings = () => { setSettingsSection('ai'); setView('settings'); };
-  useEffect(() => { if (view !== 'settings') setSettingsSection('appearance'); }, [view]);
+  useEffect(() => { if (view !== 'settings') setSettingsSection('account'); }, [view]);
   const [activeArea, setActiveArea] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -99,7 +100,7 @@ function AppInner() {
   });
   const showTutorial = !!tour;
   const tourFrom = useRef(null);   // where the person was, to bring them back
-  const settingsOpen = useRef('appearance');   // the Settings page on screen
+  const settingsOpen = useRef('account');   // the Settings page on screen
   useEffect(() => {
     const onTour = (e) => {
       const { id, from, to } = e.detail || {};
@@ -172,8 +173,17 @@ function AppInner() {
     try {
       const resp = await fetch(`${API}/tasks`);
       if (resp.ok) {
-        const fresh = await resp.json();
+        const text = await resp.text();
+        const fresh = JSON.parse(text);
         loadErrorShown.current = false;
+        // The 5-second refresh: nothing changed, nothing re-rendered (2.6.0).
+        // Every tick used to hand React a new copy of the same tasks, and the
+        // whole screen was redrawn under the person's hands.
+        // Only while the screen still shows that same answer: after an
+        // optimistic change (a drag, a capture), the server's copy is applied.
+        if (text === lastLoaded.current.text && dataRef.current === lastLoaded.current.data) return dataRef.current;
+        lastLoaded.current = { text, data: fresh };
+        dataRef.current = fresh;
         setData(fresh);
         setDetailTask(prev => {
           if (!prev) return null;
@@ -411,6 +421,7 @@ function AppInner() {
       // Finishing can be taken back from the toast; for a recurring task the
       // server also removes the next occurrence it just created.
       if (status === 'done' && task.status !== 'done') {
+        askSuggestion.current();   // a task just finished: the moment to speak, if at all
         const undo = undoTo(task.id, { status: task.status || 'not_started' });
         if (task.recurring && task.recurring !== 'none') {
           const freq = { daily: 'recurFreq.daily', weekly: 'recurFreq.weekly', monthly: 'recurFreq.monthly' }[task.recurring];
@@ -514,23 +525,30 @@ function AppInner() {
   // day: a refusal costs nothing, a delivery costs exactly one.
   const suggestionRef = useRef(null);
   suggestionRef.current = suggestion;
+  const askSuggestion = useRef(() => {});
   useEffect(() => {
     if (showOnboarding) return undefined;
     let live = true;
+    // 2.6.0, the right moment: never over something the person has open (a
+    // form, a task's details, the palette…), and right after they finish a
+    // task — a natural pause — rather than in the middle of what they do. The
+    // Windows notification only when Clarity is not in front: the card is
+    // already on screen otherwise, and both at once was one interruption twice.
     const ask = async () => {
-      if (!live || suggestionRef.current) return;
+      if (!live || suggestionRef.current || busyRef.current) return;
       try {
         const resp = await fetch(`${API}/suggestions/next`, { method: 'POST' });
         if (!resp.ok) return;
         const body = await resp.json();
         if (!live || !body.suggestion) return;
         setSuggestion(body.suggestion);
-        try { window.clarity?.showNotification?.('Clarity', body.suggestion.title); } catch {}
+        try { if (!document.hasFocus()) window.clarity?.showNotification?.('Clarity', body.suggestion.title); } catch {}
       } catch { /* offline: try again next tick */ }
     };
+    askSuggestion.current = () => setTimeout(ask, 4000);
     const first = setTimeout(ask, 45000);       // not the instant the app opens
     const timer = setInterval(ask, 5 * 60000);
-    return () => { live = false; clearTimeout(first); clearInterval(timer); };
+    return () => { live = false; askSuggestion.current = () => {}; clearTimeout(first); clearInterval(timer); };
   }, [showOnboarding]);
 
   // Feedback from testers. Whether it is on, and whether it is time to ask (a
@@ -692,6 +710,28 @@ function AppInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.tasks, data.analysis, hiddenTaskIds]);
 
+  // Topics (2.6.0): renamed (or merged) and removed on every task at once.
+  async function handleRenameTopic(from, to) {
+    try {
+      const resp = await fetch(`${API}/topics/rename`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to }) });
+      if (!resp.ok) throw new Error('Server error');
+      const { topic } = await resp.json();
+      setActiveArea(topic);
+      await loadData();
+      showToast(t('topic.renamed', { name: topic }), 'success');
+    } catch { showToast(t('topic.changeFailed'), 'error'); }
+  }
+  async function handleRemoveTopic(name) {
+    try {
+      const resp = await fetch(`${API}/topics/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      if (!resp.ok) throw new Error('Server error');
+      const { changed } = await resp.json();
+      setActiveArea(''); setView('focus');
+      await loadData();
+      showToast(t(changed === 1 ? 'topic.removedOne' : 'topic.removed', { name, n: changed }), 'success');
+    } catch { showToast(t('topic.changeFailed'), 'error'); }
+  }
+
   const taskHandlers = {
     onEdit:          openEditTask,
     onDelete:        handleDeleteTask,
@@ -797,6 +837,8 @@ function AppInner() {
               onOpenDetail={openDetail}
               onBack={() => setView('focus')}
               onAddTask={openAddTask}
+              onRenameTopic={handleRenameTopic}
+              onRemoveTopic={handleRemoveTopic}
             />
           )}
           </div>

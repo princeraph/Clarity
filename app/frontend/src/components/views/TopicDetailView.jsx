@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { hasTopic } from '../../lib/sujets.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
 
@@ -27,6 +28,7 @@ function TaskRow({ task, onOpenDetail, T }) {
 
   return (
     <div
+      data-topic-task={task.id}
       onClick={() => onOpenDetail?.(task)}
       style={{
         display: 'grid', gridTemplateColumns: '20px 1fr auto', alignItems: 'center', gap: 14,
@@ -78,7 +80,53 @@ function TaskGroup({ label, count, tasks, onOpenDetail, T }) {
   );
 }
 
-export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onBack, onAddTask }) {
+// The topic's name, and what can be done to the topic itself (2.6.0): rename
+// it — to an existing topic's name, the two merge — or remove it. A topic used
+// to exist as long as one task carried its tag, with no way to change it.
+// Removing takes the tag off the tasks and keeps the tasks.
+function TopicTitle({ topic, onRename, onRemove, hasTasks, T, t }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(topic);
+  const [confirming, setConfirming] = useState(false);
+  const small = {
+    padding: '6px 11px', background: 'transparent', border: `1px solid ${T.hairline}`,
+    borderRadius: T.r6, cursor: 'pointer', fontSize: 12, fontFamily: T.fontUI, color: T.ink60,
+  };
+  const save = () => { const v = name.trim(); setEditing(false); if (v && v !== topic) onRename?.(topic, v); else setName(topic); };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      {editing ? (
+        <input
+          autoFocus data-field="topic-name" aria-label={t('topic.renameLabel')}
+          value={name} maxLength={40}
+          onChange={e => setName(e.target.value)}
+          onBlur={save}
+          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { e.stopPropagation(); setName(topic); setEditing(false); } }}
+          style={{
+            fontSize: 30, fontWeight: 500, letterSpacing: '-0.03em', color: T.ink, fontFamily: T.fontUI,
+            background: T.paper, border: `1px solid ${T.accent}`, borderRadius: T.r6, padding: '2px 8px', outline: 'none', minWidth: 220,
+          }}
+        />
+      ) : (
+        <h1 style={{ margin: 0, fontSize: 36, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{topic}</h1>
+      )}
+      {hasTasks && onRename && !editing && !confirming && (
+        <button data-action="rename-topic" onClick={() => { setName(topic); setEditing(true); }} style={small}>{t('topic.rename')}</button>
+      )}
+      {hasTasks && onRemove && !editing && (confirming ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: T.ink60 }}>
+          {t('topic.removeConfirm')}
+          <button data-action="remove-topic-confirm" onClick={() => { setConfirming(false); onRemove(topic); }} style={{ ...small, color: T.danger, borderColor: T.dangerBorder }}>{t('topic.removeYes')}</button>
+          <button onClick={() => setConfirming(false)} style={small}>{t('common.cancel')}</button>
+        </span>
+      ) : (
+        <button data-action="remove-topic" onClick={() => setConfirming(true)} style={small}>{t('topic.remove')}</button>
+      ))}
+    </div>
+  );
+}
+
+export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onBack, onAddTask, onRenameTopic, onRemoveTopic }) {
   const { t } = useLocale();
   const { T } = useTheme();
   const today = getTodayStr();
@@ -86,12 +134,12 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
   const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
 
   const topicTasks = useMemo(() =>
-    allTasks.filter(t => t.tags?.includes(topic) && !t.archived),
+    allTasks.filter(t => hasTopic(t, topic) && !t.archived),
     [allTasks, topic]
   );
 
   const topicArchived = useMemo(() =>
-    archivedTasks.filter(t => t.tags?.includes(topic)),
+    archivedTasks.filter(t => hasTopic(t, topic)),
     [archivedTasks, topic]
   );
 
@@ -133,7 +181,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
         </button>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('topic.label')}</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0, fontSize: 36, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{topic}</h1>
+          <TopicTitle topic={topic} onRename={onRenameTopic} onRemove={onRemoveTopic} hasTasks={total + topicArchived.length > 0} T={T} t={t} />
           {/* A topic page had no way to add to the topic: the task had to be
               created elsewhere and tagged by hand. Opens the form already in it. */}
           {onAddTask && (

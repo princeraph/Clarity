@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { topicsOf, topicKey } from '../lib/sujets.js';
 import ApertureMark from './ApertureMark.jsx';
 import { useAssistantDownload } from '../assistantDownload.js';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -247,17 +248,9 @@ export default function Sidebar({
     try { localStorage.setItem('sidebar-collapsed', String(next)); } catch {}
   }
 
-  // Extract unique tags from allTasks
-  const areas = useMemo(() => {
-    if (!allTasks?.length) return [];
-    const tagMap = {};
-    allTasks.forEach(t => {
-      t.tags?.forEach(tag => {
-        tagMap[tag] = (tagMap[tag] || 0) + 1;
-      });
-    });
-    return Object.entries(tagMap).map(([tag, count]) => ({ tag, count }));
-  }, [allTasks]);
+  // One entry per topic whatever the case, counting what is left to do
+  // (lib/sujets.js). Done tasks used to swell the count.
+  const areas = useMemo(() => topicsOf(allTasks), [allTasks]);
 
   const getCount = (item) => {
     // Each badge counts what its page lists. « Today » used to show the total
@@ -447,7 +440,7 @@ export default function Sidebar({
               key={tag}
               tag={tag}
               count={count}
-              active={(view === 'tasks' || view === 'topic-detail') && activeArea === tag}
+              active={(view === 'tasks' || view === 'topic-detail') && topicKey(activeArea) === topicKey(tag)}
               onClick={() => onAreaClick?.(tag)}
               T={T}
             />

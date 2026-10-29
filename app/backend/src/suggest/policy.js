@@ -27,7 +27,7 @@ export const SUGGESTION_MODES = new Set(['active', 'daily', 'onRequest']);
 export const QUIET_KINDS = new Set(['duration', 'untilTaskDone', 'indefinite']);
 
 export const DEFAULTS = {
-  suggestionMode: 'active',
+  suggestionMode: 'daily',      // 2.6.0: once a day unless the person asks for more
   maxSuggestionsPerDay: 6,
   minGapMinutes: 90,
   // Night guard. Not something a person thinks to forbid in advance, so it is

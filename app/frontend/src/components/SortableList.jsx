@@ -19,11 +19,16 @@ export default function SortableList({ items, render, onMove, gap = 0, testId })
   const justDragged = useRef(false);
 
   // FLIP: where each card was, where it is now; slide the difference away.
+  // Measured from the top of the list, not of the window (2.6.0): the window
+  // measure moved with the page, so after a scroll every card looked « moved »
+  // by the scroll itself, and the 5-second refresh slid them all back toward
+  // where they had been — the Inbox seemed to climb back up and re-sort itself.
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
+    const origin = el.getBoundingClientRect().top;
     const now = new Map();
-    for (const c of el.children) if (c.dataset.sortId) now.set(c.dataset.sortId, c.getBoundingClientRect().top);
+    for (const c of el.children) if (c.dataset.sortId) now.set(c.dataset.sortId, c.getBoundingClientRect().top - origin);
     if (!drag.current && !reduced()) {
       for (const c of el.children) {
         const before = tops.current.get(c.dataset.sortId), after = now.get(c.dataset.sortId);

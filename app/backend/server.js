@@ -13,7 +13,7 @@ import { buildOptionsPrompt, parseOptions } from './src/profile/brief.js';
 import { createThreadStore } from './src/threads/store.js';
 import * as thread from './src/threads/logic.js';
 import { createSuggestStore } from './src/suggest/store.js';
-import { mayInterrupt, QUIET_KINDS } from './src/suggest/policy.js';
+import { mayInterrupt, QUIET_KINDS, SUGGESTION_MODES } from './src/suggest/policy.js';
 import { candidates, pick } from './src/suggest/candidates.js';
 import { OBSERVED_VERSION } from './src/profile/metrics.js';
 import { allowedHosts, hostGuard } from './src/security/host.js';
@@ -39,6 +39,7 @@ import { secretField } from './src/security/secretField.js';
 import { createSyncClient, SyncError } from './src/sync/client.js';
 import { createSyncEngine } from './src/sync/engine.js';
 import { createCrashReporter, WHERE as CRASH_WHERE } from './src/crash/crash.js';
+import { spellings, canonicalTags, renameTopic, removeTopic, topicKey } from './src/topics.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 3001;
@@ -1341,6 +1342,18 @@ app.post('/api/suggestions/quiet', (req, res) => {
   }
 });
 
+// The mode, chosen in Settings › Suggestions (2.6.0). It was shown there and
+// could not be changed: « once a day » became the default, and « as the day
+// goes » or « only when I ask » had to be reachable.
+app.post('/api/suggestions/mode', (req, res) => {
+  const mode = req.body?.suggestionMode;
+  if (!SUGGESTION_MODES.has(mode)) return res.status(400).json({ error: `suggestionMode must be one of: ${[...SUGGESTION_MODES].join(', ')}` });
+  const profile = profileStore.readProfile();
+  profile.preferences = { ...profile.preferences, suggestionMode: mode };
+  profileStore.saveProfile(profile);
+  res.json({ suggestionMode: mode });
+});
+
 app.delete('/api/suggestions/quiet/:id', (req, res) => {
   res.json({ lifted: suggestStore.liftQuiet(req.params.id) });
 });
@@ -1518,7 +1531,8 @@ app.get('/api/tasks', (req, res) => {
 // is the same as one made in the window — history, analysis, profile included.
 function createTask(body) {
   const data = readData();
-  const task = newTask(body, new Date().toISOString());
+  // « perso » when « Perso » exists: one topic, in the spelling already used.
+  const task = newTask({ ...body, tags: canonicalTags(body.tags, spellings(data.tasks)) }, new Date().toISOString());
   data.tasks.push(task);
   saveData(data);
   scheduleAnalysis(data.tasks);
@@ -1545,7 +1559,8 @@ function importRun(req, res) {
   const r = importInput(req, res);
   if (!r) return;
   const now = new Date().toISOString();
-  const fresh = r.parsed.tasks.map(t => newTask(t, now));
+  const known = spellings(data.tasks);
+  const fresh = r.parsed.tasks.map(t => newTask({ ...t, tags: canonicalTags(t.tags, known) }, now));
   r.data.tasks.push(...fresh);
   saveData(r.data);
   scheduleAnalysis(r.data.tasks);
@@ -1601,6 +1616,7 @@ function updateTask(id, body) {
   const at = new Date().toISOString();
   if (patch.links !== undefined) patch.links = normalizeLinks(patch.links, id, at) || prev.links || [];
   if (patch.dismissed !== undefined) patch.dismissed = normalizeDismissed(patch.dismissed) || prev.dismissed || [];
+  if (Array.isArray(patch.tags)) patch.tags = canonicalTags(patch.tags, spellings(data.tasks.filter(t => t.id !== id)));
   const newEntries = [];
   if (patch.priority !== undefined && patch.priority !== (prev.priority ?? null))
     newEntries.push({ at, type: 'priority', from: prev.priority ?? null, to: patch.priority });
@@ -1654,6 +1670,38 @@ app.put('/api/tasks/:id', (req, res) => {
   const task = updateTask(req.params.id, req.body);
   if (!task) return res.status(404).json({ error: 'Task not found' });
   res.json({ task, analyzing: true });
+});
+
+// ── Topics (2.6.0, src/topics.js) ─────────────────────────────────────────────
+// Rename (merging into an existing topic) and remove. Every task carrying the
+// topic changes, archived ones included; removing never deletes a task.
+function topicName(v) {
+  return typeof v === 'string' && v.trim() && v.trim().length <= 40 ? v.trim() : null;
+}
+app.post('/api/topics/rename', (req, res) => {
+  const from = topicName(req.body?.from), to = topicName(req.body?.to);
+  if (!from || !to) return res.status(400).json({ error: 'Give from and to: two topic names of 1 to 40 characters' });
+  const data = readData();
+  const known = spellings(data.tasks);
+  // Merging into an existing topic keeps that topic's spelling.
+  const target = topicKey(from) !== topicKey(to) && known.get(topicKey(to)) || to;
+  const changed = renameTopic(data.tasks, from, target);
+  if (!changed) return res.status(404).json({ error: 'No task carries this topic' });
+  saveData(data);
+  scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
+  res.json({ changed, topic: target });
+});
+app.post('/api/topics/remove', (req, res) => {
+  const name = topicName(req.body?.name);
+  if (!name) return res.status(400).json({ error: 'Give name: a topic name of 1 to 40 characters' });
+  const data = readData();
+  const changed = removeTopic(data.tasks, name);
+  if (!changed) return res.status(404).json({ error: 'No task carries this topic' });
+  saveData(data);
+  scheduleAnalysis(data.tasks);
+  scheduleProfileRecompute(data.tasks);
+  res.json({ changed });
 });
 
 app.delete('/api/tasks/all', (req, res) => {

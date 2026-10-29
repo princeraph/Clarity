@@ -16,8 +16,15 @@ async function put(id, body) {
 export default function TaskSuggestions({ task, allTasks, T, onSaved, onEdited, onBreakdown }) {
   const { t, fmtDuration, fmtHours } = useLocale();
   const [busy, setBusy] = useState(null);
-  const list = task.suggestions || [];
-  if (!list.length || task.status === 'done') return null;
+  // 2.6.0, calmer: what was proposed when the details opened, and nothing
+  // more while they stay open — the analysis re-runs after each change, and
+  // proposals used to appear and move under the person's eyes. One at a time;
+  // the others behind « N more ».
+  const [frozen] = useState(() => new Set((task.suggestions || []).map(s => s.key)));
+  const [all, setAll] = useState(false);
+  const pending = (task.suggestions || []).filter(s => frozen.has(s.key));
+  const list = all ? pending : pending.slice(0, 1);
+  if (!pending.length || task.status === 'done') return null;
 
   const title = (id) => allTasks.find(x => x.id === id)?.title || '…';
   const minutes = (m) => (m >= 60 ? fmtHours(m) : fmtDuration(m));
@@ -90,6 +97,11 @@ export default function TaskSuggestions({ task, allTasks, T, onSaved, onEdited, 
           </div>
         </div>
       ))}
+      {!all && pending.length > 1 && (
+        <button type="button" data-act="more" onClick={() => setAll(true)} style={{ ...btn(false), border: 'none', padding: '4px 0', color: T.accentInk }}>
+          {t(pending.length === 2 ? 'propose.moreOne' : 'propose.more', { n: pending.length - 1 })}
+        </button>
+      )}
     </div>
   );
 }

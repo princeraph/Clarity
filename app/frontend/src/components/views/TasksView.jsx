@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import SortableList from '../SortableList.jsx';
 import TaskCard from '../TaskCard.jsx';
 import { tagColor } from '../TaskForm.jsx';
+import { topicsOf, topicKey, hasTopic } from '../../lib/sujets.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
 
@@ -24,11 +25,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const allTags = useMemo(() => {
-    const set = new Set();
-    rankedTasks.forEach(t => t.tags?.forEach(tag => set.add(tag)));
-    return [...set].sort();
-  }, [rankedTasks]);
+  const allTags = useMemo(() => topicsOf(rankedTasks).map(x => x.tag).sort(), [rankedTasks]);
 
   const filtered = useMemo(() => {
     return rankedTasks.filter(task => {
@@ -38,7 +35,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
         (task.description || '').toLowerCase().includes(q) ||
         (task.tags || []).some(t => t.toLowerCase().includes(q));
       const matchStatus = !statusFilter || task.status === statusFilter;
-      const matchTag    = !tagFilter    || task.tags?.includes(tagFilter);
+      const matchTag    = !tagFilter    || hasTopic(task, tagFilter);
       const matchDone   = !hideDone || statusFilter === 'done' || task.status !== 'done';
       const matchDate   = !undatedOnly || !task.deadline;
       return matchSearch && matchStatus && matchTag && matchDone && matchDate;
@@ -139,7 +136,7 @@ export default function TasksView({ rankedTasks, analyzing, onAddTask, activeAre
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
           {allTags.map(tag => {
             const c = tagColor(tag);
-            const active = tagFilter === tag;
+            const active = topicKey(tagFilter) === topicKey(tag);
             return (
               <button key={tag} onClick={() => { const next = active ? '' : tag; setTagFilter(next); if (!next) onClearArea?.(); }} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
