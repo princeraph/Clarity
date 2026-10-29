@@ -1109,7 +1109,7 @@ export default {
   'whatsNew.check.body': 'The circle fills and the check draws itself as you click, before the task joins the finished ones.',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': "A subtask, a page: click it and it opens beside its task, with its date, level, status, difficulty and notes. Another one replaces it; Esc closes it.\n“Make it a task”: the subtask leaves its task and keeps everything it had.",
+  'update.news': "Tags: type “#pe” and Clarity offers your existing topics (#Perso) — no more duplicates.\nFocus: once the session is over, “New session” starts the count again.\nThe task form closes with Esc, wherever the cursor is.",
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
@@ -1569,4 +1569,6 @@ export default {
   // 2.9.0
   'focusmode.newSession': "New session",
   'focusmode.sessionN': "session {n}",
+  'whatsNew.tagSuggest.title': "Your topics, offered",
+  'whatsNew.tagSuggest.body': "As you type a tag — in the form, or Ctrl+K with “#” — Clarity offers the topics that already exist, in their spelling.",
 };

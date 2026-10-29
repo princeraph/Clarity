@@ -1110,7 +1110,7 @@ export default {
   'whatsNew.check.body': 'Le rond se remplit et la coche se dessine dès le clic, avant que la tâche rejoigne les terminées.',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': "Une sous-tâche, une page : cliquez-la, elle s’ouvre à côté de sa tâche, avec sa date, son niveau, son statut, sa difficulté et ses notes. Une autre la remplace ; Échap la referme.\n« En faire une tâche » : la sous-tâche quitte sa tâche et garde tout ce qu’elle avait.",
+  'update.news': "Étiquettes : en tapant « #pe », Clarity propose vos sujets existants (#Perso) — fini les doublons.\nFocus : une fois la séance dépassée, « Nouvelle séance » relance le compte.\nLe formulaire de tâche se ferme avec Échap, où que soit le curseur.",
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
@@ -1570,4 +1570,6 @@ export default {
   // 2.9.0
   'focusmode.newSession': "Nouvelle séance",
   'focusmode.sessionN': "séance {n}",
+  'whatsNew.tagSuggest.title': "Vos sujets, proposés",
+  'whatsNew.tagSuggest.body': "En tapant une étiquette — dans le formulaire ou Ctrl+K avec « # » — Clarity propose les sujets qui existent déjà, dans leur orthographe.",
 };

@@ -91,6 +91,9 @@ export const WHATS_NEW = {
   '2.8.0': [
     { key: 'subtaskPages', view: 'focus', target: 'today-list' },
   ],
+  '2.9.0': [
+    { key: 'tagSuggest', view: 'focus', target: 'topics' },
+  ],
 };
 
 export function compareVersions(a, b) {
