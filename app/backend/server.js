@@ -1559,7 +1559,7 @@ function importRun(req, res) {
   const r = importInput(req, res);
   if (!r) return;
   const now = new Date().toISOString();
-  const known = spellings(data.tasks);
+  const known = spellings(r.data.tasks);
   const fresh = r.parsed.tasks.map(t => newTask({ ...t, tags: canonicalTags(t.tags, known) }, now));
   r.data.tasks.push(...fresh);
   saveData(r.data);

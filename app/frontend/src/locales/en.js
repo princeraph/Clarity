@@ -1109,7 +1109,7 @@ export default {
   'whatsNew.check.body': 'The circle fills and the check draws itself as you click, before the task joins the finished ones.',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': 'Import your tasks (Settings › Data): Todoist export, CSV, Clarity export or a plain list, with a preview first.\nA help page (Settings › Help). Easier to read: stronger contrast, every field named for screen readers.\nSecurity: only Clarity’s window can talk to Clarity (a key changed at every start), and the page loads nothing from elsewhere.',
+  'update.news': 'Topics: “perso” and “Perso” are one, the count shows only what is left to do, and a topic can be renamed or removed from its page.\nSubtasks editable in the side panel: title, notes, date.\nThe Inbox stays where you left it. Settings opens on Account.\n“Clarity suggests” is quieter: one suggestion a day by default, never over what you are doing.',
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
@@ -1490,4 +1490,8 @@ export default {
   'topic.changeFailed': 'The topic could not be changed. Try again.',
   'propose.more': '{n} more suggestions',
   'propose.moreOne': 'One more suggestion',
+  'whatsNew.topicsTidy.title': 'Topics in order',
+  'whatsNew.topicsTidy.body': '“perso” and “Perso” are now one. The number next to a topic counts only what is left to do. On a topic’s page: Rename (to an existing topic, the two merge) or Remove topic — the tasks stay.',
+  'whatsNew.suggestCalm.title': 'A quieter Clarity',
+  'whatsNew.suggestCalm.body': 'At most one suggestion a day, by default, and never over an open window. Choose here: through the day, once a day, or only when you ask.',
 };

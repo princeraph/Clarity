@@ -79,6 +79,10 @@ export const WHATS_NEW = {
     { key: 'importTasks', settings: 'data', target: 'import' },
     { key: 'helpPage', settings: 'help', target: 'help' },
   ],
+  '2.6.0': [
+    { key: 'topicsTidy', view: 'focus', target: 'topics' },
+    { key: 'suggestCalm', settings: 'suggestions', target: 'suggest-mode' },
+  ],
 };
 
 export function compareVersions(a, b) {

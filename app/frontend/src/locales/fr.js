@@ -1110,7 +1110,7 @@ export default {
   'whatsNew.check.body': 'Le rond se remplit et la coche se dessine dès le clic, avant que la tâche rejoigne les terminées.',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': 'Importer vos tâches (Réglages › Données) : export Todoist, CSV, export Clarity ou simple liste, avec un aperçu d’abord.\nUne page d’aide (Réglages › Aide). Des textes plus lisibles : contrastes renforcés, chaque champ nommé pour les lecteurs d’écran.\nSécurité : seule la fenêtre de Clarity peut parler à Clarity (une clé changée à chaque démarrage), et la page ne charge rien d’ailleurs.',
+  'update.news': 'Sujets : « perso » et « Perso » ne font plus qu’un, le compteur ne compte que ce qui reste à faire, et un sujet se renomme ou se retire depuis sa page.\nSous-tâches modifiables dans le panneau : titre, notes, date.\nLa Boîte de réception reste où vous l’avez laissée. Réglages s’ouvre sur Compte.\n« Clarity suggère » se fait plus discret : une suggestion par jour par défaut, jamais par-dessus ce que vous faites.',
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
@@ -1491,4 +1491,8 @@ export default {
   'topic.changeFailed': 'Le sujet n’a pas pu être modifié. Réessayez.',
   'propose.more': '{n} autres suggestions',
   'propose.moreOne': 'Une autre suggestion',
+  'whatsNew.topicsTidy.title': 'Des sujets en ordre',
+  'whatsNew.topicsTidy.body': '« perso » et « Perso » ne font plus qu’un. Le nombre à côté d’un sujet ne compte que ce qui reste à faire. Sur la page d’un sujet : Renommer (vers un sujet existant, les deux fusionnent) ou Supprimer le sujet — les tâches restent.',
+  'whatsNew.suggestCalm.title': 'Clarity, plus discrète',
+  'whatsNew.suggestCalm.body': 'Une suggestion par jour au plus, par défaut, et jamais par-dessus une fenêtre ouverte. Choisissez ici : au fil de la journée, une par jour, ou seulement quand vous le demandez.',
 };

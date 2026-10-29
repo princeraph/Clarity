@@ -1394,7 +1394,7 @@ en référence.
 
 **Reste.** Passer le dépôt en privé le 1er novembre (réglage GitHub, propriétaire).
 
-## Lot A (2.6, pas encore publié) — corrections du 29 octobre
+## 2.6.0 — Lot A : les corrections du 29 octobre
 
 **Changé.**
 - Réglages s'ouvre sur Compte (Apparence était codé en dur).
@@ -1407,9 +1407,11 @@ en référence.
 - Serveur : 550 tests (16 nouveaux).
 - Contrôles du frontend : tous verts.
 - Navigateur (`essai-navigateur-2.6.cjs`) : 24 vérifications vertes. L'essai a trouvé un défaut : deux sous-tâches tapées vite, la seconde effaçait la première ; corrigé.
-- Mutations : l'ancien FLIP (84 glissements) et l'ancien compteur de sujet sont vus par l'essai. Le contrôle de Réglages a été resserré après une mutation qu'il ne voyait pas ; sa nouvelle version n'a pas encore été vérifiée contre une mutation.
+- Mutations : l'ancien FLIP (84 glissements), l'ancien compteur de sujet et l'ancienne page de Réglages sont vus par l'essai. Le contrôle de Réglages ne voyait rien au départ : il lisait un texte présent sur toutes les pages ; resserré, puis revu contre la bonne ligne (la remise à zéro en quittant Réglages, pas l'état initial).
+- Les essais 2.4 (glisser) et 2.5 (clé, import, aide) rejoués : verts. Le 2.5 a trouvé un défaut de ce lot : la route d'import lisait `data` au lieu de `r.data`, chaque import échouait. Corrigé avant publication ; aucun test serveur ne le voyait.
+- Nouveautés 2.6.0 : « Des sujets en ordre », « Clarity, plus discrète » (visite vérifiée, 38 étapes).
 
-**Reste.** CI à la main sur la branche (Windows), fusion, publication éventuelle en 2.6.0.
+**Reste.** Glisser au pavé tactile et notification Windows : pas vérifiés à la main.
 
 ## Ce que ce journal n'a pas le droit de cacher
 

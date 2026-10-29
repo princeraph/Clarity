@@ -486,7 +486,7 @@ function SuggestionSettings({ T }) {
 
       <Section title={t('settings.suggest.budget')} subtitle={t('settings.suggest.budgetHint')} T={T}>
         <FieldRow label={t('settings.suggest.mode')} hint={t(`settings.suggest.mode.${p.suggestionMode || 'daily'}`)} T={T}>
-          <div role="radiogroup" aria-label={t('settings.suggest.mode')} style={{ display: 'flex', gap: 4 }}>
+          <div role="radiogroup" data-tour="suggest-mode" aria-label={t('settings.suggest.mode')} style={{ display: 'flex', gap: 4 }}>
             {Object.keys(MODE_NAME_KEY).map(m => {
               const on = (p.suggestionMode || 'daily') === m;
               return (
