@@ -19,6 +19,8 @@ name: qualité
 #     main seulement, case « ancienne » cochée, après une publication.
 # Pas de pull_request : il refaisait le même passage sur le même commit.
 #
+# controles passe de 1 à ~3 min avec l'essai Electron (29 octobre, estimé :
+# à remesurer au premier passage), soit ≈ +30 min/mois.
 # Coût estimé (mesuré le 15 octobre : controles 1 min, windows 7,5 min,
 # ancienne-version 3 min ; arrondi à la minute par job) :
 #   vérification d'une branche  1 + 8×2          = 17 min
@@ -143,6 +145,19 @@ jobs:
             git diff --stat -- dist/
             exit 1
           fi
+
+      # La vraie fenêtre Electron (tâche 3, 29 octobre 2026) : preload, clé,
+      # CSP sous file://, notification d'un rappel et son clic, glisser à la
+      # souris, navigation verrouillée. Tout le reste passe par Chromium ou
+      # par l'API ; rien d'autre n'ouvrait la fenêtre. Linux sous xvfb : le
+      # même code tourne sous Windows, et la minute Linux coûte moitié moins.
+      - name: la vraie fenêtre Electron (clé, CSP, rappel, glisser)
+        working-directory: app
+        run: |
+          npm ci --no-audit --no-fund
+          npx install-electron
+          npm install --no-save --no-audit --no-fund playwright-core@1.63.0
+          xvfb-run -a node tools/essai-electron.cjs
 
   # Windows, la plateforme de l'utilisateur. Les scripts qui le concernent
   # (Update.bat, setup.bat) ne pouvaient être essayés nulle part avant lui :

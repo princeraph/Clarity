@@ -265,6 +265,25 @@ en référence.
 
 **Analyse par le modèle local : toujours pas vérifiée.** Installer Ollama dans la session a été refusé (script externe). Reste à regarder sur le PC du propriétaire : lancer l'analyse avec quelques tâches, vérifier que chaque carte reçoit une phrase et un plan.
 
+## Tâche 3 — la vraie fenêtre Electron, en CI (29 octobre 2026, non publiée)
+
+**Pourquoi.** Tout passait par Chromium ou par l'API ; la fenêtre Electron elle-même (preload, clé, CSP sous `file://`, notification système) n'avait jamais été ouverte que par une personne (reste de la 2.3 et de la 2.5).
+
+**Changé.** `app/tools/essai-electron.cjs` lance `electron .` comme `npm start`, backend compris, dans un dossier de données jetable, et pilote la fenêtre (Playwright `_electron`). Dans `controles` (Linux, xvfb, `--no-sandbox`), après le contrôle de `dist/`. Notifications et liens sortants enregistrés au lieu d'être montrés (pas de démon de notification ni de navigateur sur un runner).
+
+**Vérifié, 19 contrôles verts** :
+- page en `file://`, pont `window.clarity`, aucun accès à Node depuis la page ;
+- clé tirée au hasard, 401 sans elle, la page la joint à chaque appel ;
+- CSP présente, script injecté refusé, rien d'autre refusé ;
+- rappel échu → notification qui nomme la tâche → clic → la tâche s'ouvre ;
+- glisser à la souris met Gamma en haut, rang enregistré ;
+- `location.href` vers le web refusé, lien confié au navigateur du système.
+Mutation (le preload ne donne plus la clé) : 3 écarts puis arrêt. Étape CI rejouée en local telle quelle : verte, aucun fichier suivi modifié.
+
+**Trouvé en route.** `POST /api/tasks` ignore `reminder` : seul `PUT` le prend (le panneau fait ainsi, donc rien de cassé pour l'utilisateur ; l'essai fait de même).
+
+**Reste.** Coût CI : `controles` ≈ 1 → 3 min (estimé, à remesurer au premier passage). Toujours à la main sous Windows : vraie bulle de notification Windows, glisser au pavé tactile.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :
