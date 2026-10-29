@@ -60,8 +60,7 @@ Sunsama ≈ 20 $ US/mois, Motion ≈ 19-34 $ US/mois — soit ≈ 28 et 26-47 $ 
 ## 5. Ce que dit la page publique
 
 https://princeraph.github.io/clarity-releases/ (`app/release-site/`), copiée à
-chaque publication. Aujourd'hui : « Un gestionnaire de tâches personnel, avec un
-assistant IA qui tourne sur votre ordinateur. Vos tâches restent chez vous. »
+chaque publication. Depuis le 29 octobre 2026 (validé par le propriétaire) : « Finissez votre journée, pas votre liste. Clarity planifie votre journée dans vos vraies heures, vous dit quand elle déborde, et range le reste pour plus tard. Vos tâches restent sur votre ordinateur. » Part en ligne avec la prochaine version publiée.
 
 Elle doit suivre la section 1 dès que la cible est validée. Elle ne promet que
 ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
@@ -75,3 +74,5 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 | 29 oct. 2026 | Tâches ouvertes en deux panneaux latéraux (tâche, puis sous-tâche à côté ; une autre sous-tâche remplace la première), d'après le dessin du propriétaire | Propriétaire, option A — lot B |
 | 29 oct. 2026 | Agenda Google repoussé ; lot B (deux panneaux) avant | Propriétaire |
 | 29 oct. 2026 | Lot C′ publié en 2.9.0 | Propriétaire (« publish C ») |
+| 29 oct. 2026 | Nouveau texte de la page de téléchargement | Propriétaire (« ok text ») |
+| 29 oct. 2026 | Ordre : 6, 2, 5, 3, 4, 1, 7, 8 ; un lot par session | Propriétaire |
