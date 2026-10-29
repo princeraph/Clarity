@@ -31,7 +31,7 @@ import { workdayOf, validWorkday, upgradeWorkday } from './src/workday.js';
 import { eventsBetween, isoDay } from './src/calendrier.js';
 import { tokenGuard } from './src/security/jeton.js';
 import { parseImport } from './src/importer.js';
-import { dueReminders, validReminder, validReminderSettings, remindersOf, pruneLog } from './src/rappels.js';
+import { dueReminders, claimList, validReminder, validReminderSettings, remindersOf, pruneLog } from './src/rappels.js';
 import { nextDeadline, anchorDayOf } from './src/recurrence.js';
 import { untouchedOccurrence, isUndoOfRecurring } from './src/undoOccurrence.js';
 import { validPriority, validDifficulty, normalizeLinks, wouldCycle, removeLinksTo, normalizeDismissed } from './src/links.js';
@@ -2087,7 +2087,7 @@ app.post('/api/reminders/claim', (req, res) => {
     saveDataQuiet(data);
   }
   const title = (id) => data.tasks.find(t => t.id === id)?.title || '';
-  res.json({ reminders: due.filter(r => !r.stale).map(r => ({ ...r, title: r.taskId ? title(r.taskId) : undefined, titles: r.taskIds?.map(title) })) });
+  res.json({ reminders: claimList(due, title, now) });
 });
 
 // ── Export ────────────────────────────────────────────────────────────────────

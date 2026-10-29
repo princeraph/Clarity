@@ -55,7 +55,12 @@ export function ReminderRow({ task, T, onSaved, onEdited }) {
 export function ReminderSettings({ T }) {
   const { t } = useLocale();
   const [r, setR] = useState(null);
+  // Start with Windows, here too (tâche 4): a reminder is only given while
+  // Clarity runs, and the switch used to live only under Startup, where nobody
+  // setting a reminder would look. The same login item as Settings › Startup.
+  const [login, setLogin] = useState(null);
   useEffect(() => { fetch(`${API}/settings`).then(x => x.json()).then(s => setR(s.reminders)).catch(() => {}); }, []);
+  useEffect(() => { window.clarity?.loginItem?.get().then(setLogin).catch(() => {}); }, []);
   if (!r) return null;
   const save = (change) => {
     const next = { ...r, ...change }; setR(next);
@@ -81,6 +86,16 @@ export function ReminderSettings({ T }) {
       </div>
       <div style={row}><span style={label}>{t('remind.settings.morning')}</span>{toggle('morning')}</div>
       <div style={row}><span style={label}>{t('remind.settings.blocks')}</span>{toggle('blocks')}</div>
+      {login?.supported && (
+        <div style={row}>
+          <span style={label}>{t('remind.settings.startup')}<span style={{ display: 'block', fontSize: 12, color: T.ink60 }}>{t('remind.settings.startupHint')}</span></span>
+          <button type="button" role="switch" aria-checked={!!login.enabled} aria-label={t('remind.settings.startup')} data-toggle="startup"
+            onClick={() => window.clarity.loginItem.set(!login.enabled).then(setLogin).catch(() => {})} style={{
+            width: 34, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative', background: login.enabled ? T.accent : T.ink20, flexShrink: 0 }}>
+            <span style={{ position: 'absolute', top: 2, left: login.enabled ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.15s ease' }} />
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -114,6 +129,8 @@ export function ReminderToasts({ tasks, onOpenTask, onGoToday }) {
     const textOf = (r) => {
       if (r.kind === 'morning') return { title: t('remind.morningTitle'), body: t(r.taskIds.length === 1 ? 'remind.morningOne' : 'remind.morning', { n: r.taskIds.length, titles: r.titles.slice(0, 3).join(', ') }) };
       if (r.kind === 'before') return { title: t('remind.beforeTitle'), body: t('remind.before', { title: r.title, time: r.startsAt ? new Date(r.startsAt).toTimeString().slice(0, 5) : '' }) };
+      // Missed while Clarity was closed (tâche 4): one card for all of them.
+      if (r.kind === 'missed') return { title: t('remind.missedTitle'), body: t(r.taskIds.length === 1 ? 'remind.missedOne' : 'remind.missed', { n: r.taskIds.length, titles: r.titles.slice(0, 3).join(', ') }) };
       if (r.kind === 'block') return { title: t('remind.blockTitle'), body: t('remind.block', { title: r.title, time: r.until }) };
       return { title: t('remind.taskTitle'), body: r.title };
     };

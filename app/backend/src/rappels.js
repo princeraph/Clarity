@@ -75,6 +75,26 @@ export function dueReminders({ tasks, settings = {}, now = new Date(), log = {} 
   return out;
 }
 
+/**
+ * What a claim hands over (tâche 4, 29 October). A reminder more than
+ * STALE_HOURS late used to be noted as given and never shown: the computer
+ * was off, Clarity closed — and the reminder simply vanished. Now the task
+ * reminders missed in the last week come back as ONE card, « while Clarity was
+ * closed », not as a burst of notifications at login. Older ones stay quiet:
+ * a fortnight-old reminder is noise, not help.
+ */
+export function claimList(due, titleOf, now = new Date()) {
+  const fresh = due.filter(r => !r.stale).map(r => ({ ...r, title: r.taskId ? titleOf(r.taskId) : undefined, titles: r.taskIds?.map(titleOf) }));
+  const missed = due.filter(r => r.stale && r.kind === 'task' && now - new Date(r.at) < 7 * 86400e3)
+    .sort((a, b) => a.at.localeCompare(b.at));
+  if (!missed.length) return fresh;
+  const taskIds = [...new Set(missed.map(r => r.taskId))];
+  return [...fresh, {
+    key: `missed:${now.toISOString()}`, kind: 'missed', at: missed[0].at, stale: false,
+    taskIds, titles: taskIds.map(titleOf), ...(taskIds.length === 1 && { taskId: taskIds[0], title: titleOf(taskIds[0]) }),
+  }];
+}
+
 /** The log without what is older than a week: the keys carry their date, a week is plenty. */
 export function pruneLog(log, now = new Date()) {
   return Object.fromEntries(Object.entries(log || {}).filter(([, at]) => now - new Date(at) < 8 * 86400e3));

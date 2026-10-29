@@ -9,6 +9,7 @@
 //   3. CSP: present, an injected script is refused, nothing else is.
 //   4. Navigation locked: the window stays on Clarity.
 //   5. A reminder due: a system notification; clicking it opens the task.
+//      One missed while Clarity was closed comes back as its own card.
 //   6. A drag with the mouse puts a task first, and the rank is saved.
 //
 // Run by the CI (job `controles`, under xvfb; on Linux without the sandbox,
@@ -87,6 +88,9 @@ const localStamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.g
   const R = await mk('Appeler la banque');
   // A reminder is set afterwards, as the detail panel does (creation does not take one).
   ok((await call(`/tasks/${R.id}`, { method: 'PUT', body: JSON.stringify({ reminder: localStamp(new Date(Date.now() - 60000)) }) })).status === 200, 'un rappel échu est posé sur une tâche');
+  // Missed while Clarity was closed (tâche 4): 13 hours late.
+  const M = await mk('Payer le loyer');
+  await call(`/tasks/${M.id}`, { method: 'PUT', body: JSON.stringify({ reminder: localStamp(new Date(Date.now() - 13 * 3600e3)) }) });
   await win.evaluate(() => {
     localStorage.clear();
     Object.entries({ 'clarity-onboarding-done': '1', 'clarity-tutorialSeen': '1', 'clarity-locale': 'fr', 'clarity-lastSeenVersion': '9.9.9' }).forEach(([k, v]) => localStorage.setItem(k, v));
@@ -108,9 +112,14 @@ const localStamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.g
   // 5. The reminder (the window looks once the tasks are there).
   const seen = await until(async () => (await app.evaluate(() => global.__notes.length)) > 0);
   ok(seen, 'le rappel échu donne une notification système');
-  const note = await app.evaluate(() => { const n = global.__notes[0]; return { title: n.title, body: n.body }; });
+  ok(await until(async () => (await app.evaluate(() => global.__notes.length)) >= 2), 'deux notifications : le rappel du moment, et les rappels manqués');
+  const notes = await app.evaluate(() => global.__notes.map(n => ({ title: n.title, body: n.body })));
+  const k = notes.findIndex(n => /Appeler la banque/.test(n.body));
+  const note = notes[k] || {};
+  ok(notes.some(n => /Payer le loyer/.test(n.body) && !/Appeler/.test(n.body)), `le rappel manqué revient, à part (${notes.map(n => n.body).join(' | ')})`);
+  ok(await until(async () => /Payer le loyer/.test(await win.$eval('[data-reminder-card="missed"]', el => el.textContent).catch(() => ''))), '… avec sa carte dans la fenêtre');
   ok(/Appeler la banque/.test(note.body), `… qui nomme la tâche (« ${note.title} » — « ${note.body} »)`);
-  await app.evaluate(() => global.__notes[0].emit('click'));
+  await app.evaluate((_electron, i) => global.__notes[i].emit('click'), k);
   ok(await until(async () => /Appeler la banque/.test(await win.$eval('[data-detail-panel]', el => el.textContent).catch(() => ''))), 'cliquer la notification ouvre la tâche dans la fenêtre');
   await win.keyboard.press('Escape');
 

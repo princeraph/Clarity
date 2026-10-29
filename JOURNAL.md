@@ -284,6 +284,20 @@ Mutation (le preload ne donne plus la clé) : 3 écarts puis arrêt. Étape CI r
 
 **Reste.** Coût CI : `controles` ≈ 1 → 3 min (estimé, à remesurer au premier passage). Toujours à la main sous Windows : vraie bulle de notification Windows, glisser au pavé tactile.
 
+## Tâche 4 — rappels même fenêtre fermée (29 octobre 2026, non publiée)
+
+**Lu avant d'écrire.** Démarrer avec Windows existait déjà (`--background` : fenêtre cachée, qui réclame les rappels). Deux vrais trous :
+- **Un rappel manqué disparaissait.** Plus de 12 h de retard (PC éteint, Clarity fermée) : noté « donné », jamais montré.
+- **L'interrupteur de démarrage** était rangé sous Réglages › Démarrage, loin des rappels qui en dépendent, et éteint par défaut.
+
+**Changé.**
+- `claimList` (`backend/src/rappels.js`, pur) : les rappels de tâche manqués dans la dernière semaine reviennent en **une seule** carte « Pendant que Clarity était fermée » (pas une rafale au démarrage) ; un seul manqué → la carte ouvre sa tâche. Plus d'une semaine : toujours muet.
+- Réglages › Rappels : « Démarrer avec Windows » (même entrée de démarrage que Réglages › Démarrage), visible là où on règle les rappels.
+
+**Vérifié.** `tests/rappels.test.js` : 16 (5 neufs). Mutation (manqués rendus muets) : 3 échecs. `essai-electron.cjs` : 22 contrôles, dont rappel manqué → notification à part + carte. Serveur : 566. Langues : aucun écart.
+
+**Reste.** Le démarrage avec Windows reste éteint par défaut : l'allumer d'office serait décider à la place de la personne. Sur Linux, l'interrupteur n'apparaît pas (non pris en charge).
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

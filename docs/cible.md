@@ -79,3 +79,4 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 | 29 oct. 2026 | Tâche 2 (écran étroit) faite ; part avec la prochaine version | Propriétaire (« tache 2, go ») |
 | 29 oct. 2026 | Tâche 5 : vrai .ics vérifié, réunions répétées désormais lues ; analyse locale à vérifier sur le PC | Propriétaire (« tâche 5 dans cette session ») |
 | 29 oct. 2026 | Tâche 3 : la vraie fenêtre Electron vérifiée en CI (Linux) | Propriétaire (« tache 3 here ») |
+| 29 oct. 2026 | Tâche 4 : rappels manqués rattrapés en une carte ; démarrage avec Windows proposé dans les rappels, éteint par défaut | Claude, sur « go for it » du propriétaire |

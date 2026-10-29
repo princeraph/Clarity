@@ -1,5 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
-import { dueReminders, validReminder, validReminderSettings, remindersOf, pruneLog } from '../src/rappels.js';
+import { dueReminders, claimList, validReminder, validReminderSettings, remindersOf, pruneLog } from '../src/rappels.js';
 
 const DAY = { start: '09:00', end: '18:00', breaks: [], days: [1, 2, 3, 4, 5] };
 const FRI = (h, m = 0) => new Date(2026, 9, 16, h, m);          // Friday 16 October 2026
@@ -73,5 +73,34 @@ describe('reminders', () => {
   test('the log keeps a week', () => {
     const now = FRI(12);
     expect(Object.keys(pruneLog({ old: new Date(2026, 9, 5).toISOString(), recent: new Date(2026, 9, 14).toISOString() }, now))).toEqual(['recent']);
+  });
+});
+
+describe('missed while Clarity was closed (tâche 4)', () => {
+  const titleOf = (id) => ({ a: 'Appeler la banque', b: 'Payer le loyer', c: 'Vieux' })[id] || '';
+  const now = FRI(10);
+  const claim = (tasks) => claimList(dueReminders({ tasks, now, settings: { reminders: { morning: false } } }), titleOf, now);
+  test('one card for every reminder missed, not a burst', () => {
+    const r = claim([T('a', { reminder: '2026-10-15T08:00' }), T('b', { reminder: '2026-10-14T17:00' })]);
+    expect(r.map(x => x.kind)).toEqual(['missed']);
+    expect(r[0].taskIds).toEqual(['b', 'a']);
+    expect(r[0].titles).toEqual(['Payer le loyer', 'Appeler la banque']);
+    expect(r[0].taskId).toBeUndefined();
+  });
+  test('one missed: the card opens that task', () => {
+    const r = claim([T('a', { reminder: '2026-10-15T08:00' })]);
+    expect(r[0]).toMatchObject({ kind: 'missed', taskId: 'a', title: 'Appeler la banque' });
+  });
+  test('beside a reminder due now, which keeps its own card', () => {
+    const r = claim([T('a', { reminder: '2026-10-15T08:00' }), T('b', { reminder: '2026-10-16T09:55' })]);
+    expect(r.map(x => [x.kind, x.taskId])).toEqual([['task', 'b'], ['missed', 'a']]);
+  });
+  test('more than a week old: still quiet', () => {
+    expect(claim([T('c', { reminder: '2026-10-05T08:00' })])).toEqual([]);
+  });
+  test('given once: the log holds every missed key', () => {
+    const due = dueReminders({ tasks: [T('a', { reminder: '2026-10-15T08:00' })], now, settings: { reminders: { morning: false } } });
+    const log = Object.fromEntries(due.map(r => [r.key, now.toISOString()]));
+    expect(claimList(dueReminders({ tasks: [T('a', { reminder: '2026-10-15T08:00' })], now, settings: { reminders: { morning: false } }, log }), titleOf, now)).toEqual([]);
   });
 });
