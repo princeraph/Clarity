@@ -120,7 +120,7 @@ const localStamp = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.g
   ok(await until(async () => /Payer le loyer/.test(await win.$eval('[data-reminder-card="missed"]', el => el.textContent).catch(() => ''))), '… avec sa carte dans la fenêtre');
   ok(/Appeler la banque/.test(note.body), `… qui nomme la tâche (« ${note.title} » — « ${note.body} »)`);
   await app.evaluate((_electron, i) => global.__notes[i].emit('click'), k);
-  ok(await until(async () => /Appeler la banque/.test(await win.$eval('[data-detail-panel]', el => el.textContent).catch(() => ''))), 'cliquer la notification ouvre la tâche dans la fenêtre');
+  ok(await until(async () => /Appeler la banque/.test(await win.$eval('[data-task-window] [data-field="title"]', el => el.value).catch(() => ''))), 'cliquer la notification ouvre la tâche dans la fenêtre');
   await win.keyboard.press('Escape');
 
   // 6. A drag with the mouse, in the real window.
