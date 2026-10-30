@@ -23,6 +23,7 @@ Limite hebdomadaire : ~25 % brûlés dès le 1er soir, alerte « en voie d'attei
 11. **Un agent à la fois**, sauf demande expresse. Une petite tâche (< 30 min) se fait sans agent.
 12. **Au plus 4 captures d'écran regardées par lot.** L'essai navigateur vérifie par assertions, pas par l'œil.
 13. **Journal court.** `JOURNAL.md` ne garde que les versions récentes ; le reste va dans `docs/journal-archive.md`, lu seulement par `grep -n`. Au-delà de ~400 lignes, archiver de nouveau.
+14. **« Où cliquer » avant « Fait »** (30 oct.) : chaque lot finit par deux lignes « où cliquer » pour le propriétaire, dans la langue de SON interface (anglais aujourd'hui). Le doc de suivi ne coche qu'après sa vérification de 5 min. La 2.8.0 était « faite » et testée, et il ne l'a jamais trouvée.
 
 ## How to run
 
