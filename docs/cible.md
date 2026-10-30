@@ -32,7 +32,8 @@ réunion, documents partagés. C'est le terrain de Motion, ClickUp, Notion.
 | Calme : Clarity se tait par défaut, une suggestion par jour au plus | Les avis de Sunsama louent l'absence de pression | **Fait** en 2.6.0 |
 | Rituels : planifier le matin (avec « ça déborde »), terminer le soir, « Un jour » à part revu chaque mois, vider sa tête | C'est ce que les clients de Sunsama citent comme la cause du soulagement | **Fait** en 2.7.0 |
 | Tâches rapides : un titre, une heure | Pour « courses 17h » sans remplir un formulaire | **Fait** en 2.7.0 |
-| Sous-tâches en pages, à côté de leur tâche ; « en faire une tâche » | Dessin du propriétaire | **Fait** en 2.8.0 ; écran étroit (< 1 100 px, sous-tâche par-dessus) en 2.10.0 |
+| Une seule fenêtre de tâche, au centre, chaque champ modifié sur place | Le propriétaire passait par Edit et n'a jamais vu la 2.8.0 (lot E) | **Fait** en 2.11.0 |
+| Sous-tâches en pages, à côté de leur tâche dans la même fenêtre ; « en faire une tâche » | Dessin du propriétaire, puis « les deux côte à côte » (30 oct.) | **Fait** en 2.8.0, dans la fenêtre centrale en 2.11.0 ; écran étroit (< 1 100 px) : la sous-tâche prend la place de la tâche |
 | Sujets proposés pendant la frappe, Focus « Nouvelle séance » | Retours du propriétaire (29 oct.) | **Fait** en 2.9.0 |
 | Rappels qui ne se perdent pas : manqués rattrapés en une carte, « Démarrer avec Windows » près des rappels | Tâche 4 du propriétaire | **Fait** en 2.10.0 |
 | Agenda .ics lu comme un vrai export Google : réunions répétées, annulées, plusieurs jours | Tâche 5 | **Fait** en 2.10.0 |
@@ -83,3 +84,5 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 | 29 oct. 2026 | Tâche 3 : la vraie fenêtre Electron vérifiée en CI (Linux) | Propriétaire (« tache 3 here ») |
 | 29 oct. 2026 | Tâche 4 : rappels manqués rattrapés en une carte ; démarrage avec Windows proposé dans les rappels, éteint par défaut | Claude, sur « go for it » du propriétaire |
 | 29 oct. 2026 | 2.10.0 publiée (tâches 2, 3, 4, 5) | Propriétaire (« publie la 2.10.0 ») |
+| 30 oct. 2026 | Une seule fenêtre de tâche, centrée ; sous-tâche à côté dans la même fenêtre ; panneau droit de la 2.8.0 retiré | Propriétaire (« les deux côte à côte ») — lot E1 |
+| 30 oct. 2026 | 2.11.0 publiée (lot E1) ; page publique inchangée | Propriétaire (« publish then lot E2 ») |

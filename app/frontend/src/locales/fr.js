@@ -1115,7 +1115,7 @@ export default {
   'whatsNew.check.body': 'Le rond se remplit et la coche se dessine dès le clic, avant que la tâche rejoigne les terminées.',
   // Ce qu'apporte la version en cours, une ligne par point — à réécrire à
   // chaque version. Vide : la fenêtre « à jour » n'affiche pas de liste.
-  'update.news': "Rappels : un rappel manqué pendant que Clarity était fermée revient, en une seule carte. « Démarrer avec Windows » est maintenant dans Réglages › Rappels.\nAgenda (.ics) : les réunions qui se répètent apparaissent chaque semaine, les annulées disparaissent, un week-end au chalet occupe ses trois jours.\nÉcran étroit : une sous-tâche s’ouvre par-dessus sa tâche, la liste reste visible.",
+  'update.news': "Une seule fenêtre de tâche, au centre : cliquez une tâche ou Modifier, puis changez n’importe quel champ sur place — il s’enregistre seul.\nUne sous-tâche s’ouvre à côté de sa tâche, dans la même fenêtre (Échap pour revenir). Cliquez une autre tâche : elle prend sa place.\nDans la page d’un sujet, le petit cercle coche maintenant la tâche ; le titre l’ouvre.",
   'update.pill': 'Mise à jour {version}',
   'update.ready': 'Mise à jour prête',
   'onboarding.off': 'Désactivée',
