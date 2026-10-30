@@ -1,4 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { topicKey } from '../../lib/sujets.js';
+
+const API = 'http://localhost:3001/api';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useLocale } from '../../contexts/LocaleContext.jsx';
 
@@ -26,10 +29,11 @@ function dayKey(iso, t, fmtDate) {
   return fmtDate(d, { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
 }
 
-function HistoryRow({ task, isArchived, onRestore, T }) {
+// item: { id, title, tags, at } — a completion from the register, or an archived task.
+function HistoryRow({ item: task, isArchived, onRestore, T }) {
   const { t } = useLocale();
   const [hov, setHov] = useState(false);
-  const timestamp = isArchived ? task.archivedAt : task.updatedAt;
+  const { fmtDate } = useLocale();
 
   return (
     <div
@@ -70,9 +74,9 @@ function HistoryRow({ task, isArchived, onRestore, T }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
         <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40, whiteSpace: 'nowrap' }}>
-          {isArchived ? t('history.archived') : t('history.completed')} {relativeTime(timestamp, t)}
+          {dayKey(task.at, t, fmtDate)} · {relativeTime(task.at, t)}
         </span>
-        {hov && onRestore && (
+        {hov && isArchived && onRestore && (
           <button
             onClick={() => onRestore(task.id)}
             style={{
@@ -87,47 +91,55 @@ function HistoryRow({ task, isArchived, onRestore, T }) {
   );
 }
 
-export default function HistoryView({ tasks, archivedTasks, onRestore }) {
+// Lot E2: « Completed » reads the server's register of completions, which is
+// never purged — a task deleted since, or a repeating one gone back to « to
+// do », keeps its past. Grouped month by month. A topic, given by its page's
+// « See finished », filters both tabs.
+export default function HistoryView({ tasks, archivedTasks, onRestore, topic, onClearTopic }) {
   const { T } = useTheme();
   const { t, fmtDate } = useLocale();
   const [tab, setTab] = useState('completed');
   const [search, setSearch] = useState('');
+  const [completions, setCompletions] = useState(null);
+  const [loadError, setLoadError] = useState(false);
 
-  const completed = useMemo(() =>
-    (tasks || [])
-      .filter(t => t.status === 'done')
-      .sort((a, b) => {
-        const doneAt = t => {
-          const entry = [...(t.history || [])].reverse().find(h => h.type === 'status' && h.to === 'done');
-          return entry ? entry.at : t.updatedAt;
-        };
-        return new Date(doneAt(b)) - new Date(doneAt(a));
-      }),
-    [tasks]
-  );
+  // Fetched again when a task is ticked or unticked, not on every refresh.
+  const doneSig = (tasks || []).filter(x => x.status === 'done').map(x => x.id).join();
+  useEffect(() => {
+    let live = true;
+    fetch(`${API}/completions${topic ? `?topic=${encodeURIComponent(topic)}` : ''}`)
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => { if (live) { setCompletions(d.completions || []); setLoadError(false); } })
+      .catch(() => { if (live) setLoadError(true); });
+    return () => { live = false; };
+  }, [doneSig, topic]);
 
+  const completed = useMemo(() => (completions || []).map(e => ({ id: `${e.taskId}-${e.at}`, title: e.title, tags: e.tags, at: e.at })), [completions]);
   const archived = useMemo(() =>
     (archivedTasks || [])
-      .sort((a, b) => new Date(b.archivedAt || 0) - new Date(a.archivedAt || 0)),
-    [archivedTasks]
+      .filter(x => !topic || (x.tags || []).some(tag => topicKey(tag) === topicKey(topic)))
+      .map(x => ({ id: x.id, title: x.title, tags: x.tags, at: x.archivedAt }))
+      .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0)),
+    [archivedTasks, topic]
   );
 
   const items = tab === 'completed' ? completed : archived;
   const isArchived = tab === 'archived';
 
   const filtered = search
-    ? items.filter(t => t.title.toLowerCase().includes(search.toLowerCase()))
+    ? items.filter(x => x.title.toLowerCase().includes(search.toLowerCase()))
     : items;
 
   const groups = useMemo(() => {
     const map = new Map();
-    for (const task of filtered) {
-      const key = dayKey(isArchived ? task.archivedAt : task.updatedAt, t, fmtDate);
+    for (const item of filtered) {
+      const d = item.at ? new Date(item.at) : null;
+      const key = d ? fmtDate(d, { month: 'long', year: 'numeric' }) : t('time.unknown');
       if (!map.has(key)) map.set(key, []);
-      map.get(key).push(task);
+      map.get(key).push(item);
     }
     return [...map.entries()];
-  }, [filtered, isArchived]);
+  }, [filtered, fmtDate, t]);
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '36px 56px', fontFamily: T.fontUI, boxSizing: 'border-box' }}>
@@ -136,6 +148,14 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
           {tab === 'completed' ? t('history.countCompleted', { n: completed.length }) : t('history.countArchived', { n: archived.length })}
         </div>
         <h1 style={{ margin: 0, fontSize: 38, fontWeight: 500, letterSpacing: '-0.035em', color: T.ink }}>{t('history.title')}</h1>
+        {topic && (
+          <button data-history-topic={topic} onClick={onClearTopic} style={{
+            marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px',
+            background: T.accentSoft, color: T.accentInk, border: `1px solid ${T.hairline}`, borderRadius: T.rPill,
+            fontFamily: T.fontUI, fontSize: 12.5, cursor: 'pointer',
+          }}>{t('history.topicFilter', { topic })} <span aria-hidden="true">✕</span></button>
+        )}
+        {loadError && tab === 'completed' && <div role="alert" style={{ marginTop: 10, fontSize: 12.5, color: T.danger }}>{t('history.loadFailed')}</div>}
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
@@ -184,13 +204,13 @@ export default function HistoryView({ tasks, archivedTasks, onRestore }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28, paddingBottom: 48 }}>
           {groups.map(([dateLabel, groupTasks]) => (
-            <div key={dateLabel}>
+            <div key={dateLabel} data-history-month>
               <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 10 }}>
                 {dateLabel}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {groupTasks.map(task => (
-                  <HistoryRow key={task.id} task={task} isArchived={isArchived} onRestore={onRestore} T={T} />
+                {groupTasks.map(item => (
+                  <HistoryRow key={item.id} item={item} isArchived={isArchived} onRestore={onRestore} T={T} />
                 ))}
               </div>
             </div>

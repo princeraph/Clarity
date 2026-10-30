@@ -310,7 +310,7 @@ export default function Sidebar({
         </button>
 
         {onCapture && (
-          <button data-tour="capture" onClick={onCapture} title={`${t('nav.newTask')} (Ctrl+K)`} aria-label={t('nav.newTask')} style={{
+          <button data-tour="capture" onClick={() => onAddTask?.()} title={t('nav.newTask')} aria-label={t('nav.newTask')} style={{
             width: 34, height: 30, marginBottom: 6, borderRadius: T.r6,
             background: T.ink, color: T.paper, border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, lineHeight: 1,
@@ -408,7 +408,8 @@ export default function Sidebar({
       </div>
 
       {onCapture && (
-        <button data-tour="capture" onClick={onCapture} style={{
+        // Lot E2: « New task » creates; Ctrl+K stays the palette that finds and creates.
+        <button data-tour="capture" onClick={() => onAddTask?.()} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           padding: '8px 10px', marginTop: -6, width: '100%', boxSizing: 'border-box',
           background: T.ink, color: T.paper, border: 'none', borderRadius: T.r6,
@@ -417,7 +418,6 @@ export default function Sidebar({
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>{t('nav.newTask')}
           </span>
-          <span style={{ fontFamily: T.fontMono, fontSize: 10, opacity: 0.6 }}>Ctrl+K</span>
         </button>
       )}
       {/* Empty your head (2.7.0): everything typed at once, sorted after. */}

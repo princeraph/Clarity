@@ -128,7 +128,7 @@ function TopicTitle({ topic, onRename, onRemove, hasTasks, T, t }) {
   );
 }
 
-export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onStatusChange, onBack, onAddTask, onRenameTopic, onRemoveTopic }) {
+export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onStatusChange, onShowFinished, onBack, onAddTask, onRenameTopic, onRemoveTopic }) {
   const { t } = useLocale();
   const { T } = useTheme();
   const today = getTodayStr();
@@ -154,12 +154,11 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
   const anytimeTasks = topicTasks.filter(t =>
     t.status !== 'in_progress' && !t.deadline && t.status !== 'done'
   );
-  const doneTasks = topicTasks.filter(t => t.status === 'done');
-
-  const totalActive = topicTasks.filter(t => t.status !== 'done').length;
-  const doneCount = doneTasks.length;
-  const total = topicTasks.length;
-  const pct = total > 0 ? (doneCount / total) * 100 : 0;
+  // Lot E2: finished tasks leave the topic's page and its counts; they live
+  // in History, which « See finished » opens filtered on this topic.
+  const doneCount = topicTasks.filter(t => t.status === 'done').length;
+  const total = topicTasks.length - doneCount;
+  const finished = doneCount + topicArchived.length;
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '36px 56px', fontFamily: T.fontUI, boxSizing: 'border-box' }}>
@@ -183,7 +182,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
         </button>
         <div style={{ fontFamily: T.fontMono, fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.ink60, marginBottom: 8 }}>{t('topic.label')}</div>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <TopicTitle topic={topic} onRename={onRenameTopic} onRemove={onRemoveTopic} hasTasks={total + topicArchived.length > 0} T={T} t={t} />
+          <TopicTitle topic={topic} onRename={onRenameTopic} onRemove={onRemoveTopic} hasTasks={total + finished > 0} T={T} t={t} />
           {/* A topic page had no way to add to the topic: the task had to be
               created elsewhere and tagged by hand. Opens the form already in it. */}
           {onAddTask && (
@@ -200,7 +199,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
       </header>
 
       {/* Progress summary strip */}
-      {total > 0 && (
+      {(total > 0 || finished > 0) && (
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr auto', gap: 20, alignItems: 'center',
           padding: '14px 18px', marginBottom: 28,
@@ -208,13 +207,14 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
           border: `1px solid ${T.hairline}`, borderRadius: T.r10,
         }}>
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, color: T.ink80 }}>{t('topic.progress')}</span>
-              <span style={{ fontFamily: T.fontMono, fontSize: 12, color: T.ink60 }}>{t('topic.doneOf', { done: doneCount, total })}</span>
-            </div>
-            <div style={{ height: 6, background: T.paperMuted, borderRadius: 999, overflow: 'hidden' }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: T.done, borderRadius: 999, transition: 'width 600ms ease' }} />
-            </div>
+            {finished > 0 ? (
+              <button data-action="see-finished" onClick={() => onShowFinished?.(topic)} style={{
+                background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                fontFamily: T.fontUI, fontSize: 13, color: T.accentInk,
+              }}>{t('topic.seeFinished', { n: finished })} →</button>
+            ) : (
+              <span style={{ fontSize: 13, color: T.ink60 }}>{t('topic.nothingFinished')}</span>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 20 }}>
             {[
@@ -232,7 +232,7 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
       )}
 
       {/* Task groups */}
-      {total === 0 && topicArchived.length === 0 ? (
+      {total === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 40 }}>
           <p style={{ fontSize: 14, color: T.ink60 }}>{t('topic.empty')}</p>
         </div>
@@ -241,10 +241,6 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
           <TaskGroup label={t('topic.today')}    count={todayTasks.length}    tasks={todayTasks}    onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
           <TaskGroup label={t('topic.upcoming')} count={upcomingTasks.length} tasks={upcomingTasks} onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
           <TaskGroup label={t('topic.anytime')}  count={anytimeTasks.length}  tasks={anytimeTasks}  onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
-          <TaskGroup label={t('topic.done')}     count={doneCount}            tasks={doneTasks}     onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
-          {topicArchived.length > 0 && (
-            <TaskGroup label={t('topic.archive')} count={topicArchived.length} tasks={topicArchived} onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
-          )}
         </div>
       )}
     </div>

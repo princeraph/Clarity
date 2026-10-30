@@ -11,6 +11,7 @@ import { buildOutboundContext, buildElicitationPrompt, NotLocalError } from './s
 import { parseProposals, MAX_PROPOSALS_PER_RUN } from './src/profile/elicitation.js';
 import { buildOptionsPrompt, parseOptions } from './src/profile/brief.js';
 import { createThreadStore } from './src/threads/store.js';
+import { createCompletionLog, lineForChange, visible as visibleCompletions, COMPLETIONS_FILE } from './src/completions.js';
 import * as thread from './src/threads/logic.js';
 import { createSuggestStore } from './src/suggest/store.js';
 import { mayInterrupt, QUIET_KINDS, SUGGESTION_MODES } from './src/suggest/policy.js';
@@ -246,6 +247,8 @@ function runDailyBackup() {
 // ─── Profile store ────────────────────────────────────────────────────────────
 
 const profileStore = createProfileStore({ dataDir: DATA_DIR });
+// Lot E2: every completion, kept for good (src/completions.js).
+const completionLog = createCompletionLog({ dataDir: DATA_DIR });
 const threadStore  = createThreadStore({ dataDir: DATA_DIR });
 const suggestStore = createSuggestStore({ dataDir: DATA_DIR });
 
@@ -1396,7 +1399,8 @@ app.post('/api/reset', asyncRoute(async (req, res) => {
   // sync.json goes too: kept, its memory of what was synced would read every
   // task as « deleted here » at the next sign-in and empty the account.
   for (const file of [DATA_FILE, SETTINGS_FILE, join(DATA_DIR, 'profile.json'), join(DATA_DIR, 'journal.jsonl'), join(DATA_DIR, 'sync.json'),
-                      join(DATA_DIR, 'threads.json'), join(DATA_DIR, 'suggestions.json'), join(DATA_DIR, 'journal-deleted.json')]) {
+                      join(DATA_DIR, 'threads.json'), join(DATA_DIR, 'suggestions.json'), join(DATA_DIR, 'journal-deleted.json'),
+                      join(DATA_DIR, COMPLETIONS_FILE)]) {
     if (!existsSync(file)) continue;
     try { unlinkSync(file); removed.push(file.split(/[\\/]/).pop()); }
     catch (err) { console.error(`[Clarity] reset could not remove ${file}: ${err.message}`); }
@@ -1541,6 +1545,7 @@ function createTask(body) {
   // « perso » when « Perso » exists: one topic, in the spelling already used.
   const task = newTask({ ...body, tags: canonicalTags(body.tags, spellings(data.tasks)) }, new Date().toISOString());
   data.tasks.push(task);
+  if (task.status === 'done') completionLog.append(lineForChange({ status: 'not_started' }, task, task.createdAt || new Date().toISOString()));
   saveData(data);
   scheduleAnalysis(data.tasks);
   scheduleProfileRecompute(data.tasks);
@@ -1605,6 +1610,14 @@ function newTask(body, now) {
   return task;
 }
 
+// Lot E2: History reads this register, not the tasks — a deleted task or a
+// repeating one keeps its past completions. Newest first; ?topic= filters.
+app.get('/api/completions', (req, res) => {
+  const topic = typeof req.query.topic === 'string' ? topicKey(req.query.topic) : '';
+  const list = visibleCompletions(completionLog.all());
+  res.json({ completions: topic ? list.filter(e => e.tags.some(tag => topicKey(tag) === topic)) : list });
+});
+
 app.post('/api/tasks', (req, res) => {
   if (validateCreate(req.body, res)) return;
   const problem = linksProblem(readData(), null, req.body.links);
@@ -1649,6 +1662,8 @@ function updateTask(id, body) {
   // would pull the next occurrence back to a day the person just left.
   if (patch.deadline !== undefined && patch.deadline !== prev.deadline) delete updated.recurrenceDay;
   data.tasks[idx] = updated;
+  try { completionLog.append(lineForChange(prev, updated, at)); }
+  catch (err) { console.error('[Clarity] completion not recorded:', err.message); }
 
   // Spawn next occurrence when recurring task is marked done — guard against double-click
   if (patch.status === 'done' && prev.status !== 'done' && updated.recurring && updated.recurring !== 'none') {
@@ -2141,6 +2156,7 @@ function warmModel() {
 
 const server = app.listen(PORT, BIND_HOST, () => {
   try { autoReschedule(); } catch (err) { console.error('[Clarity] auto-reschedule failed:', err.message); }
+  try { completionLog.seedIfMissing(readData().tasks); } catch (err) { console.error('[Clarity] completions not seeded:', err.message); }
   // What the last session could not send — or, with reports off, drop it.
   setTimeout(() => crashReporter.flush().catch(() => {}), 5000).unref();
   const s = readSettings();

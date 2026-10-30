@@ -90,6 +90,8 @@ function AppInner() {
   const [ritual, setRitual] = useState(null);   // 'plan' | 'shutdown' | 'dump' (2.7.0)
   const [showCapture, setShowCapture] = useState(false);
   const [detailTask, setDetailTask]   = useState(null);
+  const [historyTopic, setHistoryTopic] = useState(null);   // « See finished » on a topic's page (lot E2)
+  useEffect(() => { if (view !== 'history') setHistoryTopic(null); }, [view]);
   const [contextMenu, setContextMenu] = useState(null);
   const [scheduling, setScheduling] = useState(null); // { task, x, y }
   // The guided tour on screen, if any (tour/tours.js): offered once after the
@@ -847,6 +849,8 @@ function AppInner() {
           )}
           {view === 'history' && (
             <HistoryView
+              topic={historyTopic}
+              onClearTopic={() => setHistoryTopic(null)}
               tasks={data.tasks}
               archivedTasks={data.archivedTasks}
               onRestore={handleRestore}
@@ -865,6 +869,7 @@ function AppInner() {
               archivedTasks={data.archivedTasks}
               onOpenDetail={openDetail}
               onStatusChange={(task, st) => handleStatusChange(task, st).catch(() => {})}
+              onShowFinished={(name) => { setHistoryTopic(name); setView('history'); }}
               onBack={() => setView('focus')}
               onAddTask={openAddTask}
               onRenameTopic={handleRenameTopic}

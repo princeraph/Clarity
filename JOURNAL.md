@@ -330,6 +330,28 @@ dehors, étroit). Mutation (le clic qui ouvre ferme aussi) : la fenêtre ne
 s'ouvre plus, essai rouge. 2.6, 2.7, 2.8 (géométrie mise à jour) verts.
 Serveur : 566 tests. Langues, paquet, fond, visite : aucun écart.
 
+## Lot E2 — historique permanent, sujets, création (30 octobre 2026, non publiée)
+
+**Changé.**
+- **Registre des fins** (`backend/src/completions.js`, `DATA_DIR/completions.jsonl`) :
+  chaque passage à « fait » est écrit, jamais effacé ; une coche annulée ajoute
+  une ligne `reopened` au lieu d'effacer. Fichier à part : `DELETE /api/tasks/all`
+  n'y touche pas, seule la réinitialisation l'efface. Au premier démarrage, il
+  est rempli depuis l'historique de chaque tâche. `GET /api/completions?topic=`.
+- **History** lit ce registre, mois par mois : tâches supprimées depuis et
+  occurrences passées des tâches répétées comprises. Pourquoi il s'arrêtait au
+  10 octobre : il ne montrait que les tâches *encore* finies.
+- **Sujets** : les tâches finies et archivées sortent de la page et de ses
+  compteurs ; « Voir les N finies » ouvre History filtré sur le sujet.
+- **« + New task »** ouvre directement le formulaire. **Ctrl+K** : dès qu'on tape,
+  la première ligne est « Create “…” » et Entrée crée ; Tab ouvre les détails.
+
+**Vérifié.** `essai-navigateur-e2.cjs` : 13 contrôles verts. Mutation (« Create »
+remis en dernier) : 2 écarts — après un premier essai qui laissait passer la
+mutation, la requête ne ressemblant à aucune tâche ; corrigé. 2.6, 2.8, 2.9, E1
+verts. Serveur : 571 tests (5 nouveaux). Langues, paquet, fond, saisie, visite :
+aucun écart.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

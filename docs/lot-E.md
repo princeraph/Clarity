@@ -46,7 +46,7 @@ avec lui le 30 octobre. À faire en deux sessions : E1 puis E2.
   la fenêtre centrale les remplace probablement.
 - Pas d'ingénierie inverse de Notion : le comportement ci-dessus suffit.
 
-## E2 — historique, sujets, création (≈ 60 k jetons)
+## E2 — historique, sujets, création (≈ 60 k jetons) — fait le 30 oct., voir JOURNAL
 
 - **Historique permanent** : chaque fin de tâche est inscrite (journal du
   serveur) et jamais effacée, y compris les tâches répétées et les tâches

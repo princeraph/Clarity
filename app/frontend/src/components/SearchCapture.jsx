@@ -198,15 +198,18 @@ export default function SearchCapture({
         ...commands.map(c => ({ type: 'command', item: c })),
       ];
     }
+    // Lot E2: as soon as something is typed, « Create » is the first line and
+    // Enter creates. It used to open the first search result; creating
+    // needed Tab, which nobody guessed.
     return [
-      ...searchResults.map(tache => ({ type: 'task', item: tache })),
       { type: 'capture' },
+      ...searchResults.map(tache => ({ type: 'task', item: tache })),
     ];
   }, [mode, query, recentTasks, searchResults, commands]);
 
   // Settings › Capture: what the line understands, and whether it shows it.
   const features = useFeatures();
-  const parsed = mode === 'capture'
+  const parsed = (mode === 'capture' || query.trim())
     ? parseInput(query, new Date(), { tags: features?.captureTags !== false, duration: features?.captureDuration !== false, dateOrder: dateOrderFor(locale) })
     : null;
   // Repeat, chosen with a click — not only by writing « tous les lundis ».
@@ -241,7 +244,7 @@ export default function SearchCapture({
       if (!nav) return;
       if (nav.type === 'task') { onOpenTask?.(nav.item); finish(); }
       else if (nav.type === 'command') { nav.item.action?.(); }
-      else if (nav.type === 'capture') { setMode('capture'); }
+      else if (nav.type === 'capture') { handleSave(e.ctrlKey || e.metaKey); }
     }
   }
 
@@ -443,28 +446,13 @@ export default function SearchCapture({
         {/* Body — search mode, active query: search results + capture option */}
         {mode === 'search' && query.trim() && (
           <>
-            {searchResults.length > 0 && (
-              <>
-                <SectionLabel label={t('capture.matching', { query })} T={T} />
-                {searchResults.map((task, i) => (
-                  <TaskRow
-                    key={task.id} task={task}
-                    active={selectedIndex === i}
-                    showScore={i === 0 ? t('capture.bestMatch') : null}
-                    onClick={() => { onOpenTask?.(task); finish(); }}
-                    T={T}
-                  />
-                ))}
-                <CKDivider T={T} />
-              </>
-            )}
             <div
-              onClick={() => setMode('capture')}
+              data-action="create-from-search" onClick={() => handleSave(false)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 18px',
-                background: T.accentSoft,
-                borderLeft: `2px solid ${T.accent}`,
+                background: selectedIndex === 0 ? T.accentSoft : 'transparent',
+                borderLeft: `2px solid ${selectedIndex === 0 ? T.accent : 'transparent'}`,
                 cursor: 'pointer',
               }}
             >
@@ -473,7 +461,7 @@ export default function SearchCapture({
                 {(() => {
                   // The query is bold, so the sentence is split on its placeholder:
                   // each language keeps its own word order around it.
-                  const [avant, apres] = t('capture.asNewTask').split('{query}');
+                  const [avant, apres] = t('capture.createQuery').split('{query}');
                   return <>{avant}<strong>{query}</strong>{apres}</>;
                 })()}
               </span>
@@ -481,11 +469,26 @@ export default function SearchCapture({
                 fontFamily: T.fontMono, fontSize: 10, color: T.accentInk,
                 padding: '2px 6px', background: T.paper, borderRadius: 3,
                 border: `1px solid ${T.accent}`,
-              }}>Tab</span>
+              }}>↵</span>
             </div>
+            {searchResults.length > 0 && <CKDivider T={T} />}
+            {searchResults.length > 0 && (
+              <>
+                <SectionLabel label={t('capture.matching', { query })} T={T} />
+                {searchResults.map((task, i) => (
+                  <TaskRow
+                    key={task.id} task={task}
+                    active={selectedIndex === i + 1}
+                    showScore={i === 0 ? t('capture.bestMatch') : null}
+                    onClick={() => { onOpenTask?.(task); finish(); }}
+                    T={T}
+                  />
+                ))}
+              </>
+            )}
             <CKFooter T={T}
               left={searchResults.length ? t('capture.nResults', { n: searchResults.length }) : t('capture.noResults')}
-              right={[{ key: '↵', label: t('capture.kbd.openTask') }, { key: 'Tab', label: t('capture.kbd.capture') }, { key: t('kbd.esc'), label: t('capture.kbd.close') }]}
+              right={[{ key: '↵', label: t('capture.kbd.create') }, { key: 'Tab', label: t('capture.kbd.details') }, { key: t('kbd.esc'), label: t('capture.kbd.close') }]}
             />
           </>
         )}
