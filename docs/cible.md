@@ -37,6 +37,8 @@ réunion, documents partagés. C'est le terrain de Motion, ClickUp, Notion.
 | Sujets proposés pendant la frappe, Focus « Nouvelle séance » | Retours du propriétaire (29 oct.) | **Fait** en 2.9.0 |
 | Rappels qui ne se perdent pas : manqués rattrapés en une carte, « Démarrer avec Windows » près des rappels | Tâche 4 du propriétaire | **Fait** en 2.10.0 |
 | Agenda .ics lu comme un vrai export Google : réunions répétées, annulées, plusieurs jours | Tâche 5 | **Fait** en 2.10.0 |
+| Historique permanent : chaque fin gardée, tâches répétées et supprimées comprises | History s'arrêtait au 10 oct. (lot E) | **Fait** en 2.12.0 |
+| Créer en un geste : « New task » ouvre le formulaire, Ctrl+K crée sur Entrée | Personne ne devinait Tab (lot E) | **Fait** en 2.12.0 |
 | Blocs de temps qui contiennent des tâches | Images de time blocking du propriétaire | **À faire** |
 
 ## 3. Écarts connus avec la cible
@@ -86,3 +88,5 @@ ce qui est **Fait** dans la section 2 — jamais un « bientôt ».
 | 29 oct. 2026 | 2.10.0 publiée (tâches 2, 3, 4, 5) | Propriétaire (« publie la 2.10.0 ») |
 | 30 oct. 2026 | Une seule fenêtre de tâche, centrée ; sous-tâche à côté dans la même fenêtre ; panneau droit de la 2.8.0 retiré | Propriétaire (« les deux côte à côte ») — lot E1 |
 | 30 oct. 2026 | 2.11.0 publiée (lot E1) ; page publique inchangée | Propriétaire (« publish then lot E2 ») |
+| 30 oct. 2026 | Lot E2 ; finies et archivées hors de la page d'un sujet, dans History | Propriétaire (décisions du 30 oct.) |
+| 30 oct. 2026 | 2.12.0 publiée (lot E2) ; page publique inchangée | Propriétaire (« merge E2 when green, then publish ») |

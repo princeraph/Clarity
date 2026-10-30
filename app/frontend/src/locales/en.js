@@ -1118,7 +1118,7 @@ export default {
   'whatsNew.check.body': 'The circle fills and the check draws itself as you click, before the task joins the finished ones.',
   // What the current version brings, one line per point — rewritten with each
   // version. Empty: the "up to date" window shows no list.
-  'update.news': "One task window, in the middle: click a task or Edit, then change any field where it is — it saves by itself.\nA subtask opens beside its task, in the same window (Esc goes back). Click another task and it takes its place.\nOn a topic's page, the small circle now ticks the task; the title opens it.",
+  'update.news': "History keeps every finished task for good, month by month — repeating ones and ones deleted since included.\nA topic's page shows what is left to do; “See the finished” opens its history.\n“New task” opens the form at once. Ctrl+K: type, and Enter creates.",
   'update.pill': 'Update {version}',
   'update.ready': 'Update ready',
   'onboarding.off': 'Off',
