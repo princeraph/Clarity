@@ -24,6 +24,7 @@ Limite hebdomadaire : ~25 % brûlés dès le 1er soir, alerte « en voie d'attei
 12. **Au plus 4 captures d'écran regardées par lot.** L'essai navigateur vérifie par assertions, pas par l'œil.
 13. **Journal court.** `JOURNAL.md` ne garde que les versions récentes ; le reste va dans `docs/journal-archive.md`, lu seulement par `grep -n`. Au-delà de ~400 lignes, archiver de nouveau.
 14. **« Où cliquer » avant « Fait »** (30 oct.) : chaque lot finit par deux lignes « où cliquer » pour le propriétaire, dans la langue de SON interface (anglais aujourd'hui). Le doc de suivi ne coche qu'après sa vérification de 5 min. La 2.8.0 était « faite » et testée, et il ne l'a jamais trouvée.
+15. **Fin de session = suivi à jour, sans qu'on le demande** (30 oct.) : avant de rendre la main, mettre à jour le doc « Clarity — suivi du projet » (https://claude.ai/artifact/U24APCRdLAPFcoXrndbEto, via le connecteur Claude Docs) : versions dans « Fait » (non cochées tant que le propriétaire n'a pas vérifié, avec « où cliquer »), « Où on en est », le reste à faire, « Prochaine étape ».
 
 ## How to run
 
