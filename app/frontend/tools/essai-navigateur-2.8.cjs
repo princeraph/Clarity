@@ -53,12 +53,13 @@ const until = async (fn, ms = 5000) => { for (let k = 0; k < ms / 100; k++) { if
   await p.click('[data-tour="topics"] button:has-text("Maison")');
   await p.click(`[data-topic-task="${P.id}"]`);
   await p.waitForSelector('[data-detail-panel]');
-  const right = () => p.$eval('[data-detail-panel]', el => Math.round(window.innerWidth - el.getBoundingClientRect().right));
+  // Lot E1: both sit in one centred window; the task no longer slides.
+  const right = () => p.$eval('[data-task-window]', el => Math.round(window.innerWidth - el.getBoundingClientRect().right));
 
   // 1. Open.
   await p.click('[data-detail-panel] [data-subtask-id="s1"]');
   ok(await until(async () => !!(await p.$('[data-subtask-panel="s1"]'))), 'cliquer une sous-tâche ouvre sa page');
-  ok(await until(async () => (await right()) >= 350), `la tâche glisse à gauche pour lui faire place (${await right()} px)`);
+  ok(await until(async () => (await right()) >= 0), `la fenêtre s’élargit sans sortir de l’écran (${await right()} px)`);
   const box = await p.$eval('[data-subtask-panel="s1"]', el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right }; });
   const task = await p.$eval('[data-detail-panel]', el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right }; });
   ok(task.right <= box.left + 1, 'la sous-tâche est à droite de sa tâche, sans la couvrir');
@@ -85,7 +86,6 @@ const until = async (fn, ms = 5000) => { for (let k = 0; k < ms / 100; k++) { if
   // 4. Esc, twice.
   await p.keyboard.press('Escape');
   ok(await until(async () => !(await p.$('[data-subtask-panel]')) && !!(await p.$('[data-detail-panel]'))), 'Échap ferme d’abord la sous-tâche, la tâche reste');
-  ok(await until(async () => (await right()) < 5), '… et la tâche reprend sa place');
   await p.keyboard.press('Escape');
   ok(await until(async () => !(await p.$('[data-detail-panel]'))), 'Échap encore : la tâche se ferme');
 

@@ -109,7 +109,7 @@ export default function ContextMenu({ task, x, y, allTasks, onClose, onEdit, onA
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300 }} onContextMenu={e => e.preventDefault()}>
+    <div data-keeps-window style={{ position: 'fixed', inset: 0, zIndex: 300 }} onContextMenu={e => e.preventDefault()}>
       <div ref={ref} style={{
         position: 'absolute', left: pos.x, top: pos.y,
         background: T.paper, border: `1px solid ${T.hairline}`,

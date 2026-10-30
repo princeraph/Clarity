@@ -516,8 +516,13 @@ function AppInner() {
     setEditingTask(given); setShowForm(true);
   }
   function editPlan(text) { openAddTask({ title: text }); planPending.current = text; }
-  function openEditTask(task)  { setEditingTask(task); setShowForm(true); setDetailTask(null); }
-  function openDetail(task)    { setDetailTask(task); setContextMenu(null); }
+  // Lot E1: one editor. « Edit » and a click on a task open the same window;
+  // the form is left for creating. Opening another task while one is open
+  // replaces it in place: the click that did it must not also close it.
+  const openedNow = useRef(false);
+  function openDetail(task)    { openedNow.current = true; setTimeout(() => { openedNow.current = false; }, 0); setDetailTask(task); setContextMenu(null); }
+  const openEditTask = openDetail;
+  const closeDetailOutside = useCallback(() => { if (!openedNow.current) setDetailTask(null); }, []);
 
   // Ask the backend whether it has anything to say. The decision — budget,
   // quiet rules, the hour — lives entirely on that side; this only asks.
@@ -859,6 +864,7 @@ function AppInner() {
               allTasks={presentTasks}
               archivedTasks={data.archivedTasks}
               onOpenDetail={openDetail}
+              onStatusChange={(task, st) => handleStatusChange(task, st).catch(() => {})}
               onBack={() => setView('focus')}
               onAddTask={openAddTask}
               onRenameTopic={handleRenameTopic}
@@ -887,7 +893,7 @@ function AppInner() {
 
       {/* Toast */}
       {toast && (
-        <div style={{
+        <div data-keeps-window style={{
           position: 'fixed', bottom: 24, left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 200,
@@ -977,7 +983,7 @@ function AppInner() {
           task={rankedTasks.find(x => x.id === detailTask.id) || detailTask}
           allTasks={data.tasks}
           onClose={() => setDetailTask(null)}
-          onEdit={openEditTask}
+          onOutside={closeDetailOutside}
           onArchive={handleArchive}
           onDelete={handleDeleteTask}
           onStatusChange={handleStatusChange}

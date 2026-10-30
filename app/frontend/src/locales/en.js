@@ -1477,6 +1477,10 @@ export default {
   'connectorAnim.task1': 'Send the quote to Martin — due today',
   'connectorAnim.task2': 'Book the dentist — 10 minutes',
   // 2.6.0
+  'detail.fieldSaveFailed': 'Not saved — check that Clarity is running, then try again.',
+  'detail.noTopic': 'No topic',
+  'detail.estimateMinutes': 'Estimate (min)',
+  'detail.descriptionPlaceholder': 'Add a description…',
   'detail.backToTask': 'Back to the task',
   'detail.subtaskTitle': 'Subtask title',
   'detail.subtaskNotes': 'Subtask notes',

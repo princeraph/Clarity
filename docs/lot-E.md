@@ -27,7 +27,7 @@ avec lui le 30 octobre. À faire en deux sessions : E1 puis E2.
    (Plan my day / End my day en haut de Today, boîte « Quick », Someday dans la
    barre). Le doc de suivi les nommait en français sans dire où cliquer.
 
-## E1 — une seule fenêtre de tâche (≈ 80 k jetons, Opus)
+## E1 — une seule fenêtre de tâche (≈ 80 k jetons, Opus) — fait le 30 oct., voir JOURNAL
 
 - **Une seule fenêtre de tâche, au centre** (modèle « aperçu » de Notion) :
   chaque champ se modifie sur place et s'enregistre seul. **Edit** et le clic
@@ -35,8 +35,8 @@ avec lui le 30 octobre. À faire en deux sessions : E1 puis E2.
   ou disparaît s'il n'apporte plus rien — un seul éditeur, pas deux.
 - **Une sous-tâche s'ouvre dans la même fenêtre**, à la place de la tâche, avec
   un fil « Self Teaching › Fitness Coaching » et une flèche retour (Échap = retour
-  à la tâche). Choix par défaut : le propriétaire peut demander à voir les deux
-  côte à côte ; la question lui a été posée, sans réponse ferme.
+  à la tâche). **Réponse du propriétaire (30 oct.) : les deux côte à côte**,
+  dans la même fenêtre ; en écran étroit, la sous-tâche prend la place.
 - **Cliquer une autre tâche** pendant qu'une est ouverte remplace le contenu
   sur place, sans fermer ni rouvrir.
 - **Le petit cercle coche** la tâche, partout (sujet compris) ; seul le titre ouvre.

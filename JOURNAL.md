@@ -302,6 +302,34 @@ Mutation (le preload ne donne plus la clé) : 3 écarts puis arrêt. Étape CI r
 
 Version, `update.news` (deux langues), `docs/cible.md` (section 2 : rappels et .ics **Fait** en 2.10.0 ; décision). Page de téléchargement : texte validé le 29 oct., part avec cette version. CI branche verte (Windows compris) avant fusion.
 
+## Lot E1 — une seule fenêtre de tâche (30 octobre 2026, non publiée)
+
+**Changé.**
+- **Un seul éditeur** : `TaskDetailPanel` devient une fenêtre centrée (600 px,
+  style de la carte « What needs doing? »). Titre, statut, sujet, échéance,
+  estimation, description se modifient sur place et s'enregistrent en quittant
+  le champ (annulable, comme avant). **Edit** ouvre cette fenêtre ;
+  `TaskForm` ne sert plus qu'à créer.
+- **Sous-tâche à côté de la tâche, dans la même fenêtre** (réponse du
+  propriétaire, 30 oct. : « les deux côte à côte ») ; la fenêtre s'élargit
+  (600 + 380). Fil « Tâche › Sous-tâche » ; Échap ferme la sous-tâche, puis la
+  fenêtre.
+- **Autre tâche cliquée** derrière la fenêtre : le contenu est remplacé sur
+  place. Le fond n'est plus un mur (voile sans clic) ; un clic ailleurs ferme,
+  sauf si ce clic a ouvert une tâche (`openedNow` dans `App.jsx`) ou vient d'un
+  toast, d'un menu, d'une autre boîte.
+- **Le cercle coche** dans la page d'un sujet ; seul le titre ouvre.
+- **Décidé** : le panneau droit de la 2.8.0 disparaît (remplacé par la fenêtre
+  centrale). Écran étroit (2.10.0, < 1100 px) : la sous-tâche prend la place de
+  la tâche dans la fenêtre, flèche retour au-dessus. `essai-navigateur-etroit`
+  retiré, couvert par `essai-navigateur-e1`.
+
+**Vérifié.** `essai-navigateur-e1.cjs` : 21 contrôles verts (cercle, centrage,
+six champs, remplacement sans remontage, côte à côte, Échap ×2, Edit, clic
+dehors, étroit). Mutation (le clic qui ouvre ferme aussi) : la fenêtre ne
+s'ouvre plus, essai rouge. 2.6, 2.7, 2.8 (géométrie mise à jour) verts.
+Serveur : 566 tests. Langues, paquet, fond, visite : aucun écart.
+
 ## Ce que ce journal n'a pas le droit de cacher
 
 Les quatre points ouverts sont dans `BACKLOG.md` § 4, et aucun n'est masqué ici :

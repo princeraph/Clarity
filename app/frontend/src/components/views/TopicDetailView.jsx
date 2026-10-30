@@ -19,7 +19,9 @@ function formatDeadline(dateStr, t, fmt) {
   return { label: fmt(d), overdue: false };
 }
 
-function TaskRow({ task, onOpenDetail, T }) {
+// Lot E1: the circle ticks the task, the title opens it. The whole row used
+// to open it, circle included, so nothing on a topic's page could be ticked.
+function TaskRow({ task, onOpenDetail, onToggle, T }) {
   const { t, fmtDate, fmtDuration, fmtHours } = useLocale();
   const { label: due, overdue: isOverdue } = task.deadline
     ? formatDeadline(task.deadline, t, fmtDate) : { label: null, overdue: false };
@@ -28,18 +30,17 @@ function TaskRow({ task, onOpenDetail, T }) {
 
   return (
     <div
-      data-topic-task={task.id}
-      onClick={() => onOpenDetail?.(task)}
+      data-topic-row={task.id}
       style={{
         display: 'grid', gridTemplateColumns: '20px 1fr auto', alignItems: 'center', gap: 14,
         padding: '10px 4px', borderBottom: `1px solid ${T.hairlineSoft}`,
-        cursor: 'pointer',
       }}
       onMouseEnter={e => e.currentTarget.style.background = T.paperSubtle}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
-      <div style={{
-        width: 14, height: 14, borderRadius: '50%',
+      <button type="button" data-action="toggle-done" role="checkbox" aria-checked={isDone} aria-label={task.title}
+        onClick={() => onToggle?.(task, isDone ? 'not_started' : 'done')} style={{
+        width: 14, height: 14, borderRadius: '50%', padding: 0, cursor: 'pointer',
         border: `1.5px solid ${isDone ? T.done : T.ink40}`,
         background: isDone ? T.done : 'transparent',
         flexShrink: 0, position: 'relative',
@@ -49,8 +50,9 @@ function TaskRow({ task, onOpenDetail, T }) {
             <path d="M2 5.5l2.5 2.5 3.5-4" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </svg>
         )}
-      </div>
-      <span style={{
+      </button>
+      <span data-topic-task={task.id} onClick={() => onOpenDetail?.(task)} style={{
+        cursor: 'pointer',
         fontSize: 14, color: isDone ? T.ink40 : T.ink,
         fontWeight: task.status === 'in_progress' ? 500 : 400,
         textDecoration: isDone ? 'line-through' : 'none',
@@ -65,7 +67,7 @@ function TaskRow({ task, onOpenDetail, T }) {
   );
 }
 
-function TaskGroup({ label, count, tasks, onOpenDetail, T }) {
+function TaskGroup({ label, count, tasks, onOpenDetail, onToggle, T }) {
   if (!tasks.length) return null;
   return (
     <section>
@@ -74,7 +76,7 @@ function TaskGroup({ label, count, tasks, onOpenDetail, T }) {
         <span style={{ fontFamily: T.fontMono, fontSize: 11, color: T.ink40 }}>{count}</span>
       </div>
       {tasks.map(task => (
-        <TaskRow key={task.id} task={task} onOpenDetail={onOpenDetail} T={T} />
+        <TaskRow key={task.id} task={task} onOpenDetail={onOpenDetail} onToggle={onToggle} T={T} />
       ))}
     </section>
   );
@@ -126,7 +128,7 @@ function TopicTitle({ topic, onRename, onRemove, hasTasks, T, t }) {
   );
 }
 
-export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onBack, onAddTask, onRenameTopic, onRemoveTopic }) {
+export default function TopicDetailView({ topic, allTasks, archivedTasks = [], onOpenDetail, onStatusChange, onBack, onAddTask, onRenameTopic, onRemoveTopic }) {
   const { t } = useLocale();
   const { T } = useTheme();
   const today = getTodayStr();
@@ -236,12 +238,12 @@ export default function TopicDetailView({ topic, allTasks, archivedTasks = [], o
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-          <TaskGroup label={t('topic.today')}    count={todayTasks.length}    tasks={todayTasks}    onOpenDetail={onOpenDetail} T={T} />
-          <TaskGroup label={t('topic.upcoming')} count={upcomingTasks.length} tasks={upcomingTasks} onOpenDetail={onOpenDetail} T={T} />
-          <TaskGroup label={t('topic.anytime')}  count={anytimeTasks.length}  tasks={anytimeTasks}  onOpenDetail={onOpenDetail} T={T} />
-          <TaskGroup label={t('topic.done')}     count={doneCount}            tasks={doneTasks}     onOpenDetail={onOpenDetail} T={T} />
+          <TaskGroup label={t('topic.today')}    count={todayTasks.length}    tasks={todayTasks}    onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
+          <TaskGroup label={t('topic.upcoming')} count={upcomingTasks.length} tasks={upcomingTasks} onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
+          <TaskGroup label={t('topic.anytime')}  count={anytimeTasks.length}  tasks={anytimeTasks}  onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
+          <TaskGroup label={t('topic.done')}     count={doneCount}            tasks={doneTasks}     onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
           {topicArchived.length > 0 && (
-            <TaskGroup label={t('topic.archive')} count={topicArchived.length} tasks={topicArchived} onOpenDetail={onOpenDetail} T={T} />
+            <TaskGroup label={t('topic.archive')} count={topicArchived.length} tasks={topicArchived} onOpenDetail={onOpenDetail} onToggle={onStatusChange} T={T} />
           )}
         </div>
       )}

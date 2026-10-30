@@ -10,6 +10,7 @@ import useEscape from '../hooks/useEscape.js';
 import useNarrow from '../hooks/useNarrow.js';
 import { LEVEL_STYLE } from '../lib/niveaux.js';
 import { SUB_STATUSES, subtaskStatus, withSubtask, promote } from '../lib/sousTaches.js';
+import { topicsOf, knownSpelling } from '../lib/sujets.js';
 
 const API = 'http://localhost:3001/api';
 const newId = () => (globalThis.crypto?.randomUUID?.() || `st-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -25,27 +26,6 @@ function historyLabel(h, t, fmtDate) {
     : t('detail.history.deadlineRemoved');
   if (h.type === 'area')     return h.to ? t('detail.history.movedTo', { area: h.to }) : t('detail.history.removedFromArea');
   return h.type;
-}
-
-function daysUntil(deadline) {
-  if (!deadline) return null;
-  return Math.ceil((new Date(deadline + 'T00:00:00') - new Date()) / 86400000);
-}
-
-function TDPill({ label, value, accent, T }) {
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '4px 8px',
-      background: accent ? T.accentSoft : T.paperSubtle,
-      border: `1px solid ${accent ? T.accent : T.hairline}`,
-      borderRadius: T.rPill, fontSize: 11.5,
-      color: accent ? T.accentInk : T.ink80,
-    }}>
-      <span style={{ fontFamily: T.fontMono, fontSize: 9, letterSpacing: '0.06em', textTransform: 'uppercase', color: accent ? T.accentInk : T.ink40, opacity: 0.75 }}>{label}</span>
-      {value}
-    </span>
-  );
 }
 
 // A subtask, as a line of its task (2.8.0): tick it, or click it to open it
@@ -94,8 +74,12 @@ function SubtaskCard({ subtask: s, task, onToggle, onOpen, open, T }) {
 // is saved on leaving the field; the rest on the click. The fields keep their
 // own copy while it is open, so the 5-second refresh never overwrites typing.
 // Esc closes this page first, then the task's.
-export const SUB_PANEL_WIDTH = 360;
-function SubtaskPanel({ task, subtask: s, onChange, onRemove, onPromote, onClose, T }) {
+// Lot E1: the subtask's page sits beside its task inside the same centred
+// window (the owner's choice, 30 October); in a narrow window it takes the
+// task's place, with the path back above it.
+export const SUB_PANEL_WIDTH = 380;
+const TASK_WIDTH = 600;
+function SubtaskPanel({ task, subtask: s, onChange, onRemove, onPromote, onClose, side, T }) {
   const { t } = useLocale();
   useEscape(onClose);
   const [draft, setDraft] = useState({ title: s.title, notes: s.notes || '' });
@@ -118,13 +102,13 @@ function SubtaskPanel({ task, subtask: s, onChange, onRemove, onPromote, onClose
   });
   return (
     <div data-subtask-panel={s.id} role="dialog" aria-label={s.title} style={{
-      position: 'fixed', top: 32, right: 0, bottom: 0, width: SUB_PANEL_WIDTH, zIndex: 92,
-      background: T.paper, borderLeft: `1px solid ${T.hairline}`, boxShadow: '-12px 0 32px rgba(25,25,26,0.08)',
+      flex: side ? `0 0 ${SUB_PANEL_WIDTH}px` : '1 1 auto', minWidth: 0,
+      background: T.paper, borderLeft: side ? `1px solid ${T.hairline}` : 'none',
       display: 'flex', flexDirection: 'column', fontFamily: T.fontUI, animation: 'fadeUp 0.12s ease-out',
     }}>
       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${T.hairlineSoft}`, display: 'flex', alignItems: 'center', gap: 8 }}>
         <button data-action="back-to-task" onClick={onClose} aria-label={t('detail.backToTask')} style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 12, color: T.ink40, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: T.fontUI, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          <span aria-hidden="true">‹ </span>{task.title} <span aria-hidden="true">›</span> {t('task.subtasks')}
+          <span aria-hidden="true">← </span>{task.title} <span aria-hidden="true">›</span> {s.title}
         </button>
         <button onClick={onClose} aria-label={t('common.close')} style={{ fontSize: 15, color: T.ink40, background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>✕</button>
       </div>
@@ -216,6 +200,100 @@ function AddSubtask({ onAdd, T, t }) {
 // which the panel never displayed. Nowhere could a note be written and seen.
 // Saved as you type (after a pause) and on leaving the field; the 5-second
 // refresh never overwrites what is being typed.
+// Lot E1: every field of the task is edited where it is shown and saved when
+// it is left — the window is the editor. The form used to be a second one,
+// reached by « Edit », where subtasks could only be deleted.
+function TaskFields({ task, allTasks, onSaved, onEdited, onStatusChange, T }) {
+  const { t } = useLocale();
+  const [draft, setDraft] = useState({
+    title: task.title || '', description: task.description || '',
+    topic: task.tags?.[0] || '', estimate: task.estimatedDuration ? String(task.estimatedDuration) : '',
+  });
+  const [error, setError] = useState('');
+  // A refresh that brings a field changed elsewhere is taken, unless it is
+  // the one being typed in.
+  const editing = useRef(null);
+  useEffect(() => {
+    setDraft(d => ({
+      title: editing.current === 'title' ? d.title : task.title || '',
+      description: editing.current === 'description' ? d.description : task.description || '',
+      topic: editing.current === 'topic' ? d.topic : task.tags?.[0] || '',
+      estimate: editing.current === 'estimate' ? d.estimate : task.estimatedDuration ? String(task.estimatedDuration) : '',
+    }));
+  }, [task.title, task.description, task.tags?.[0], task.estimatedDuration]);
+
+  async function save(patch) {
+    setError('');
+    try {
+      const r = await fetch(`${API}/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      if (!r.ok) throw new Error();
+      onSaved?.();
+      onEdited?.(task, patch);
+    } catch { setError(t('detail.fieldSaveFailed')); }
+  }
+  function commit(k) {
+    editing.current = null;
+    if (k === 'title') {
+      const v = draft.title.trim();
+      if (!v) { setDraft(d => ({ ...d, title: task.title })); return; }
+      if (v !== task.title) save({ title: v });
+    } else if (k === 'description') {
+      if (draft.description !== (task.description || '')) save({ description: draft.description });
+    } else if (k === 'topic') {
+      const typed = draft.topic.trim();
+      const v = typed ? knownSpelling(typed, topicsOf(allTasks).map(x => x.tag)) : '';
+      if (v === (task.tags?.[0] || '')) { setDraft(d => ({ ...d, topic: v })); return; }
+      const rest = (task.tags || []).slice(1).filter(x => x !== v);
+      save({ tags: v ? [v, ...rest] : rest });
+    } else if (k === 'estimate') {
+      const n = Math.round(Number(draft.estimate));
+      const v = draft.estimate.trim() && n > 0 ? n : null;
+      if (v !== (task.estimatedDuration ?? null)) save({ estimatedDuration: v });
+    }
+  }
+  const bind = (k) => ({
+    value: draft[k],
+    onFocus: () => { editing.current = k; },
+    onChange: e => setDraft(d => ({ ...d, [k]: e.target.value })),
+    onBlur: () => commit(k),
+  });
+  const enterLeaves = { onKeyDown: e => { if (e.key === 'Enter') e.currentTarget.blur(); } };
+  const label = { fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40 };
+  const field = {
+    boxSizing: 'border-box', padding: '5px 8px', minWidth: 0,
+    background: 'transparent', border: '1px solid transparent', borderRadius: T.r6,
+    fontSize: 13, color: T.ink, fontFamily: T.fontUI, outline: 'none',
+  };
+  const focusRing = { onFocusCapture: e => { e.target.style.borderColor = T.hairline; e.target.style.background = T.paper; }, onBlurCapture: e => { e.target.style.borderColor = 'transparent'; e.target.style.background = 'transparent'; } };
+  const topicsId = `topics-${task.id}`;
+  return (
+    <div {...focusRing} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <input data-field="title" aria-label={t('form.title')} {...bind('title')} {...enterLeaves}
+        style={{ ...field, fontSize: 21, fontWeight: 500, letterSpacing: '-0.02em', padding: '4px 8px', marginLeft: -8 }} />
+      {error && <div role="alert" style={{ fontSize: 12, color: T.danger }}>{error}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', rowGap: 4, alignItems: 'center' }}>
+        <span style={label}>{t('detail.status')}</span>
+        <select data-field="status" aria-label={t('detail.status')} value={task.status}
+          onChange={e => onStatusChange(task, e.target.value)} style={{ ...field, cursor: 'pointer', justifySelf: 'start' }}>
+          {['not_started', 'in_progress', 'done'].map(st => <option key={st} value={st}>{t(STATUS_KEY[st])}</option>)}
+        </select>
+        <span style={label}>{t('detail.topic')}</span>
+        <input data-field="topic" aria-label={t('detail.topic')} list={topicsId} placeholder={t('detail.noTopic')} {...bind('topic')} {...enterLeaves} style={field} />
+        <datalist id={topicsId}>{topicsOf(allTasks).map(x => <option key={x.tag} value={x.tag} />)}</datalist>
+        <span style={label}>{t('detail.deadline')}</span>
+        <input type="date" data-field="deadline" aria-label={t('a11y.deadline')} value={task.deadline || ''}
+          onChange={e => save({ deadline: e.target.value || null })}
+          style={{ ...field, fontFamily: T.fontMono, fontSize: 12.5, justifySelf: 'start' }} />
+        <span style={label}>{t('detail.estimateMinutes')}</span>
+        <input type="number" min="1" step="5" data-field="estimate" aria-label={t('detail.estimateMinutes')} placeholder="—" {...bind('estimate')} {...enterLeaves}
+          style={{ ...field, width: 90, fontFamily: T.fontMono, fontSize: 12.5 }} />
+      </div>
+      <textarea data-field="description" aria-label={t('form.description')} placeholder={t('detail.descriptionPlaceholder')} rows={2} {...bind('description')}
+        style={{ ...field, resize: 'vertical', lineHeight: 1.6, fontSize: 13.5, color: T.ink80, marginLeft: -8 }} />
+    </div>
+  );
+}
+
 function NotesEditor({ task, onSaved, T, t }) {
   const [value, setValue] = useState(task.notes || '');
   const [state, setState] = useState('idle');   // idle | saving | saved | error
@@ -299,14 +377,13 @@ function NotesEditor({ task, onSaved, T, t }) {
   );
 }
 
-export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode, onSomeday, onPromoted }) {
+export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArchive, onDelete, onStatusChange, onSubtaskToggle, onTimerStart, onTimerStop, onSaved, onEdited, onFocusMode, onSomeday, onPromoted, onOutside }) {
   const [openSub, setOpenSub] = useState(null);   // the subtask open beside the task (2.8.0)
   useEscape(onClose);
+  // Another task opened in place: its own subtask was not asked for.
+  useEffect(() => { setOpenSub(null); }, [task.id]);
   const { T } = useTheme();
   const { t, fmtDate: fmtLocaleDate, dateLocale, fmtDuration } = useLocale();
-  const [rescheduling, setRescheduling] = useState(false);
-  const [rescheduleError, setRescheduleError] = useState('');
-  const [newDeadline, setNewDeadline] = useState(task.deadline || '');
   const [breaking, setBreaking] = useState(false);
   const [breakdownText, setBreakdownText] = useState('');
   const [breakdownError, setBreakdownError] = useState('');
@@ -357,10 +434,7 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
     }
   }
 
-  useEffect(() => { setNewDeadline(task.deadline || ''); }, [task.id]);
-
   const { aiData } = task;
-  const days = daysUntil(task.deadline);
 
   // Live timer elapsed display
   const timerRunning = !!task.timerStarted;
@@ -390,8 +464,6 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
     if (!minutes || minutes < 0) return null;
     return fmtDuration(Math.ceil(minutes));
   }
-  const isOverdue = days !== null && days < 0 && task.status !== 'done';
-  const isUrgent  = days !== null && days >= 0 && days <= 3 && task.status !== 'done';
 
   const subtasksDone  = task.subtasks?.filter(s => s.done).length || 0;
   const subtasksTotal = task.subtasks?.length || 0;
@@ -399,8 +471,26 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
   const getTitle = id => allTasks.find(t => t.id === id)?.title || id;
   const sub = openSub ? (task.subtasks || []).find(x => x.id === openSub) : null;
   const narrow = useNarrow();
-  // Narrow window: the task stays put and its subtask's page goes over it.
-  const subOpen = !!sub && !narrow;
+  // Wide: the subtask's page opens beside the task, in the same window.
+  // Narrow: it takes the task's place; its path and Esc lead back.
+  const sideBySide = !!sub && !narrow;
+  const subOver = !!sub && narrow;
+  const frameRef = useRef(null);
+  // A click outside the window closes it — unless that click opened another
+  // task (App decides: onOutside), or the press began inside the window.
+  useEffect(() => {
+    let downInside = false;
+    const down = e => { downInside = !!frameRef.current?.contains(e.target); };
+    const click = e => {
+      if (downInside || frameRef.current?.contains(e.target) || !e.target.isConnected) return;
+      // A toast's « Undo », a menu, another dialog: not a click on the page.
+      if (e.target.closest?.('[data-keeps-window], [role="dialog"], [role="status"], [role="alertdialog"]')) return;
+      onOutside?.();
+    };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('click', click);
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('click', click); };
+  }, [onOutside]);
   async function promoteSub(id) {
     const plan = promote({ ...task, subtasks: currentSubtasks() }, id);
     if (!plan) return;
@@ -440,23 +530,6 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
     }
   }
 
-  async function handleReschedule() {
-    setRescheduleError('');
-    try {
-      const resp = await fetch(`${API}/tasks/${task.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deadline: newDeadline || null }),
-      });
-      if (!resp.ok) throw new Error('Server error');
-      onSaved?.();
-      onEdited?.(task, { deadline: newDeadline || null });
-      setRescheduling(false);
-    } catch {
-      setRescheduleError(t('detail.deadlineSaveFailed'));
-    }
-  }
-
   const historyEvents = task.history || [];
   const fmtTime = iso => new Date(iso).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
   const fmtDate = iso => {
@@ -468,21 +541,24 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-      <div data-detail-panel style={{
-        position: 'fixed', top: 32, right: subOpen ? SUB_PANEL_WIDTH : 0, bottom: 0, width: 360,
-        transition: 'right 0.16s ease',
-        background: T.paper,
-        borderLeft: `1px solid ${T.hairline}`,
-        display: 'flex', flexDirection: 'column',
-        zIndex: 91,
-        animation: 'slideIn 0.18s ease-out',
-        boxSizing: 'border-box',
-        fontFamily: T.fontUI,
+      {/* A veil, not a wall: clicks go through it, so another task's title
+          behind the window opens that task in place (lot E1). */}
+      <div aria-hidden="true" style={{ position: 'fixed', inset: 0, top: 32, zIndex: 90, background: T.ink, opacity: 0.06, pointerEvents: 'none' }} />
+      <div ref={frameRef} data-task-window role="dialog" aria-label={task.title} style={{
+        // Centred by margins: the opening animation owns `transform`.
+        position: 'fixed', top: 'max(56px, 9vh)', left: 0, right: 0, marginInline: 'auto',
+        height: 'min(780px, calc(100vh - max(56px, 9vh) - 24px))',
+        width: sideBySide ? TASK_WIDTH + SUB_PANEL_WIDTH : TASK_WIDTH, maxWidth: 'calc(100vw - 32px)',
+        transition: 'width 0.16s ease',
+        background: T.paper, border: `1px solid ${T.hairline}`, borderRadius: T.r14,
+        boxShadow: '0 24px 64px rgba(25,25,26,0.16), 0 2px 8px rgba(25,25,26,0.06)',
+        display: 'flex', overflow: 'hidden', zIndex: 91,
+        animation: 'fadeUp 0.14s ease-out', boxSizing: 'border-box', fontFamily: T.fontUI,
       }}>
-        {/* Header row 1: label + close */}
+      {!subOver && (
+      <div data-detail-panel={task.id} style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{
-          padding: '14px 18px 0',
+          padding: '14px 22px 0',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexShrink: 0,
         }}>
@@ -490,134 +566,20 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
             fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.10em',
             textTransform: 'uppercase', color: T.ink40,
           }}>{t('detail.title')}</span>
-          <button onClick={onClose} style={{
+          <button onClick={onClose} aria-label={t('common.close')} style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
             color: T.ink40, fontSize: 13, lineHeight: 1, padding: '2px 4px',
           }}>✕</button>
         </div>
 
-        {/* Header row 2: task title */}
-        <div style={{
-          padding: '10px 18px 10px',
-          borderBottom: `1px solid ${T.hairline}`,
-          flexShrink: 0,
-        }}>
-          <div style={{
-            fontSize: 15.5, fontWeight: 500, letterSpacing: '-0.02em',
-            color: T.ink, lineHeight: 1.35,
-          }}>{task.title}</div>
-        </div>
-
-        {/* Header row 3: meta pills */}
-        <div style={{
-          padding: '10px 18px',
-          display: 'flex', flexWrap: 'wrap', gap: 6,
-          borderBottom: `1px solid ${T.hairlineSoft}`,
-          flexShrink: 0,
-        }}>
-          {task.deadline && (
-            <TDPill
-              label={t('detail.due')}
-              value={fmtLocaleDate(task.deadline + 'T00:00:00')}
-              accent={true}
-              T={T}
-            />
-          )}
-          {task.timeTracked > 0 && (
-            <TDPill
-              label={t('detail.tracked')}
-              value={fmtDuration(task.timeTracked)}
-              accent={false}
-              T={T}
-            />
-          )}
-          {task.tags?.[0] && (
-            <TDPill
-              label={t('detail.topic')}
-              value={task.tags[0]}
-              accent={false}
-              T={T}
-            />
-          )}
-          {aiData?.priority && (
-            <TDPill
-              label={t('detail.priority')}
-              value={`#${aiData.priority}`}
-              accent={true}
-              T={T}
-            />
-          )}
-        </div>
-
         {/* Scrollable body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '18px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 22px 22px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Notes / Description */}
+          <TaskFields key={task.id} task={task} allTasks={allTasks} onSaved={onSaved} onEdited={onEdited} onStatusChange={onStatusChange} T={T} />
+
           <div>
             <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.notes')}</div>
-            {task.description && (
-              <div style={{ fontSize: 13.5, color: T.ink80, lineHeight: 1.65, marginBottom: 10, whiteSpace: 'pre-wrap' }}>
-                {task.description}
-              </div>
-            )}
             <NotesEditor key={task.id} task={task} onSaved={onSaved} T={T} t={t} />
-
-            {/* Deadline reschedule inline */}
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontFamily: T.fontMono, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink40, marginBottom: 8 }}>{t('detail.deadline')}</div>
-              {rescheduling ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {rescheduleError && (
-                    <div style={{ fontSize: 11.5, color: T.danger }}>{rescheduleError}</div>
-                  )}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input aria-label={t('a11y.deadline')}
-                    type="date"
-                    value={newDeadline}
-                    onChange={e => setNewDeadline(e.target.value)}
-                    autoFocus
-                    style={{
-                      flex: 1, padding: '7px 10px',
-                      background: T.paper, border: `1px solid ${T.hairline}`,
-                      borderRadius: T.r6, fontSize: 13, color: T.ink, fontFamily: T.fontUI,
-                    }}
-                  />
-                  <button onClick={handleReschedule} style={{
-                    padding: '7px 12px', background: T.ink, border: 'none',
-                    borderRadius: T.r6, fontSize: 12, color: T.paper, cursor: 'pointer', fontFamily: T.fontUI,
-                  }}>{t('common.save')}</button>
-                  <button onClick={() => { setRescheduling(false); setRescheduleError(''); }} style={{
-                    padding: '7px 12px', background: T.paperSubtle, border: `1px solid ${T.hairline}`,
-                    borderRadius: T.r6, fontSize: 12, color: T.ink60, cursor: 'pointer', fontFamily: T.fontUI,
-                  }}>✕</button>
-                </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {task.deadline ? (
-                    <span style={{ fontFamily: T.fontMono, fontSize: 12.5, color: isOverdue ? T.warn : isUrgent ? T.warn : T.ink }}>
-                      {fmtLocaleDate(task.deadline + 'T00:00:00', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      {days !== null && (
-                        <span style={{ marginLeft: 8, color: isOverdue ? T.warn : T.ink40 }}>
-                          {isOverdue ? t('due.overdueDays', { n: Math.abs(days) }) : days === 0 ? t('due.today') : t('due.inDaysLong', { n: days })}
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: 12.5, color: T.ink40 }}>{t('detail.noDeadline')}</span>
-                  )}
-                  <button
-                    onClick={() => { setNewDeadline(task.deadline || ''); setRescheduling(true); }}
-                    style={{
-                      fontSize: 11.5, color: T.accent, background: 'transparent', border: 'none',
-                      cursor: 'pointer', fontFamily: T.fontUI, padding: '2px 0',
-                    }}
-                  >
-                    {task.deadline ? t('detail.reschedule') : t('detail.setDate')}
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Recurrence — next to the deadline it counts from. It sat at the bottom,
@@ -851,13 +813,15 @@ export default function TaskDetailPanel({ task, allTasks, onClose, onEdit, onArc
           }}>{t('common.delete')}</button>
         </div>
       </div>
+      )}
       {sub && (
-        <SubtaskPanel key={sub.id} task={task} subtask={sub} T={T}
+        <SubtaskPanel key={sub.id} task={task} subtask={sub} T={T} side={!narrow}
           onClose={() => setOpenSub(null)}
           onChange={(patch) => saveSubtasks(withSubtask(currentSubtasks(), sub.id, patch))}
           onRemove={() => { setOpenSub(null); saveSubtasks(currentSubtasks().filter(x => x.id !== sub.id)); }}
           onPromote={() => promoteSub(sub.id)} />
       )}
+      </div>
     </>
   );
 }

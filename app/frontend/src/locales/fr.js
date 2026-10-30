@@ -1478,6 +1478,10 @@ export default {
   'connectorAnim.task1': 'Envoyer le devis à Martin — pour aujourd’hui',
   'connectorAnim.task2': 'Prendre rendez-vous chez le dentiste — 10 min',
   // 2.6.0
+  'detail.fieldSaveFailed': 'Non enregistré — vérifiez que Clarity tourne, puis réessayez.',
+  'detail.noTopic': 'Aucun sujet',
+  'detail.estimateMinutes': 'Estimation (min)',
+  'detail.descriptionPlaceholder': 'Ajouter une description…',
   'detail.backToTask': 'Retour à la tâche',
   'detail.subtaskTitle': 'Titre de la sous-tâche',
   'detail.subtaskNotes': 'Notes de la sous-tâche',
